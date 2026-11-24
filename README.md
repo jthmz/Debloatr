@@ -17,7 +17,7 @@ the current user only, and `restore` (or a factory reset) brings them back.
 
 ## The Mac app
 
-**Download it.** On the repository's Releases page, take
+**Download it.** On the [Releases page](https://github.com/jthmz/Debloatr/releases), take
 `MAXAPACITY-Debloat-<version>-mac.zip`. Unzip it (Safari does that by itself)
 and open **MAXAPACITY Debloat**.
 
@@ -239,6 +239,21 @@ branch, on macOS itself whenever the script, the app or the tests change; the
 macOS run also builds the real app and opens it the way a double-click does. `test/bin/grep` gives the Linux
 runs one piece of macOS strictness that once let a bug through: a pattern with
 an empty alternative, like `(|a)`, is an error there.
+
+## Other tools
+
+- [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)
+  is a desktop app for Windows, macOS and Linux that also works over `adb`
+  without root. Its package list is kept by a community and covers far more
+  makers than the rules here.
+- [Canta](https://github.com/samolego/Canta) runs on the phone itself through
+  Shizuku, so it needs no computer, and uses that same list.
+
+This tool is narrower. It is built around the installers that put apps back:
+it removes them, shows which app installed what, watches installs as they
+happen, and keeps a record so that `restore` and `reapply` know what was done.
+Its rules are written for Motorola and Verizon phones; on another maker's
+phone, one of the tools above will recognise more.
 
 ## Limits
 

@@ -130,8 +130,11 @@ jobs:
           chmod +x "$RUNNER_TEMP/shell"
           mkdir -p "$RUNNER_TEMP/home"
           LOG="$RUNNER_TEMP/home/Library/Logs/maxapacity-debloat.log"
+          # "open" hands the app this step's PATH, which on this machine reaches
+          # the real adb. A double-clicked app gets the bare one, so give it that.
           open --env "FAKE_ADB_STATE=$FAKE_ADB_STATE" --env "DEBLOAT_STATE_DIR=$DEBLOAT_STATE_DIR" \
             --env DEBLOAT_GUI_PORT=18794 --env "SHELL=$RUNNER_TEMP/shell" --env "HOME=$RUNNER_TEMP/home" \
+            --env PATH=/usr/bin:/bin:/usr/sbin:/sbin \
             "$DOWNLOADED" --args --no-open
           for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
             curl -sf http://127.0.0.1:18794/ > page.html && break
