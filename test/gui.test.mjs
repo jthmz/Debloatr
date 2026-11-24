@@ -141,20 +141,63 @@ test('apps are named and described the way a person would say it', () => {
   const known = words.reasons({ remove: [{ pkg: 'com.motorola.help', note: 'Device Help app and its tips' }], ask: [], keep: [] });
   const say = (row, list) => JSON.parse(JSON.stringify(words.describe(row, list, known)));
   assert.deepEqual(say({ pkg: 'com.candy.game', note: 'installed by com.dti.folderlauncher', app: true }, 'pushed'),
-    { title: 'Candy game', about: 'Put here by Digital Turbine', chips: [{ text: 'regular app' }] });
+    // A list made only of apps that were added later says so once, at its top.
+    { title: 'Candy game', about: 'Put here by Digital Turbine', chips: [] });
+  // In any other list such an app is marked: removing it is an uninstall.
+  assert.deepEqual(say({ pkg: 'com.candy.game', note: '3 up; put there by com.dti.folderlauncher', app: true }, 'notifying'),
+    { title: 'Candy game', about: 'Put here by Digital Turbine', chips: [{ text: '3 notifications', tone: 'warn' }, { text: 'added later' }] });
   assert.deepEqual(say({ pkg: 'com.motorola.ccc.notification', note: '2 up; under REMOVE: Motorola\'s own promotional notifications' }, 'notifying'),
-    { title: 'Motorola notification', about: 'Motorola\'s own promotional notifications', chips: [{ text: '2 notifications up', tone: 'warn' }, { text: 'under Remove' }] });
+    { title: 'Motorola notification', about: 'Motorola\'s own promotional notifications', chips: [{ text: '2 notifications', tone: 'warn' }] });
   assert.deepEqual(say({ pkg: 'com.motorola.timeweatherwidget', note: 'product/app/TimeWeather; community list, expert: Does a thing.' }, 'unknown'),
-    { title: 'Motorola time weather widget', about: 'Does a thing.', chips: [{ text: 'community list: expert', tone: 'bad' }] });
+    { title: 'Motorola time weather widget', about: 'Does a thing.', chips: [{ text: 'experts only', tone: 'bad' }] });
+  // With nothing else known, the folder an app lives in is the hint, said plainly.
+  assert.equal(say({ pkg: 'com.motorola.timeweatherwidget', note: 'product/app/TimeWeather' }, 'unknown').about, 'Came with the phone, in a folder named TimeWeather');
   assert.deepEqual(say({ pkg: 'com.motorola.mystery', note: '(updated since the factory)' }, 'unknown'),
-    { title: 'Motorola mystery', about: 'Updated since the factory', chips: [] });
+    { title: 'Motorola mystery', about: 'Came with the phone, and has been updated since', chips: [] });
   assert.deepEqual(say({ pkg: 'com.motorola.help', note: 'was removed' }, 'back'),
     { title: 'Motorola help', about: 'Device Help app and its tips. It was removed, and it is back', chips: [] });
   assert.deepEqual(say({ pkg: 'com.motorola.tracfone.rsu', note: 'removed, by this tool; the rules would keep it: Tracfone SIM-unlock service' }, 'off'),
-    { title: 'Motorola Tracfone', about: 'Tracfone SIM-unlock service', chips: [{ text: 'removed' }, { text: 'rules keep this', tone: 'warn' }] });
-  // A rule that only names the app adds nothing to the name.
-  assert.equal(say({ pkg: 'com.vzw.hss.myverizon', note: 'My Verizon' }, 'remove').about, '');
+    { title: 'Motorola Tracfone', about: 'Tracfone SIM-unlock service', chips: [{ text: 'removed' }, { text: 'phone may need it', tone: 'warn' }] });
+  assert.equal(say({ pkg: 'com.example.gone', note: 'switched off, by this tool' }, 'off').about, 'Taken off by this app');
+  // A rule that only names the app adds nothing to the name: there is still
+  // where the app came from. One that starts with the name loses the echo.
+  assert.equal(say({ pkg: 'com.vzw.hss.myverizon', note: 'My Verizon' }, 'remove').about, 'Came with the phone, from Verizon');
+  assert.equal(say({ pkg: 'com.vzw.hss.myverizon', note: 'My Verizon: Verizon\'s account app' }, 'remove').about, 'Verizon\'s account app');
   assert.deepEqual(say({ pkg: 'org.example.thing', note: 'community list: A thing.' }, 'ask').chips, [{ text: 'community list' }]);
+  // An app the phone needs is marked wherever it could otherwise be ticked.
+  assert.deepEqual(say({ pkg: 'com.android.thing', note: '1 up', locked: true }, 'notifying').chips.map(chip => chip.text), ['1 notification', 'phone needs it']);
+
+  // An app is called what its maker calls it where that is known, else what
+  // a rule names it, else a reading of its package name. A rule that starts
+  // with who made the app names nothing; the community list is not searched.
+  const given = words.names({ remove: [], ask: [], keep: [] }, [
+    { pkg: 'com.motorola.gamemode', tier: 'caution', note: 'Moto Gametime: in-game toolbar and suggested-games hub; games lose that toolbar' },
+    { pkg: 'com.vcast.mediamanager', tier: 'safe', note: 'Verizon Cloud: Verizon\'s backup and storage service' },
+    { pkg: 'com.dti.folderlauncher', tier: 'installer', note: 'Digital Turbine: silently installs and reinstalls sponsored apps' },
+    { pkg: 'org.example.thing', tier: 'none', note: 'community list, expert: Note: it does a thing.' },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify([...given.entries()])), [['com.motorola.gamemode', 'Moto Gametime'], ['com.vcast.mediamanager', 'Verizon Cloud']]);
+  assert.equal(words.nameOf('com.motorola.gamemode', given), 'Moto Gametime');
+  assert.equal(words.nameOf('com.dti.folderlauncher', given), 'Digital Turbine folder launcher');
+  assert.equal(words.nameOf('com.king.candycrushsaga', given), 'Candy Crush Saga');
+  assert.equal(words.kindOf('com.king.candycrushsaga'), 'game');
+  // Beside its own name, a description loses the echo of it.
+  assert.deepEqual(JSON.parse(JSON.stringify(words.describe({ pkg: 'com.motorola.gamemode', note: 'Moto Gametime: in-game toolbar and suggested-games hub; games lose that toolbar' }, 'ask', new Map(), given))),
+    { title: 'Moto Gametime', about: 'In-game toolbar and suggested-games hub; games lose that toolbar', chips: [] });
+  // What the scan knows covers apps that are no longer on the phone.
+  assert.equal(words.reasons({ remove: [], ask: [], keep: [] }, [{ pkg: 'com.glance.lockscreen', tier: 'safe', note: 'Glance lock screen feed' }]).get('com.glance.lockscreen'), 'Glance lock screen feed');
+
+  // The picture beside a name: what kind of thing it is, going by what is
+  // said about it and by its own name; nothing when neither says.
+  assert.equal(words.kindOf('com.dti.folderlauncher', 'Digital Turbine: silently installs and reinstalls sponsored apps'), 'installer');
+  assert.equal(words.kindOf('com.glance.lockscreen', 'Glance lock screen feed'), 'feed');
+  assert.equal(words.kindOf('com.candy.game'), 'game');
+  assert.equal(words.kindOf('com.motorola.ccc.notification', 'Motorola\'s own promotional notifications'), 'promo');
+  assert.equal(words.kindOf('com.verizon.mips.services', 'Verizon component; may carry voicemail, Wi-Fi calling or activation'), 'carrier');
+  assert.equal(words.kindOf('com.motorola.timeweatherwidget'), '');
+  // A rule with a downside says it after a semicolon: what it is, then the catch.
+  assert.deepEqual({ ...words.parts('Verizon component; may carry voicemail') }, { what: 'Verizon component', catch: 'May carry voicemail' });
+  assert.deepEqual({ ...words.parts('Glance lock screen feed') }, { what: 'Glance lock screen feed', catch: '' });
 
   // The tool's own result lines, read back for the apps that were asked about.
   const how = words.outcomes([
@@ -592,6 +635,10 @@ test('scan says which installers can still act', async () => {
   const after = (await authed('GET', '/api/scan')).json;
   assert.equal(after.installers.find(i => i.pkg === 'com.LogiaGroup.LogiaDeck').active, false);
   assert.equal(after.installers.find(i => i.pkg === 'com.dti.folderlauncher').active, true);
+  // Removed, and still known for what it is: the page names it from this.
+  assert.deepEqual(after.known.find(k => k.pkg === 'com.LogiaGroup.LogiaDeck'),
+    { pkg: 'com.LogiaGroup.LogiaDeck', tier: 'installer', note: 'Digital Turbine installer as shipped on Verizon phones' });
+  assert.ok(!after.known.some(k => k.pkg === 'com.motorola.timeweatherwidget'), 'an app nothing is known about has no line');
   ctl('init');
 });
 

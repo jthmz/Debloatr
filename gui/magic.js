@@ -215,16 +215,20 @@
     shoe: [0.36, 0.2, 0.12],
     white: [1, 1, 1],
     phone: [0.13, 0.135, 0.16],
+    ghost: [0.21, 0.22, 0.26],
     glass: [0.72, 1, 0.42],
   };
-  // What circles the phone. Colour says what it is: red for what puts junk
-  // back, amber for the junk, grey for what is being kept.
+  // What circles the phone. Colour says what it is, in the page's own red
+  // and amber: red for what puts junk back, amber for the rest that can go,
+  // grey for what is being asked about or kept.
+  const BAD = [0.973, 0.443, 0.443];
+  const WARN = [0.984, 0.749, 0.141];
   const KIND = {
-    installer: [0.97, 0.33, 0.33],
-    back: [0.97, 0.33, 0.33],
-    remove: [0.98, 0.72, 0.2],
-    pushed: [0.98, 0.72, 0.2],
-    ask: [0.62, 0.66, 0.74],
+    installer: BAD,
+    back: BAD,
+    remove: WARN,
+    pushed: WARN,
+    ask: [0.725, 0.733, 0.765],
     keep: [0.34, 0.36, 0.42],
     fail: [0.4, 0.26, 0.28],
   };
@@ -262,6 +266,9 @@
       c += vec3(1.0) * pow(max(dot(n, normalize(uLight + v)), 0.0), 48.0) * uGlass.w;
       c *= mix(0.7, 1.0, smoothstep(0.0, 0.55, vW.y));
       c += uEmit;
+      // Past full brightness a colour is scaled back as a whole, so lime
+      // stays lime and does not burn out to yellow.
+      c /= max(1.0, max(c.r, max(c.g, c.b)));
       float a = clamp(uGlass.x + rim * uGlass.y, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
     }`;
@@ -320,25 +327,34 @@
         vec2 f = fract(g) - 0.5;
         float icon = smoothstep(0.09, 0.03, length(max(abs(f) - 0.23, 0.0))) * step(0.0, cell.y) * step(cell.y, 5.0);
         float h = hash(cell + 3.0);
-        vec3 ic = vec3(0.42, 0.45, 0.52) + vec3(0.3) * h;
-        float junk = step(hash(cell + 7.0), uA.z);
-        ic = mix(ic, vec3(0.97, 0.33, 0.33) * (0.85 + 0.15 * sin(uTime * 4.0 + h * 6.28)), junk);
+        vec3 ic = vec3(0.3, 0.32, 0.37) + vec3(0.16) * h;
+        // Each of the 24 icons has a place in a fixed order; the first few
+        // are the junk, and the first of those the installers. So the screen
+        // shows as many amber and red icons as are circling the phone.
+        float rank = mod((cell.x + 4.0 * cell.y) * 7.0 + 3.0, 24.0);
+        float junk = step(rank + 0.5, uA.z);
+        vec3 jc = mix(vec3(0.984, 0.749, 0.141), vec3(0.973, 0.443, 0.443), step(rank + 0.5, uA.y));
+        ic = mix(ic, jc * (0.85 + 0.15 * sin(uTime * 4.0 + h * 6.28)), junk);
         vec3 c = mix(bg, ic, icon * 0.92);
         if (uA.x < 0.5) {
           // Nothing plugged in: a plug, waiting.
           float plug = min(min(box(k, vec2(0.5, 0.56), vec2(0.13, 0.085), 0.03), box(k, vec2(0.5, 0.33), vec2(0.022, 0.15), 0.012)),
             min(box(k, vec2(0.44, 0.7), vec2(0.022, 0.055), 0.01), box(k, vec2(0.56, 0.7), vec2(0.022, 0.055), 0.01)));
-          c = bg * 0.55 + vec3(0.62, 0.65, 0.72) * smoothstep(0.012, 0.0, plug) * (0.45 + 0.3 * sin(uTime * 2.4));
+          c = bg * 1.15 + vec3(0.62, 0.65, 0.72) * smoothstep(0.012, 0.0, plug) * (0.55 + 0.3 * sin(uTime * 2.4));
         } else if (uA.x > 3.5) {
-          // The phone is asking whether to trust this computer.
+          // The phone is asking whether to trust this computer: a heading
+          // and two lines, a box to tick with a line beside it, and two
+          // buttons, the one to press lit.
           c = bg * 0.6;
-          float card = smoothstep(0.012, 0.0, box(k, vec2(0.5, 0.5), vec2(0.42, 0.3), 0.06));
+          float card = smoothstep(0.012, 0.0, box(k, vec2(0.5, 0.5), vec2(0.43, 0.36), 0.06));
           c = mix(c, vec3(0.2, 0.21, 0.25), card);
-          float words = min(box(k, vec2(0.36, 0.67), vec2(0.2, 0.024), 0.02),
-            min(box(k, vec2(0.42, 0.57), vec2(0.26, 0.016), 0.014), box(k, vec2(0.34, 0.5), vec2(0.18, 0.016), 0.014)));
+          float words = min(box(k, vec2(0.34, 0.74), vec2(0.2, 0.026), 0.02),
+            min(box(k, vec2(0.43, 0.63), vec2(0.29, 0.014), 0.012), box(k, vec2(0.36, 0.57), vec2(0.22, 0.014), 0.012)));
+          words = min(words, box(k, vec2(0.52, 0.44), vec2(0.2, 0.014), 0.012));
           c = mix(c, vec3(0.6, 0.63, 0.7), smoothstep(0.01, 0.0, words) * card);
-          c = mix(c, vec3(0.36, 0.38, 0.44), smoothstep(0.01, 0.0, box(k, vec2(0.45, 0.31), vec2(0.1, 0.045), 0.04)) * card);
-          float allow = box(k, vec2(0.72, 0.31), vec2(0.12, 0.05), 0.045);
+          c = mix(c, vec3(0.75, 1.0, 0.0), smoothstep(0.01, 0.0, box(k, vec2(0.21, 0.44), vec2(0.04, 0.04), 0.012)) * card);
+          c = mix(c, vec3(0.44, 0.46, 0.52), smoothstep(0.008, 0.0, abs(box(k, vec2(0.4, 0.26), vec2(0.11, 0.05), 0.024)) - 0.004) * card);
+          float allow = box(k, vec2(0.71, 0.26), vec2(0.13, 0.055), 0.024);
           c = mix(c, vec3(0.75, 1.0, 0.0), smoothstep(0.01, 0.0, allow) * card);
           c += vec3(0.75, 1.0, 0.0) * smoothstep(0.07, 0.0, abs(allow - 0.03 - 0.03 * fract(uTime * 0.9))) * 0.5 * (1.0 - fract(uTime * 0.9));
         } else if (uA.x > 1.5 && uA.x < 2.5) {
@@ -354,6 +370,13 @@
       } else if (uMode == 3) {
         float g = exp(-r * r * 4.5) * smoothstep(1.0, 0.6, r) * uA.x;
         o = vec4(uTint * g, g * uA.y);
+      } else if (uMode == 5) {
+        // How far outside the stage's rounded edge this is; drawn with a
+        // blend that takes away, it wears the rim down to a smooth line.
+        vec2 px = (p * 0.5 + 0.5) * uB.xy;
+        vec2 q = abs(px - uB.xy * 0.5) - (uB.xy * 0.5 - uB.z);
+        float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uB.z;
+        o = vec4(0.0, 0.0, 0.0, smoothstep(-uB.w, 0.0, d));
       } else {
         vec2 px = (p * 0.5 + 0.5) * uB.xy;
         vec2 q = abs(px - uB.xy * 0.5) - (uB.xy * 0.5 - uB.z);
@@ -487,9 +510,10 @@
     const pointer = { x: -1, y: -1, at: 0 };
 
     const scene = {
-      phone: 'none',        // none | idle | scan | clean
+      phone: 'none',        // none | ask | idle | scan | clean
       phoneShown: 0,
-      junk: 0,
+      junk: 0,              // how many of the screen's 24 icons are junk
+      hot: 0,               // and how many of those are installers
       tiles: [],
       circle: 0.5,
       orbScreen: null,      // where things are in the window, for spells
@@ -497,6 +521,7 @@
       phoneScreen: null,
       visible: false,
       stage: '',
+      home: null,           // the stage's shape in the window
       swayX: 0,             // how far the eye has moved with the pointer
       swayY: 0,
     };
@@ -1019,28 +1044,39 @@
       RX(-0.05 + Math.sin(t * 0.8) * 0.04 * w);
       RZ(0.06);
       S(shown, shown, shown);
-      draw(res.m.phone, C.phone, { spec: 0.6, rim: 1.1 });
+      const absent = scene.phone === 'none';
+      draw(res.m.phone, absent ? C.ghost : C.phone, { spec: 0.6, rim: absent ? 1.8 : 1.1 });
       push(); T(0, 0, 0.062); RX(-Math.PI / 2); S(0.415, 1, 0.885); screenAt.set(STACK[top]); screenShown = true; pop();
       pop();
     }
 
     // ---- Sparks and lightning, in window pixels ----
-    function spark(x, y, vx, vy, life, size, colour, shape = 0, pull = 0) {
+    // "home" is the stage a spark must stay on: { left, top, right, bottom,
+    // radius }. One with no home may cross the window, as a spell does.
+    function spark(x, y, vx, vy, life, size, colour, shape = 0, pull = 0, home = null) {
       if (sparks.length >= 1300 || settings.still) return;
-      sparks.push({ x, y, vx, vy, life, age: 0, size, r: colour[0], g: colour[1], b: colour[2], shape, pull });
+      sparks.push({ x, y, vx, vy, life, age: 0, size, r: colour[0], g: colour[1], b: colour[2], shape, pull, home });
+    }
+    // Is this point of the window inside a stage's rounded shape, with room
+    // to spare for a spark of this size?
+    function onStage(home, x, y, size) {
+      const hw = (home.right - home.left) / 2, hh = (home.bottom - home.top) / 2;
+      const qx = Math.abs(x - home.left - hw) - (hw - home.radius), qy = Math.abs(y - home.top - hh) - (hh - home.radius);
+      const d = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - home.radius;
+      return d < -size * 0.5;
     }
     // The colour of magic is the one accent the app has: charged lime, with
     // white heat. On a light page that lime would not show, so it is drawn in
     // the darker lime the page itself uses there, with ink for heat.
     const ink = dark => (dark || !settings.light ? [[0.749, 1, 0], [1, 1, 0.9], [0.86, 1, 0.45]] : [[0.36, 0.5, 0], [0.09, 0.09, 0.1], [0.42, 0.56, 0]]);
-    function burst(x, y, { count = 26, power = 1, dark = false, colour = null } = {}) {
+    function burst(x, y, { count = 26, power = 1, dark = false, colour = null, home = null } = {}) {
       const inks = ink(dark);
       for (let i = 0; i < count; i++) {
         const a = Math.random() * TAU, sp = (60 + Math.random() * 260) * power;
         spark(x, y, Math.cos(a) * sp, Math.sin(a) * sp - 40, 0.35 + Math.random() * 0.5, 5 + Math.random() * 9,
-          colour && i % 3 === 0 ? colour : inks[i % inks.length], i % 4 === 0 ? 1 : 0, 0);
+          colour && i % 3 === 0 ? colour : inks[i % inks.length], i % 4 === 0 ? 1 : 0, 0, home);
       }
-      for (let i = 0; i < 4; i++) spark(x + (Math.random() - 0.5) * 16, y + (Math.random() - 0.5) * 16, 0, -12, 0.3, 46 * power, inks[0], 0, 0);
+      for (let i = 0; i < 4; i++) spark(x + (Math.random() - 0.5) * 16, y + (Math.random() - 0.5) * 16, 0, -12, 0.3, 46 * power, inks[0], 0, 0, home);
     }
     function bolt(x0, y0, x1, y1, { dark = false, width = 1, life = 0.24, steady = false } = {}) {
       if (settings.still) return;
@@ -1147,6 +1183,7 @@
         s.x += s.vx * dt;
         s.y += s.vy * dt;
         const u = s.age / s.life;
+        if (s.home && !onStage(s.home, s.x, s.y, s.size)) continue;
         data[k++] = s.x; data[k++] = s.y;
         data[k++] = Math.min(res.maxPoint / ratio, s.size * (s.shape ? 1 + 0.3 * Math.sin(s.age * 30) : 1 - u * 0.5));
         data[k++] = s.r; data[k++] = s.g; data[k++] = s.b;
@@ -1187,9 +1224,9 @@
     const SHOTS = {
       // centre x, centre y, width and height of what must be seen, and
       // how many wizards deep the orb goes
-      full: { box: [1.42, 1.56, 5.0, 3.75], nest: 2 },
-      hero: { box: [1.42, 1.5, 4.85, 3.4], nest: 1 },
-      side: { box: [0.2, 2.02, 1.55, 1.75], nest: 1 },
+      full: { box: [1.42, 1.5, 5.0, 3.9], nest: 2 },
+      hero: { box: [1.42, 1.4, 4.85, 3.75], nest: 1 },
+      side: { box: [0.2, 2.0, 2.3, 2.3], nest: 1 },
     };
 
     function drawScene(stage, t, dt, winW, winH) {
@@ -1198,6 +1235,8 @@
       const style = getComputedStyle(stage.node);
       const radius = Math.min(parseFloat(style.borderTopLeftRadius) || 0, rect.width / 2, rect.height / 2);
       const into = (stage.node.dataset.into || '0.03 0.04 0.97 0.96').split(/\s+/).map(Number);
+      // The stage's shape in the window, for the sparks that must stay on it.
+      scene.home = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, radius };
 
       const px = v => Math.round(v * ratio);
       const box = [px(rect.left), px(winH - rect.bottom), px(rect.width), px(rect.height)];
@@ -1267,7 +1306,7 @@
         STACK[1].set(screenAt);
         top = 1;
         const state = { none: 0, idle: 1, scan: 2, clean: 3, ask: 4 }[scene.phone] || 0;
-        quad(2, [state, 0, scene.junk, 0], [0.415, 0.885, 0.1, 0], C.white, false);
+        quad(2, [state, scene.hot, scene.junk, 0], [0.415, 0.885, 0.1, 0], C.white, false);
         top = 0;
       }
 
@@ -1276,10 +1315,18 @@
       useMesh();
       for (const item of late) paint(item.m, item.color, item.o, item.matrix);
       useQuad();
-      glowAt(orbWorld[0], orbWorld[1], orbWorld[2], 0.55 + orbGlow * 0.22, C.lime, 0.32 + orbGlow * 0.22, 0.1);
+      // Beside a page of words the orb glows less: there it is not the point.
+      const shine = kind === 'side' ? 0.55 : 1;
+      glowAt(orbWorld[0], orbWorld[1], orbWorld[2], 0.55 + orbGlow * 0.22, C.lime, (0.32 + orbGlow * 0.22) * shine, 0.1);
       if (kind !== 'side' && scene.phone === 'clean') glowAt(PHONE[0], PHONE[1], PHONE[2] - 0.2, 2.1, C.lime, 0.3, 0.1);
       gl.depthMask(true);
       gl.disable(gl.DEPTH_TEST);
+      // The stencil cuts the stage out in whole pixels, which shows as steps
+      // on a curve. This takes the outermost pixel and a half away by
+      // degrees, so the edge is smooth whatever the screen.
+      gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+      quad(5, [0, 0, 0, 0], [rect.width, rect.height, radius, 1.5 / ratio], C.white, true);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.disable(gl.SCISSOR_TEST);
       if (masked) gl.disable(gl.STENCIL_TEST);
 
@@ -1297,15 +1344,16 @@
       const inks = ink(dark);
       const size = stage.kind === 'side' ? 0.5 : stage.kind === 'hero' ? 0.75 : 1.2;
       const name = wizard.once || wizard.base;
-      if (Math.random() < dt * (name === 'channel' ? 0 : 5)) {
+      const home = scene.home;
+      if (Math.random() < dt * (name === 'channel' ? 0 : stage.kind === 'side' ? 2 : 5)) {
         spark(orb.x + (Math.random() - 0.5) * 14 * size, orb.y + (Math.random() - 0.5) * 14 * size,
-          (Math.random() - 0.5) * 30, -30 - Math.random() * 40, 0.8 + Math.random() * 0.6, (4 + Math.random() * 5) * size, inks[Math.random() < 0.7 ? 0 : 1], Math.random() < 0.3 ? 1 : 0, 0);
+          (Math.random() - 0.5) * 30, -30 - Math.random() * 40, 0.8 + Math.random() * 0.6, (4 + Math.random() * 5) * size, inks[Math.random() < 0.7 ? 0 : 1], Math.random() < 0.3 ? 1 : 0, 0, home);
       }
       if (name === 'channel') {
         // Drawn in from all around, faster as they near the orb.
         for (let i = 0; i < 3; i++) {
           const a = Math.random() * TAU, d = (70 + Math.random() * 70) * size;
-          spark(orb.x + Math.cos(a) * d, orb.y + Math.sin(a) * d, -Math.sin(a) * 160, Math.cos(a) * 160, 0.55, (5 + Math.random() * 6) * size, inks[i % 3], i === 0 ? 1 : 0, 26);
+          spark(orb.x + Math.cos(a) * d, orb.y + Math.sin(a) * d, -Math.sin(a) * 160, Math.cos(a) * 160, 0.55, (5 + Math.random() * 6) * size, inks[i % 3], i === 0 ? 1 : 0, 26, home);
         }
       }
       if (name === 'scan' && scene.phoneScreen && !bolts.some(b => b.steady)) {
@@ -1424,14 +1472,16 @@
       poke() {
         wake();
         if (!settings.still) wizard.poke = 0.7;
-        if (scene.orbScreen) burst(scene.orbScreen.x, scene.orbScreen.y, { count: 18, power: 0.6, dark: true });
+        if (scene.orbScreen) burst(scene.orbScreen.x, scene.orbScreen.y, { count: 18, power: 0.6, dark: true, home: scene.home });
       },
       // The phone: 'none' while there is none, 'ask' while it is asking
       // whether to trust this computer, then 'idle', 'scan' or 'clean'.
-      // "junk" is how much of its screen is still junk, 0 to 1.
-      phone(state, junk = 0) {
+      // "junk" is how much of its screen is still junk, 0 to 1, and "hot"
+      // how much of the screen is installers, which show in red.
+      phone(state, junk = 0, hot = 0) {
         scene.phone = state;
-        scene.junk = clamp(junk, 0, 0.6);
+        scene.junk = Math.round(clamp(junk, 0, 0.75) * 24);
+        scene.hot = Math.min(scene.junk, Math.round(clamp(hot, 0, 0.75) * 24));
         wake();
       },
       // The apps circling the phone: [{ id, kind, state }]. Ones already
@@ -1471,10 +1521,12 @@
         else { tile.state = state; tile.since = clock; }
         wake();
       },
-      // Lightning from the orb to each of these apps in turn; each goes.
-      async zapTiles(ids, pause = 150) {
+      // Lightning from the orb to each of these apps in turn; each goes,
+      // and "each" hears of it as it does.
+      async zapTiles(ids, pause = 150, each = null) {
         wake(ids.length * pause + 2000);
         for (const id of ids) {
+          if (each) each(id);
           const tile = scene.tiles.find(candidate => candidate.id === id && candidate.state !== 'zap' && candidate.state !== 'out');
           if (!tile) continue;
           if (scene.orbScreen && tile.screen) {
