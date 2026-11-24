@@ -1831,8 +1831,12 @@ window.DebloatWords = (() => {
   // A list turned with the wheel between two presses has moved because it
   // was meant to: what is under the pointer then is what is looked at, and
   // the third rule has nothing to say about it. Ticking down a list a line
-  // at a time is done just so.
-  document.addEventListener('wheel', () => { pressed.at = 0; }, { passive: true, capture: true });
+  // at a time is done just so. A wheel that turns nothing changes nothing.
+  let wheeled = 0;
+  document.addEventListener('wheel', event => { wheeled = event.timeStamp; }, { passive: true, capture: true });
+  document.addEventListener('scroll', event => {
+    if (event.timeStamp - wheeled < 250) pressed.at = 0;
+  }, { passive: true, capture: true });
 
   const GONE = 'The helper behind this window has stopped. Open MAXAPACITY Debloat again.';
 
@@ -4889,7 +4893,9 @@ window.DebloatWords = (() => {
     set(node,
       el('span', { class: 'said' }, text),
       el('button', { class: 'btn quiet small x', 'aria-label': 'Close', title: 'Close', onclick: close }, icon('x', 16)),
-      undo ? el('button', { class: 'btn small undo commits', onclick: () => { close(); undo(); } }, icon('undo', 16), 'Undo') : null);
+      // Named for what it would undo: the Undo of the next thing said here
+      // is in the same place with the same word on it, and is another thing.
+      undo ? el('button', { class: 'btn small undo commits', 'aria-label': `Undo: ${text}`, onclick: () => { close(); undo(); } }, icon('undo', 16), 'Undo') : null);
     toastTimer = setTimeout(close, undo ? 20000 : 8000);
   }
 
