@@ -223,6 +223,9 @@ test('the drawing code runs every act, spell and stage without an error', async 
   let now = 0;
   let frame = null;
   let stage = 'hero';
+  // A stage that asks to come before any other, as the wizard's own does
+  // where his card covers the window.
+  let first = '';
   const drawn = { drawElements: 0, drawArrays: 0 };
   const listeners = {};
   const gl = new Proxy({}, {
@@ -240,7 +243,7 @@ test('the drawing code runs every act, spell and stage without an error', async 
     },
   });
   const node = kind => ({
-    dataset: kind === 'full' ? { into: '0.02 0.14 0.5 0.95' } : {},
+    dataset: kind === 'full' ? { stage: kind, into: '0.02 0.14 0.5 0.95' } : { stage: kind },
     getBoundingClientRect: () => ({ left: 40, top: 40, right: 840, bottom: 640, width: 800, height: 600 }),
   });
   const sandbox = {
@@ -259,6 +262,8 @@ test('the drawing code runs every act, spell and stage without an error', async 
       hasFocus: () => true,
       addEventListener() {},
       querySelector: selector => (selector === `[data-stage="${stage}"]` ? node(stage) : null),
+      querySelectorAll: selector => (selector === '[data-stage-first]' ? (first ? [node(first)] : [])
+        : selector === `[data-stage="${stage}"]` ? [node(stage)] : []),
     },
   };
   sandbox.window = sandbox;
@@ -309,13 +314,31 @@ test('the drawing code runs every act, spell and stage without an error', async 
   magic.poke();
   magic.celebrate();
   magic.burst(100, 100, {});
+  // Each app struck is reported as it is struck, whether or not it had a
+  // tile to strike: the page gives each its answer from this.
+  const struck = [];
   const spells = Promise.all([
-    magic.zapTiles(['com.example.app0', 'com.example.app4', 'not there'], 1),
+    magic.zapTiles(['com.example.app0', 'com.example.app4', 'not there'], 1, id => struck.push(id)),
     magic.zapRects([{ left: 300, top: 200, width: 400, height: 40 }], 1),
   ]);
   run(1);
   await spells;
   run(2);
+  assert.deepEqual(struck, ['com.example.app0', 'com.example.app4', 'not there']);
+
+  // A stage that asks to come first is the one drawn on, whatever else is
+  // on the page; with it gone, the other is found again.
+  first = 'side';
+  run(0.2);
+  assert.equal(magic.visible(), true);
+  stage = 'none';
+  run(0.2);
+  assert.equal(magic.visible(), true, 'the stage that comes first is enough by itself');
+  first = '';
+  run(0.2);
+  assert.equal(magic.visible(), false);
+  stage = 'hero';
+  run(0.2);
 
   // Asked to hold still, and then switched off, it must not trip either.
   magic.set({ still: true });

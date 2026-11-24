@@ -77,23 +77,30 @@ What you get:
   what you want to keep, and takes the rest off. His lightning falls only on
   what the phone says is gone, each app's line gets its answer as the
   lightning reaches it, and at the end he says how many were removed, which
-  Android would only let him switch off, and what would not budge. He offers
-  to undo it and to restart the phone, and keeps his shades on for as long
-  as the phone is clean. On the other pages he sits at the head of the page
-  with one useful thing to say, and strikes the rows you remove.
-- **What cannot be undone is said, and asked about**. Removing an app that
-  came with the phone can be undone. Uninstalling one that was added later
-  cannot: wherever that would happen, it is marked in red and asked about
-  once more, by name, before anything is done.
-- **One at a time**. The apps under Ask first each have a catch. Instead of
+  Android would only let him switch off, and which the phone's maker has
+  locked. Those he remembers, and does not offer again. He offers to undo
+  it and to restart the phone, and keeps his shades on for as long as the
+  phone is clean. On the other pages he sits at the head of the page with
+  one useful thing to say, and strikes the rows you remove. In a window too
+  narrow for him to stand beside his card, the card takes the window and he
+  sits at its head.
+- **What cannot be undone is never done for you**. Removing an app that
+  came with the phone can be undone, and a cleanup starts with those
+  ticked. Deleting one that was added later cannot, so those are never
+  ticked for you: you tick them, they are marked in red as deleted for
+  good, and they are asked about once more, by name, with keeping them as
+  the answer under the keyboard.
+- **One at a time**. The apps under With a catch each have one. Instead of
   a list to puzzle over, they come one to a card: what it is, the catch,
-  and two big buttons, Keep or Remove. Keep is the one in reach. Nothing
+  and two big buttons, Keep or Remove, which stay where they are from the
+  first card to the last. Keep is the one under the keyboard. Nothing
   changes until the last card, and the tally, are agreed.
 - **Names you can read**. The phone only gives package names. An app the
   rules name is called that ("Moto Gametime" for `com.motorola.gamemode`), a
   few dozen apps that turn up on many phones go by their own names ("Candy
   Crush Saga"), and anything else gets a name worked out from its package
-  ("Motorola time weather widget" for `com.motorola.timeweatherwidget`).
+  ("Motorola time weather widget" for `com.motorola.timeweatherwidget`),
+  set lighter than a name that is known, because it is only a reading.
   Any row opens a panel with everything known about that app, its package
   name, and the buttons to act on it alone.
 - **Overview**: what can go and the one button that deals with it; then
@@ -103,12 +110,15 @@ What you get:
   last the numbers, with how they moved since the scan before. **Review as
   a list** is the cleanup without the wizard: everything it would do,
   ticked, split into what can be undone and what cannot.
-- **The lists** from the scan, each with a filter. Tick apps and the actions
-  for them appear: Remove, Silence, Uninstall or Restore. The pages most
+- **The lists** from the scan, each with a filter, under plainer names than
+  the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
+  FIRST, **Unknown apps** is NOT CLASSIFIED. Tick apps and the actions for
+  them appear: Remove, Silence, Delete for good or Restore. The pages most
   people never need (what is notifying, what nothing is known about, the
   log) fold away under **More**.
-- **Find anything** (Cmd-K): any app the scan found, any page, anything the
-  app can do, including fetching the community list.
+- **Find anything** (the magnifier beside the name, or Cmd-K): any app the
+  scan found, any page, anything the app can do, including fetching the
+  community list.
 - **Undo** on every change that has one, and **Recent changes** with a Restore
   beside each.
 - **Activity**: what is on the phone's screen right now, a live watch for
@@ -252,7 +262,7 @@ The file's header explains the tiers.
 The app reads two things out of a reason. One that starts with a name and a
 colon (`Verizon Cloud: Verizon's backup and storage service`) gives the app
 that name in the window. What follows a semicolon (`...; games lose that
-toolbar`) is shown as the catch when the app comes up under Ask first.
+toolbar`) is shown as the catch when the app comes up under With a catch.
 
 Your own rules go in `~/.maxapacity-debloat/rules.local.tsv`, same format.
 They are read first, so they override the built-in list. For example, to keep

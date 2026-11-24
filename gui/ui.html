@@ -50,11 +50,20 @@
     --accent-edge: hsl(75 100% 50%);
     --accent-ink: #12160a;
     --glow: hsl(75 100% 50% / 0.07);
-    --focus: hsl(75 100% 50%);
+    /* The ring round whatever has the keyboard is in the colour of the
+       words: lime is kept for the action about to be taken. */
+    --focus: #f3f3ef;
     --ok: #4ade80;
     --warn: #fbbf24;
     --bad: #f87171;
     --scrim: rgb(0 0 0 / 0.6);
+    /* The edge of anything to press or type in: three times as bright as
+       what is behind it, so it can be found without reading its label. */
+    --edge: #666973;
+    /* Status as a dot, which has to show at a glance. */
+    --dot-ok: #4ade80;
+    --dot-warn: #fbbf24;
+    --dot-bad: #f87171;
     /* What floats over the page: a bubble, a bar, a toast. */
     --float: #1e2024;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.24);
@@ -81,11 +90,15 @@
       --text-3: #5d6067;
       --accent-edge: #5a7a00;
       --glow: hsl(75 100% 40% / 0.08);
-      --focus: #4d6600;
+      --focus: #17181a;
       --ok: #166534;
       --warn: #92400e;
       --bad: #b91c1c;
       --scrim: rgb(20 20 20 / 0.5);
+      --edge: #8a8d93;
+      --dot-ok: #16a34a;
+      --dot-warn: #d97706;
+      --dot-bad: #dc2626;
       --float: #ffffff;
       --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px rgb(0 0 0 / 0.06);
       --shadow-float: 0 2px 4px rgb(0 0 0 / 0.08), 0 16px 48px rgb(0 0 0 / 0.16);
@@ -108,12 +121,16 @@
   button, input, select { font: inherit; color: inherit; }
   p, li, .note, .check-detail { text-wrap: pretty; }
   .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  /* A count is set in the face the words are in, with figures of one width.
+     The mono face is kept for package names and what the phone said: its
+     zero has a stroke through it, which many people read as something else. */
+  .num { font-variant-numeric: tabular-nums; }
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   svg { flex: none; }
 
   /* ---- Sidebar: the only navigation ---- */
-  /* The brand, the phone and the footnote stay put; in a short window it is
-     the list of sections that scrolls. */
+  /* The brand, the phone and the footnote stay put and keep their size; in a
+     short window it is the list of pages that scrolls, and says so. */
   .side {
     border-right: 1px solid var(--line);
     padding: 24px 16px 16px;
@@ -123,8 +140,11 @@
     min-height: 0;
     overflow: hidden;
   }
-  .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; }
+  .side > * { flex: none; }
+  .side > nav { flex: 1 1 0; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 0 0 0 8px; }
   .brand-mark {
+    flex: none;
     width: 40px;
     height: 40px;
     border-radius: 8px;
@@ -135,8 +155,9 @@
   }
   .brand b { display: block; font-weight: 600; letter-spacing: 0.06em; line-height: 1.25; }
   .brand span { color: var(--text-3); font-size: 14px; }
-  .brand .wand { margin-left: auto; width: 36px; padding: 0; color: var(--text-3); }
-  .brand .wand[aria-pressed="true"] { color: var(--text); }
+  .brand .tools { margin-left: auto; display: flex; gap: 4px; }
+  .brand .tools .btn { width: 36px; padding: 0; color: var(--text-3); }
+  .brand .tools .btn:hover, .brand .wand[aria-pressed="true"] { color: var(--text); }
 
   .phone {
     border: 1px solid var(--line);
@@ -151,13 +172,12 @@
   .phone-head > svg { color: var(--text-3); margin-top: 2px; }
   .phone-text { flex: 1; min-width: 0; }
   .phone-name { font-weight: 600; overflow-wrap: anywhere; }
-  .phone-meta { color: var(--text-2); font-size: 14px; }
   .status { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 14px; color: var(--text-2); }
   .status .scan { margin: 0 -8px 0 auto; width: 36px; padding: 0; }
   .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--text-3); flex: none; }
-  .dot.ok { background: var(--ok); }
-  .dot.warn { background: var(--warn); }
-  .dot.bad { background: var(--bad); }
+  .dot.ok { background: var(--dot-ok); }
+  .dot.warn { background: var(--dot-warn); }
+  .dot.bad { background: var(--dot-bad); }
 
   /* The negative margin and matching padding leave room for a focus ring
      inside the scrolling box, which would otherwise clip it. */
@@ -165,7 +185,6 @@
     display: grid;
     gap: 4px;
     align-content: start;
-    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -203,17 +222,19 @@
   .nav-fold { margin-top: 12px; color: var(--text-3); }
   .nav-fold svg:first-child { transition: transform var(--ease); }
   .nav-fold[aria-expanded="true"] svg:first-child { transform: rotate(90deg); }
+  /* More pages than fit: an arrow at the end they run off, which brings
+     them up. */
+  .nav-cue { height: 24px; margin: -12px 0; display: grid; place-items: center; border: 0; background: none; color: var(--text-3); cursor: pointer; }
+  .nav-cue:hover { color: var(--text); }
+  .nav-cue[hidden] { display: none; }
   /* A hairline over the footnote, edge to edge, so a list that scrolls
-     visibly passes under it. In a short window the footnote makes way. */
+     visibly passes under it. */
   .side-foot {
     margin: 0 -16px;
     padding: 12px 24px 0;
     border-top: 1px solid var(--line);
     color: var(--text-3);
     font-size: 14px;
-  }
-  @media (max-height: 760px) {
-    .side-foot { display: none; }
   }
 
   /* ---- Main ---- */
@@ -241,20 +262,24 @@
   .btn, .field, select {
     height: 44px;
     border-radius: 10px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--edge);
     background: transparent;
     padding: 0 16px;
     transition: background var(--ease), border-color var(--ease), color var(--ease), opacity var(--ease), transform var(--ease);
   }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--text-3); }
+  .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--text-2); }
   .btn:disabled { color: var(--text-3); cursor: default; }
   .btn.primary { background: var(--accent); border-color: var(--accent-edge); color: var(--accent-ink); }
   .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-edge); }
   .btn.primary:disabled { background: var(--surface-2); border-color: var(--line); color: var(--text-3); }
   .btn.quiet { border-color: transparent; color: var(--text-2); }
   .btn.quiet:hover:not(:disabled) { color: var(--text); border-color: transparent; }
-  .btn.small { height: 36px; padding: 0 12px; font-size: 14px; border-radius: 8px; }
+  .btn.quiet:disabled { color: var(--text-3); }
+  /* The button that does what cannot be undone is plain, with its words in
+     red: lime would lean the wrong way. */
+  .btn.risky { color: var(--bad); }
+  .btn.small { height: 36px; padding: 0 12px; border-radius: 8px; }
   .btn.big { height: 56px; padding: 0 24px; font-size: 20px; }
   a.btn { text-decoration: none; }
 
@@ -265,7 +290,7 @@
   .select select { width: 100%; padding-right: 44px; }
   .select svg { position: absolute; right: 12px; top: 12px; color: var(--text-3); pointer-events: none; }
   .field::placeholder { color: var(--text-3); }
-  .field:hover, select:hover { border-color: var(--text-3); }
+  .field:hover, select:hover { border-color: var(--text-2); }
   select { appearance: none; background: var(--surface); }
 
   /* A ticked box is in the colour of the words, not the accent: lime is kept
@@ -299,9 +324,11 @@
     padding: 32px;
     display: grid;
     gap: 24px;
-    /* The one glow on the page: it sits behind the next thing to do. */
-    background: radial-gradient(480px 240px at 0% 100%, var(--glow), transparent 70%), var(--surface);
   }
+  /* The one glow on the page sits behind the next thing to do. Where the
+     wizard stands beside it he brings light enough of his own, and where
+     the next thing to do is on the phone there is nothing here to light. */
+  .hero:not(.staged):not(.coach) { background: radial-gradient(480px 240px at 0% 100%, var(--glow), transparent 70%), var(--surface); }
   .hero-main { display: grid; gap: 24px; align-content: space-between; min-width: 0; }
   .hero.staged { grid-template-columns: minmax(0, 1fr) 360px; }
   .hero .stage { margin: -16px -16px -16px 0; min-height: 296px; }
@@ -310,6 +337,12 @@
   .hero-number { font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; max-width: 24ch; margin-top: 8px; text-wrap: balance; }
   .hero p { margin: 8px 0 0; color: var(--text-2); max-width: 60ch; }
   .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  /* One height for everything in the row, the main button's. */
+  .hero-actions .btn { height: 56px; padding: 0 24px; }
+  .with-hint { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  /* What the colours beside the wizard mean. */
+  .legend { display: flex; gap: 8px 24px; flex-wrap: wrap; margin-top: 12px; font-size: 14px; color: var(--text-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
   .hero-actions .hint, .hero-main > .hint { color: var(--text-3); font-size: 14px; margin: 0; }
 
   .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -318,9 +351,9 @@
   .tile-label { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 14px; }
   .tile-label svg { color: var(--text-3); }
   .tile-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-  .tile-value { font: 600 28px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .tile-value { font-size: 28px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
   .tile-foot { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-3); min-height: 24px; }
-  .delta { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .delta { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; color: var(--text-2); }
   .delta.good { color: var(--ok); }
   .delta.bad { color: var(--bad); }
   .spark { color: var(--text-3); }
@@ -337,7 +370,7 @@
     border-top: 1px solid var(--line);
   }
   .change-row .when { color: var(--text-2); font-size: 14px; }
-  .change-row.pending { opacity: 0.5; }
+  .change-row.pending .app-name { color: var(--text-3); }
 
   /* ---- Lists ---- */
   .toolbar {
@@ -358,10 +391,10 @@
      what there is to know about it, and the way in to the rest. */
   .row {
     display: grid;
-    grid-template-columns: 20px minmax(0, 280px) minmax(0, 1fr) auto 36px;
+    grid-template-columns: 20px minmax(0, 256px) minmax(0, 1fr) 176px 36px;
     gap: 16px;
     align-items: center;
-    min-height: 72px;
+    min-height: 73px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--line);
     cursor: pointer;
@@ -369,9 +402,12 @@
   }
   .row:last-child { border-bottom: 0; }
   .row:hover, .row.selected, .row.open { background: var(--surface-2); }
-  .row.pending { opacity: 0.5; pointer-events: none; }
-  /* A list where nothing can be ticked has no column for the boxes. */
-  .rows.nopick .row { grid-template-columns: minmax(0, 280px) minmax(0, 1fr) auto 36px; }
+  /* Being worked on: it cannot be pressed, and says so in its chip. Greyed
+     with the colours for grey words, not by fading, so it can still be read. */
+  .row.pending { pointer-events: none; }
+  .row.pending .app-name, .row.pending .note { color: var(--text-3); }
+  /* Where a box would be on a row that cannot be ticked: why it cannot. */
+  .row .gutter { display: grid; place-items: center; color: var(--text-3); }
   /* An app: a picture of what kind of thing it is, and a name to read. */
   .app { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 16px; align-items: center; min-width: 0; }
   .app-mark {
@@ -389,9 +425,12 @@
   .row:hover .app-mark, .row.selected .app-mark, .row.open .app-mark { background: var(--surface-3); }
   .app-text { min-width: 0; }
   .app-name { font-weight: 600; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  /* A name worked out from the package name is set lighter than one that
+     is known: it is a reading, and should not look like more. */
+  .app-name.guess { font-weight: 400; }
   .pkg { overflow-wrap: anywhere; font-size: 14px; color: var(--text-3); }
   .note { color: var(--text-2); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-  .chips { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; max-width: 216px; }
+  .chips { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .row .more { width: 36px; padding: 0; color: var(--text-3); }
   .row:hover .more, .row.open .more { color: var(--text); }
   .chip {
@@ -525,17 +564,24 @@
     gap: 16px;
     min-height: 56px;
     padding: 8px 24px;
-    background: var(--surface-2);
+    background: var(--surface-3);
     border-bottom: 1px solid var(--line);
   }
-  .group-head b { font-weight: 600; }
-  .group-head span { color: var(--text-2); font-size: 14px; }
+  .group-title { display: flex; align-items: baseline; gap: 12px; }
+  .group-title b { font-weight: 600; }
+  .group-title span { color: var(--text-2); font-size: 14px; }
   .group-head .grow { flex: 1; }
-  /* A list to tick through: the box, the app, what it is. */
-  .dialog-body .row, .wiz .row { grid-template-columns: 20px minmax(0, 240px) minmax(0, 1fr); padding: 12px 24px; }
+  /* A list to tick through: the box, the app, what it is. Its box and its
+     name tick a row; the rest of the row does nothing, so that a press
+     meant to look closer cannot untick. */
+  .dialog-body .row, .wiz .row { grid-template-columns: 20px minmax(0, 240px) minmax(0, 1fr); padding: 12px 24px; cursor: default; }
+  .dialog-body .row.selected, .wiz .row.selected { background: none; }
+  .dialog-body .row:hover, .wiz .row:hover { background: var(--surface-2); }
+  .dialog-body .row .app, .wiz .row .app { cursor: pointer; }
   /* More below than shows: said, and one press away. */
-  .below { position: sticky; bottom: 0; z-index: 1; }
+  .below { flex: none; }
   .below[hidden] { display: none; }
+  .below[hidden][data-kept] { display: block; visibility: hidden; }
   .below .btn { width: 100%; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: var(--surface-2); color: var(--text-2); }
   .below .btn:hover { background: var(--surface-3); color: var(--text); }
 
@@ -544,15 +590,19 @@
      spark (gui/magic.js). A stage is where on the page that picture shows:
      a plain dark panel, in a light window too. */
   #magic { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-  .stage { border-radius: 12px; background: var(--stage); border: 1px solid var(--stage-line); cursor: pointer; }
+  .stage { border-radius: 16px; background: var(--stage); border: 1px solid var(--stage-line); cursor: pointer; }
   body.no-magic #magic, body.no-magic .stage, body.no-magic .pal, body.no-magic .tip { display: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
   /* Where there is no stage on the page, he sits at its head, with the
      one thing he has to say about it beside him. Nothing floats over the
      list. */
-  .page-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; }
-  .says { display: flex; align-items: center; gap: 16px; }
+  /* The head of a page is the same height on every page, and the room for
+     him and his words is kept whether or not he has any: nothing below it
+     moves when he speaks or stops. */
+  .page-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; min-height: 144px; }
+  .says { display: flex; align-items: flex-start; justify-content: flex-end; gap: 16px; width: 432px; }
+  body.no-magic .page-head { min-height: 0; }
   .pal {
     position: relative;
     flex: none;
@@ -607,17 +657,22 @@
     background: var(--surface);
     box-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 48px rgb(0 0 0 / 0.45);
     color: var(--text);
+    overflow: clip;
     animation: wiz-in 200ms ease-out;
   }
+  /* In a window too narrow for him to stand beside the card, the card takes
+     the window and he sits at its head. */
+  .wiz-pal { display: none; flex: none; width: 72px; height: 72px; border-radius: 999px; border: 1px solid var(--stage-line); background: var(--stage); }
   @keyframes fade { from { opacity: 0; } }
   @keyframes wiz-in { from { opacity: 0; transform: translate3d(16px, 0, 0); } }
   .wiz-top { display: flex; align-items: center; gap: 16px; padding: 16px 16px 0 24px; }
   .wiz-steps { display: flex; flex: 1; gap: 16px; align-items: center; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
   .wiz-steps li { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-3); white-space: nowrap; }
-  .wiz-steps li::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: var(--surface-3); transition: background var(--ease); }
+  /* A step to come is a ring, one done is filled grey, this one is filled. */
+  .wiz-steps li::before { content: ""; width: 8px; height: 8px; border-radius: 999px; border: 1px solid var(--text-3); transition: background var(--ease); }
   .wiz-steps li.done::before { background: var(--text-3); }
   .wiz-steps li.now { color: var(--text); font-weight: 600; }
-  .wiz-steps li.now::before { background: var(--text); }
+  .wiz-steps li.now::before { background: var(--text); border-color: var(--text); }
   .wiz-say { padding: 16px 24px 24px; }
   .wiz-line { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance; }
   .wiz-sub { margin: 8px 0 0; color: var(--text-2); max-width: 60ch; }
@@ -627,15 +682,19 @@
   /* Words too long to sit beside the buttons take a line of their own; the
      buttons stay together. */
   .wiz-foot .grow { flex: 1 1 auto; color: var(--text-2); }
+  .wiz-foot .grow .btn { color: var(--text); }
   .acts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
-  .wiz .row.told { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
+  .wiz .row.told { grid-template-columns: minmax(0, 1fr) auto; min-height: 56px; padding: 8px 24px; }
   .wiz .row.told:hover { background: none; }
+  .wiz .row.told .app { cursor: default; }
+  /* What became of each app is the point of the list: set as large as its name. */
+  .row.told .chip { font-size: 16px; line-height: 24px; }
   /* What was found, as three numbers, each with the colour it has beside
      the phone. */
   .wiz-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 24px; }
   .wiz-stat { display: grid; gap: 8px; align-content: start; padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
-  .wiz-stat b { display: flex; align-items: center; gap: 12px; font: 600 28px/1 var(--mono); font-variant-numeric: tabular-nums; }
-  .wiz-stat span { font-size: 14px; color: var(--text-2); }
+  .wiz-stat b { display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .wiz-stat span { color: var(--text-2); }
   .swatch { width: 16px; height: 16px; border-radius: 4px; background: var(--text-3); flex: none; }
   /* The colours of what circles the phone, on a stage that is always dark:
      the same in a light window as in a dark one. */
@@ -666,11 +725,12 @@
   /* The way to the phone: a picture and a sentence for each step, ticked
      off as the phone is seen to have got that far. */
   .way { margin: 0; padding: 0; list-style: none; display: grid; gap: 16px; }
-  .way-step { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; align-items: start; }
-  .art { position: relative; width: 72px; height: 72px; border-radius: 16px; border: 1px solid var(--line); background: var(--bg); display: grid; place-items: center; color: var(--text-3); }
+  .way-step { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .art { position: relative; width: 96px; height: 96px; border-radius: 16px; border: 1px solid var(--line); background: var(--bg); display: grid; place-items: center; color: var(--text-3); }
   .art .hot { color: var(--accent-edge); }
   .way-step.done .art { color: var(--ok); border-color: currentColor; }
-  .way-step.done .art .hot { color: inherit; }
+  /* Only the step to do now has its picture lit. */
+  .way-step:not(.now) .art .hot { color: inherit; }
   .way-step.now .art { border-color: var(--text-3); color: var(--text-2); }
   .way-title { display: flex; align-items: center; gap: 12px; font-weight: 600; min-height: 24px; }
   .way-num { width: 24px; height: 24px; flex: none; border-radius: 999px; border: 1px solid var(--line); display: grid; place-items: center; font-size: 14px; font-weight: 600; color: var(--text-2); }
@@ -686,18 +746,19 @@
   .command { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); width: fit-content; max-width: 100%; }
   .command code { overflow-wrap: anywhere; }
   .more-help { color: var(--text-2); }
-  .more-help summary { cursor: pointer; width: fit-content; border-radius: 4px; }
+  .more-help summary { cursor: pointer; width: fit-content; padding: 8px 0; border-radius: 4px; }
   .more-help summary:hover { color: var(--text); }
   .more-help ul { margin: 8px 0 0; padding-left: 24px; display: grid; gap: 4px; }
 
   /* ---- Checks ---- */
-  .check { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); min-height: 64px; }
-  .check-mark { display: grid; place-items: center; color: var(--text-3); }
+  .check { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 16px; align-items: start; padding: 12px 16px; border-top: 1px solid var(--line); min-height: 64px; }
+  .check > .btn { align-self: center; }
+  .check-mark { display: grid; place-items: center; margin-top: 2px; color: var(--text-3); }
   .check-mark.ok { color: var(--ok); }
   .check-mark.warn { color: var(--warn); }
   .check-mark.bad { color: var(--bad); }
   .check-text { text-wrap: balance; }
-  .check-detail { color: var(--text-2); font-size: 14px; }
+  .check-detail { color: var(--text-2); }
 
   /* ---- One app, in full ---- */
   .detail {
@@ -716,14 +777,9 @@
   }
   .detail[hidden] { display: none; }
   @keyframes slide { from { opacity: 0; transform: translate3d(16px, 0, 0); } }
-  body.has-detail main { padding-right: 480px; }
-  /* Beside an open app the list is names only: the rest is in the panel. */
-  body.has-detail .row { grid-template-columns: 20px minmax(0, 1fr) 36px; }
-  body.has-detail .rows.nopick .row { grid-template-columns: minmax(0, 1fr) 36px; }
-  body.has-detail .row .note, body.has-detail .row .chips { display: none; }
-  body.has-detail .search { flex-basis: 160px; }
-  /* No room for his words beside the page's own while an app is open. */
-  body.has-detail .tip { display: none; }
+  /* The panel lies over the right of the page and moves nothing under it:
+     the list stays where it was, and the wizard steps out of its way. */
+  body.has-detail .says > * { display: none; }
   body.has-detail .toast { right: 456px; }
   body.has-detail .bulk { left: calc(288px + (100% - 288px - 432px) / 2); max-width: calc(100% - 288px - 432px - 48px); }
   .detail-head { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 16px; align-items: start; padding: 24px 16px 16px 24px; }
@@ -736,6 +792,7 @@
   .detail-body h3 { margin: 0; font-size: 14px; font-weight: 400; color: var(--text-3); letter-spacing: 0.04em; }
   .detail-body p { margin: 0; color: var(--text-2); }
   .detail-body p.plain { color: var(--text); }
+  .detail-body p.final { color: var(--bad); }
   .detail-body .chips { justify-content: flex-start; max-width: none; }
   .facts { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--text-2); }
   .detail-foot { display: grid; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--line); }
@@ -745,9 +802,6 @@
   .detail-links { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 -12px; }
 
   /* ---- Find anything ---- */
-  .finder { display: flex; align-items: center; gap: 12px; width: 100%; height: 44px; padding: 0 8px 0 12px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--text-3); cursor: pointer; text-align: left; transition: border-color var(--ease), color var(--ease); }
-  .finder:hover { border-color: var(--text-3); color: var(--text-2); }
-  .finder span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   kbd { font: 400 14px/1 var(--mono); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-2); white-space: nowrap; }
   dialog.palette { width: min(680px, calc(100% - 48px)); margin-top: 12vh; overflow: hidden; }
   .palette-field { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 64px; border-bottom: 1px solid var(--line); color: var(--text-3); }
@@ -777,9 +831,12 @@
   .deck-card .catch { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; align-items: start; }
   .deck-card .catch svg { margin-top: 2px; color: var(--warn); }
   .deck-card .after { color: var(--text-2); }
-  .deck-keys { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .deck-keys .grow { flex: 1 1 160px; color: var(--text-2); font-size: 14px; }
-  .deck-keys .answer { min-width: 160px; height: 56px; font-size: 20px; }
+  /* The buttons have fixed places, the same on every card, so that none of
+     them is ever where another was a moment ago. */
+  .deck-hint { display: flex; align-items: center; gap: 12px; min-height: 36px; color: var(--text-2); }
+  .deck-keys { display: grid; grid-template-columns: auto auto minmax(0, 1fr) 160px 160px; gap: 12px; align-items: center; }
+  .deck-keys .btn { height: 56px; }
+  .deck-keys .answer { font-size: 20px; }
   .deck-keys kbd { margin-left: 4px; }
   .btn.primary kbd { background: rgb(0 0 0 / 0.1); border-color: rgb(0 0 0 / 0.2); color: var(--accent-ink); }
   .deck-sum { display: grid; gap: 12px; }
@@ -830,23 +887,30 @@
   @media (max-width: 1080px) {
     /* No room for his words beside the page's own: he is still there to press. */
     .tip { display: none; }
+    .says { width: auto; }
+    .page-head { min-height: 0; }
   }
   @media (max-width: 960px) {
     body { grid-template-columns: 248px minmax(0, 1fr); }
+    .brand-mark, .status .os { display: none; }
     .hero.staged, .hero.coach.staged { grid-template-columns: minmax(0, 1fr); }
     .hero .stage, .hero.coach .stage { margin: 0 -16px -16px; height: auto; min-height: 232px; align-self: stretch; }
-    .wiz { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; height: 72%; }
-    body.has-detail main { padding-right: 24px; }
-    /* The panel covers the page here, its head included: he steps aside. */
-    body.has-detail .says { display: none; }
+    /* No room for the wizard to stand beside his card: the card takes the
+       window, he sits at its head, and the picture is drawn over the card
+       there instead of under it. */
+    .wiz { inset: 16px; width: auto; }
+    .wiz-pal { display: block; }
+    .wiz-line { font-size: 20px; }
+    body.wiz-open #magic { z-index: 7; }
+    /* The panel covers most of the page here: what is left is dimmed, and a
+       press on it closes the panel. */
+    body.has-detail main::after { content: ""; position: fixed; inset: 0 0 0 248px; z-index: 2; background: var(--scrim); }
     .detail { width: min(432px, 100%); }
     main { padding: 24px 24px 96px; }
     .split { grid-template-columns: minmax(0, 1fr); }
-    .row { grid-template-columns: 20px minmax(0, 1fr) auto 36px; }
-    .rows.nopick .row { grid-template-columns: minmax(0, 1fr) auto 36px; }
+    .row { grid-template-columns: 20px minmax(0, 1fr) auto 36px; gap: 4px 16px; }
     /* The words go under the name, clear of the picture beside it. */
     .row .note { grid-column: 2 / -1; grid-row: 2; padding-left: 56px; }
-    .rows.nopick .row .note { grid-column: 1 / -1; }
     .row .note:empty { display: none; }
     .bulk, body.has-detail .bulk { left: calc(248px + (100% - 248px) / 2); max-width: calc(100% - 248px - 32px); }
     .dialog-body .row, .wiz .row { grid-template-columns: 20px minmax(0, 1fr); }
@@ -1016,6 +1080,8 @@ window.DebloatWords = (() => {
   // the name a rule gives it (`given`, from names() below), else a reading
   // of its package name.
   const nameOf = (pkg, given = new Map()) => FAMOUS[pkg] || given.get(pkg) || readable(pkg);
+  // Is that the app's real name, or a reading of its package name?
+  const sure = (pkg, given = new Map()) => Boolean(FAMOUS[pkg] || given.get(pkg));
 
   // The letter on an app's tile: who it is from, or failing that its name.
   const initial = pkg => (vendorOf(pkg) || FAMOUS[pkg] || readable(pkg)).charAt(0).toUpperCase();
@@ -1188,7 +1254,7 @@ window.DebloatWords = (() => {
     return how;
   }
 
-  return { vendorOf, readable, nameOf, initial, kindOf, plain, parts, tidy, community, offParts, reasons, names, describe, outcomes };
+  return { vendorOf, readable, nameOf, sure, initial, kindOf, plain, parts, tidy, community, offParts, reasons, names, describe, outcomes };
 })();
 </script>
 <script>
@@ -1249,6 +1315,14 @@ window.DebloatWords = (() => {
     lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
     more: '<path d="m6 9 6 6 6-6"/>',
+    'up-more': '<path d="m18 15-6-6-6 6"/>',
+  };
+  // What each kind of app is, in a few words, for one nothing else is known
+  // about.
+  const KIND_SAYS = {
+    installer: 'Something that installs apps.', feed: 'A feed of news or other content.', game: 'A game.',
+    promo: 'Promotions and adverts.', help: 'A help or tips app.', message: 'A messaging app.',
+    cloud: 'A backup or storage service.', guard: 'A security app.', carrier: 'A carrier service.',
   };
   // The picture for each kind of app (see Words.kindOf).
   const PICTURES = {
@@ -1260,26 +1334,26 @@ window.DebloatWords = (() => {
   // buttons that appear once something in the list is selected.
   const VIEWS = {
     overview: { label: 'Overview', icon: 'overview' },
-    remove: { label: 'Remove', icon: 'trash', primary: 'remove', secondary: 'mute',
-      blurb: 'Known junk that is safe to take off: the installers that put sponsored apps on the phone, lock screen feeds, and promos from the carrier and the maker. Anything removed here can be brought back from Already off.',
+    remove: { label: 'Safe to remove', icon: 'trash', primary: 'remove', secondary: 'mute',
+      blurb: 'Known junk: the installers that put sponsored apps on the phone, lock screen feeds, and promos from the carrier and the maker. Anything removed here can be brought back from Already off.',
       empty: 'No known junk is left to remove.' },
-    ask: { label: 'Ask first', icon: 'question', primary: 'remove', secondary: 'mute',
+    ask: { label: 'With a catch', icon: 'alert', primary: 'remove', secondary: 'mute',
       blurb: 'Apps you may not want, each with a catch. The catch is written beside each one: read it before you remove it.',
       empty: 'Nothing here needs a second look.' },
     pushed: { label: 'Pushed apps', icon: 'box', primary: 'uninstall',
-      blurb: 'Apps that an installer put on the phone without asking. Uninstalling one deletes whatever is saved in it, and the Play Store is the only way to get it back.',
+      blurb: 'Apps that an installer put on the phone without asking. Deleting one also deletes whatever is saved in it, and the Play Store is the only way to get it back.',
       empty: 'No app on this phone was put there by an installer.' },
     back: { label: 'Came back', icon: 'undo', primary: 'remove',
-      blurb: 'Removed earlier, and on the phone again. Something is putting them back: remove the installers under Remove as well, or they will keep returning.',
+      blurb: 'Removed earlier, and on the phone again. Something is putting them back: remove the installers under Safe to remove as well, or they will keep returning.',
       empty: () => (state.scan.changes.length ? 'Nothing you removed has come back.' : 'Nothing has been removed yet, so nothing can have come back.') },
     notifying: { label: 'Notifying now', icon: 'bell', primary: 'remove', secondary: 'mute',
       blurb: 'Apps that had a notification showing when the phone was last scanned. To find out which app is behind something, bring it up on the phone, then scan again.',
       empty: 'No app has a notification showing right now.' },
-    unknown: { label: 'Not classified', icon: 'help', primary: 'remove', secondary: 'mute',
-      blurb: 'Apps that came with the phone and that this app knows nothing about. They are left alone unless you pick one. Removing one can be undone, but there is no telling what it does.',
+    unknown: { label: 'Unknown apps', icon: 'help', primary: 'remove', secondary: 'mute',
+      blurb: 'Apps that came with the phone and that nothing is known about. They are left alone unless you pick one. Removing one can be undone, but there is no telling what it does.',
       empty: 'Every app that came with the phone is accounted for.' },
-    other: { label: 'Other installs', icon: 'box', primary: 'uninstall',
-      blurb: 'Apps that were put on the phone, or last updated, by something other than you or an app store. They are left alone unless you pick one. Uninstalling one deletes whatever is saved in it.',
+    other: { label: 'Other installs', icon: 'download', primary: 'uninstall',
+      blurb: 'Apps put on the phone, or last updated, by something other than you or an app store. They are left alone unless you pick one. Deleting one also deletes whatever is saved in it.',
       empty: 'No app was added by another app.' },
     off: { label: 'Already off', icon: 'off', primary: 'restore',
       blurb: 'Everything that has been removed or switched off, by this app or by anything else. Restore brings one back.',
@@ -1301,10 +1375,10 @@ window.DebloatWords = (() => {
     remove: { verb: 'Remove', icon: 'trash' },
     mute: { verb: 'Silence', icon: 'mute' },
     restore: { verb: 'Restore', icon: 'restore' },
-    uninstall: { verb: 'Uninstall', icon: 'trash' },
+    uninstall: { verb: 'Delete for good', icon: 'trash' },
     cleanup: { verb: 'Clean up', icon: 'trash' },
   };
-  const DID = { removed: 'removed', uninstalled: 'uninstalled', disabled: 'switched off', muted: 'silenced' };
+  const DID = { removed: 'removed', uninstalled: 'deleted for good', disabled: 'switched off', muted: 'silenced' };
 
   const state = {
     status: 'loading',      // loading | ready | error
@@ -1324,6 +1398,7 @@ window.DebloatWords = (() => {
     helper: true,           // false once the helper behind this page has gone
     link: { kind: 'ready' }, // what stands between this window and a phone
     detail: '',             // the app whose details are open, if any
+    stuck: new Set(),       // apps this phone's maker has locked: see noteOutcomes()
   };
   const ui = {};
 
@@ -1590,6 +1665,7 @@ window.DebloatWords = (() => {
     if (state.link.kind !== 'ready') return fail(state.link.error || LINK_SAYS[state.link.kind]);
     const ready = state.phones.filter(p => p.state === 'device');
     if (!ready.some(p => p.serial === state.serial)) state.serial = ready.length ? ready[0].serial : '';
+    loadStuck();
 
     const result = await api(`/api/scan${query()}`);
     if (!result.ok) return fail(result.error);
@@ -1600,6 +1676,32 @@ window.DebloatWords = (() => {
     for (const pkg of [...state.selected]) if (!here.has(pkg)) state.selected.delete(pkg);
     render();
     return undefined;
+  }
+
+  // Apps the phone's maker has locked: asked to go, and Android refused every
+  // way of doing it. They are remembered for each phone, so that the cleanup
+  // stops offering what it has already been told cannot be done. One that
+  // later does go is forgotten.
+  const stuckKey = () => `debloat-stuck:${state.serial}`;
+  function loadStuck() {
+    try {
+      state.stuck = new Set(JSON.parse(localStorage.getItem(stuckKey()) || '[]'));
+    } catch (e) {
+      state.stuck = new Set();
+    }
+  }
+  function noteOutcomes(how) {
+    let changed = false;
+    for (const [pkg, outcome] of how) {
+      if (outcome.said === 'FAILED' && !state.stuck.has(pkg)) {
+        state.stuck.add(pkg);
+        changed = true;
+      } else if (outcome.done && state.stuck.delete(pkg)) changed = true;
+    }
+    if (!changed) return;
+    try {
+      localStorage.setItem(stuckKey(), JSON.stringify([...state.stuck]));
+    } catch (e) { /* remembered for as long as this window is open, then */ }
   }
 
   function fail(message) {
@@ -1710,13 +1812,13 @@ window.DebloatWords = (() => {
   // words, with the one thing to plug in or tap in the accent.
   const ART = {
     cable: '<rect x="4" y="10" width="24" height="16" rx="2"/><path d="M2 30h28"/><rect x="34" y="16" width="10" height="20" rx="2"/><path class="hot" d="M16 30v6a4 4 0 0 0 4 4h15a4 4 0 0 0 4-4"/>',
-    toggle: '<rect x="12" y="4" width="24" height="40" rx="4"/><path d="M17 12h14"/><path d="M17 18h10"/><g class="hot"><rect x="17" y="24" width="14" height="8" rx="4"/><circle cx="27" cy="28" r="1.5" fill="currentColor"/></g><path d="M17 38h8"/>',
-    allow: '<rect x="12" y="4" width="24" height="40" rx="4"/><rect x="15" y="14" width="18" height="20" rx="2"/><path d="M18 19h12"/><path d="M18 23h8"/><path d="M18 29h3"/><rect class="hot" x="24" y="27" width="6" height="4" rx="1" fill="currentColor"/>',
+    toggle: '<rect x="10" y="3" width="28" height="42" rx="4"/><path d="M15 12h18"/><path d="M15 18h12"/><g class="hot"><rect x="15" y="23" width="18" height="10" rx="5"/><circle cx="28" cy="28" r="2" fill="currentColor"/></g><path d="M15 39h9"/>',
+    allow: '<rect x="10" y="3" width="28" height="42" rx="4"/><rect x="13" y="12" width="22" height="24" rx="2"/><path d="M17 17h14"/><path d="M17 21h9"/><path d="M17 31h3"/><rect class="hot" x="23" y="27" width="9" height="6" rx="1.5" fill="currentColor"/>',
   };
   function art(name) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     for (const [k, v] of Object.entries({
-      viewBox: '0 0 48 48', width: 48, height: 48, fill: 'none', stroke: 'currentColor',
+      viewBox: '0 0 48 48', width: 72, height: 72, fill: 'none', stroke: 'currentColor',
       'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true',
     })) svg.setAttribute(k, v);
     svg.innerHTML = ART[name];
@@ -1726,11 +1828,11 @@ window.DebloatWords = (() => {
   // What stands in the way, in a few words: for the dot beside the phone's
   // name, and the name to show while there is no phone to name.
   const LINK = {
-    noadb: { tone: 'warn', status: 'adb is missing', short: 'adb is missing', name: 'No phone yet' },
+    noadb: { tone: 'warn', status: 'One tool to install first', short: 'A tool is missing', name: 'No phone yet' },
     nophone: { tone: 'warn', status: 'Waiting for a phone', short: 'Waiting for a phone', name: 'No phone yet' },
     unauthorized: { tone: 'warn', status: 'Waiting for you to tap Allow', short: 'Waiting for Allow', name: 'Phone found' },
     offline: { tone: 'warn', status: 'Waiting for the phone to answer', short: 'Not answering', name: 'Phone found' },
-    broken: { tone: 'bad', status: 'adb is having trouble', short: 'adb trouble', name: 'No phone' },
+    broken: { tone: 'bad', status: 'The tool that reaches the phone is in trouble', short: 'Cannot reach it', name: 'No phone' },
     nohelper: { tone: 'bad', status: 'This window has lost its helper', short: 'Helper stopped', name: 'No phone' },
   };
 
@@ -1824,7 +1926,7 @@ window.DebloatWords = (() => {
       text: 'Three steps, the first time only. After that it is just the cable.',
       body: [
         way([
-          { art: 'cable', title: 'Plug the phone into this computer',
+          { art: 'cable', title: 'Plug the phone into this computer', state: 'now',
             text: [p('Use a cable that carries data: the one that came with the phone is the safe choice. Then unlock the phone.')] },
           { art: 'toggle', title: 'Turn on USB debugging',
             text: [pick, el('ol', { class: 'steps' }, el('li', {}, DEBUGGING[which][0]), el('li', {}, DEBUGGING[which][1]))] },
@@ -1869,7 +1971,9 @@ window.DebloatWords = (() => {
     render();
     const result = await api('/api/act', { method: 'POST', body: { action: real, packages, serial: state.serial } });
     for (const pkg of packages) state.pending.delete(pkg);
-    log(`${WORDS[action].verb} ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
+    log(action === 'uninstall' ? `Delete ${plural(packages.length, 'app', 'apps')} for good`
+      : `${WORDS[action].verb} ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
+    if (real !== 'restore') noteOutcomes(Words.outcomes(result.output, packages));
 
     await scan({ quiet: true });
     if (!result.ok) {
@@ -1893,18 +1997,20 @@ window.DebloatWords = (() => {
   const listOf = names => (names.length > 3 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`
     : names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || '');
 
-  // Uninstalling an app that was added to the phone later cannot be undone,
-  // so it is always asked about first, whichever way it was asked for.
+  // Deleting an app that was added to the phone later cannot be undone, so
+  // it is always asked about first, by name, whichever way it was asked for.
   function forGood(packages) {
     const one = packages.length === 1;
     return ask({
-      title: `Uninstall ${plural(packages.length, 'app', 'apps')} for good?`,
+      title: `Delete ${plural(packages.length, 'app', 'apps')} for good?`,
       text: [
         el('b', {}, listOf(packages.map(pkg => nameOf(pkg)))),
-        ` ${one ? 'was' : 'were'} added to the phone after it was made. Uninstalling deletes whatever is saved in ${one ? 'it' : 'them'}, and the Play Store is the only way back. `,
+        ` ${one ? 'was' : 'were'} added to the phone after it was made. Deleting ${one ? 'it' : 'them'} also deletes whatever is saved in ${one ? 'it' : 'them'}, and the Play Store is the only way back. `,
         el('span', { class: 'gone' }, 'This cannot be undone.'),
       ],
-      yes: `Uninstall ${packages.length}`,
+      yes: `Delete ${packages.length} for good`,
+      no: one ? 'Keep it' : 'Keep them',
+      risky: true,
     });
   }
 
@@ -1991,12 +2097,20 @@ window.DebloatWords = (() => {
     const out = [];
     for (const list of ['pushed', 'back', 'remove']) {
       for (const row of state.scan.lists[list]) {
-        if (seen.has(row.pkg) || row.locked) continue;
+        if (seen.has(row.pkg) || row.locked || state.stuck.has(row.pkg)) continue;
         seen.add(row.pkg);
         out.push({ ...row, from: list });
       }
     }
     return out;
+  }
+  // What would be in the cleanup, had the phone's maker not locked it.
+  function stuckHere() {
+    const seen = new Set();
+    for (const list of ['pushed', 'back', 'remove']) {
+      for (const row of state.scan.lists[list]) if (state.stuck.has(row.pkg) && !row.locked) seen.add(row.pkg);
+    }
+    return [...seen];
   }
 
   // Only a list with something to do in it has boxes to tick, and an app
@@ -2014,6 +2128,7 @@ window.DebloatWords = (() => {
     return state.scan.names;
   };
   const nameOf = pkg => Words.nameOf(pkg, named());
+  const sureOf = pkg => Words.sure(pkg, named());
   const describe = (row, list) => Words.describe(row, list, known(), named());
   // Can this one still put apps on the phone?
   const reinstalls = pkg => (state.scan.installers || []).some(item => item.pkg === pkg && item.active);
@@ -2037,7 +2152,7 @@ window.DebloatWords = (() => {
   // phone uses for it is a pointer away, and in the panel a row opens.
   const appCell = (pkg, title, text = '', withPkg = false) => el('div', { class: 'app', title: pkg },
     appMark(pkg, text),
-    el('div', { class: 'app-text' }, el('div', { class: 'app-name' }, title || nameOf(pkg)), withPkg ? pkgNode(pkg) : null));
+    el('div', { class: 'app-text' }, el('div', { class: `app-name${sureOf(pkg) ? '' : ' guess'}` }, title || nameOf(pkg)), withPkg ? pkgNode(pkg) : null));
   // The same picture at the size of a line of words, for a list of results.
   const appGlyph = (pkg, text = '') => {
     const kind = reinstalls(pkg) ? 'installer' : Words.kindOf(pkg, `${text} ${known().get(pkg) || ''}`);
@@ -2054,22 +2169,30 @@ window.DebloatWords = (() => {
   // A grey bar where words are on their way.
   const bone = (w, h = 12) => el('div', { class: 'bone', style: `width:${w};max-width:100%;height:${h}px` });
   // A number set in the face numbers are set in, with the words after it.
-  const counted = (n, words) => [el('span', { class: 'mono' }, n), ` ${words}`];
+  const counted = (n, words) => [el('span', { class: 'num' }, n), ` ${words}`];
 
-  // A list longer than its box says so: how many more rows are below, on a
-  // button that brings them up. Goes last inside the box that scrolls.
+  // A box with more in it than shows says so: how many more rows there are
+  // below, or just that there is more, on a strip that brings it up. The
+  // strip goes after the box, never over what is in it. Once it has been
+  // needed it keeps its place when it has nothing to say, so that nothing
+  // under it moves when the end of the list is reached.
   function cue(scroller) {
     const button = el('button', { class: 'btn small' });
     const node = el('div', { class: 'below', hidden: true }, button);
-    let last = -1;
+    let last = null;
     const update = () => {
       if (!node.isConnected) return;
+      const more = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 8;
       const edge = scroller.getBoundingClientRect().bottom;
-      const hidden = [...scroller.querySelectorAll('.row')].filter(row => row.getBoundingClientRect().bottom > edge + 8).length;
-      if (hidden === last) return;
-      last = hidden;
-      node.hidden = hidden === 0;
-      set(button, icon('more', 16), `${hidden} more below`);
+      const hidden = more ? [...scroller.querySelectorAll('.row')].filter(row => row.getBoundingClientRect().bottom > edge + 4).length : 0;
+      const says = !more ? '' : hidden ? `${hidden} more below` : 'More below';
+      if (says === last) return;
+      last = says;
+      node.hidden = !more;
+      if (more) {
+        node.dataset.kept = '';
+        set(button, icon('more', 16), says);
+      }
     };
     button.addEventListener('click', () => scroller.scrollBy({ top: scroller.clientHeight * 0.8, behavior: still() ? 'auto' : 'smooth' }));
     scroller.addEventListener('scroll', update, { passive: true });
@@ -2129,16 +2252,15 @@ window.DebloatWords = (() => {
     const ready = state.phones.filter(p => p.state === 'device');
     const name = waiting ? waiting.name : model || (state.status === 'error' ? 'No phone' : 'Looking for a phone');
     const tone = busy ? 'warn' : connected ? 'ok' : waiting ? waiting.tone : state.status === 'error' ? 'bad' : '';
-    const says = busy ? 'Working on the phone' : connected ? 'Connected' : waiting ? waiting.short
+    const says = busy ? 'Working on the phone' : connected ? ['Connected', os ? el('span', { class: 'os' }, ` · ${os}`) : null] : waiting ? waiting.short
       : state.status === 'error' ? 'The scan did not finish' : (state.waiting || 'Scanning');
     const again = connected ? 'Scan again' : 'Look again';
+    const mac = /Mac/.test(navigator.platform);
 
     const phone = el('section', { class: 'phone', 'aria-label': 'Phone' },
       el('div', { class: 'phone-head' },
         icon('phone', 24),
-        el('div', { class: 'phone-text' },
-          el('div', { class: 'phone-name' }, name),
-          os && !waiting ? el('div', { class: 'phone-meta' }, os) : null)),
+        el('div', { class: 'phone-text' }, el('div', { class: 'phone-name' }, name))),
       el('div', { class: 'status' },
         el('span', { class: `dot ${tone}` }),
         el('span', {}, says),
@@ -2152,8 +2274,15 @@ window.DebloatWords = (() => {
       }, ready.map(p => el('option', { value: p.serial, selected: p.serial === state.serial }, p.serial))), icon('more')) : null);
 
     const showCounts = state.scan && state.status !== 'error';
-    const item = id => navItem(id, showCounts && state.scan.lists[id] ? state.scan.lists[id].length : null);
-    const nav = el('nav', { 'aria-label': 'Sections' }, NAV.map(group => {
+    // What the maker has locked is in its list, but there is nothing to do
+    // about it: it is not counted among what there is to do.
+    const count = id => {
+      if (!showCounts || !state.scan.lists[id]) return null;
+      const rows = state.scan.lists[id];
+      return ['off', 'keep'].includes(id) ? rows.length : rows.filter(row => !state.stuck.has(row.pkg)).length;
+    };
+    const item = id => navItem(id, count(id));
+    const nav = el('nav', { 'aria-label': 'Pages' }, NAV.map(group => {
       if (!group.fold) return [group.label ? el('div', { class: 'nav-label' }, group.label) : null, group.items.map(item)];
       return [
         el('button', {
@@ -2163,29 +2292,51 @@ window.DebloatWords = (() => {
         folded ? null : group.items.map(item),
       ];
     }));
+    // The list of pages scrolls where the window is too short for it. An
+    // arrow shows at whichever end it runs off, and brings the rest up.
+    const cueFor = (iconName, by, label) => el('button', {
+      class: 'nav-cue', hidden: true, 'aria-label': label, title: label,
+      onclick: () => nav.scrollBy({ top: by, behavior: still() ? 'auto' : 'smooth' }),
+    }, icon(iconName, 16));
+    const up = cueFor('up-more', -200, 'More pages above');
+    const down = cueFor('more', 200, 'More pages below');
+    const edges = () => {
+      up.hidden = nav.scrollTop < 4;
+      down.hidden = nav.scrollTop + nav.clientHeight > nav.scrollHeight - 4;
+    };
+    nav.addEventListener('scroll', edges, { passive: true });
 
+    const before = document.querySelector('#side nav');
+    const at = before ? before.scrollTop : 0;
     set(document.getElementById('side'),
       el('div', { class: 'brand' },
         el('div', { class: 'brand-mark' }, icon('zap')),
         el('div', {}, el('b', {}, 'MAXAPACITY'), el('span', {}, VERSION ? `Debloat ${VERSION}` : 'Debloat')),
-        engine ? el('button', {
-          class: 'btn quiet small wand', 'aria-pressed': String(Boolean(magic)), 'aria-label': 'The wizard',
-          title: magic ? 'Send the wizard away' : 'Bring the wizard back',
-          onclick: toggleWizard,
-        }, icon('wand')) : null),
-      // One box that finds any app, page or action.
-      el('button', { class: 'finder', onclick: openPalette, 'aria-keyshortcuts': 'Meta+K Control+K' },
-        icon('search'), el('span', {}, 'Find anything'), el('kbd', {}, /Mac/.test(navigator.platform) ? '⌘K' : 'Ctrl K')),
+        el('div', { class: 'tools' },
+          // One box that finds any app, page or action.
+          el('button', {
+            class: 'btn quiet small', 'aria-label': 'Find anything', title: `Find anything (${mac ? '⌘K' : 'Ctrl K'})`,
+            'aria-keyshortcuts': 'Meta+K Control+K', onclick: openPalette,
+          }, icon('search')),
+          engine ? el('button', {
+            class: 'btn quiet small wand', 'aria-pressed': String(Boolean(magic)), 'aria-label': 'The wizard',
+            title: magic ? 'Send the wizard away' : 'Bring the wizard back',
+            onclick: toggleWizard,
+          }, icon('wand')) : null)),
       phone,
+      up,
       nav,
+      down,
       el('div', { class: 'side-foot' }, 'Nothing changes or leaves this computer until you say so.'));
-    const here = nav.querySelector('[aria-current="page"]');
-    if (here) here.scrollIntoView({ block: 'nearest' });
+    // Drawn again, it is where it was left.
+    nav.scrollTop = at;
+    edges();
+    requestAnimationFrame(edges);
   }
 
   function navItem(id, count) {
     const view = VIEWS[id];
-    const badge = el('span', { class: `nav-count mono${id === 'back' && count > 0 ? ' warn' : ''}` });
+    const badge = el('span', { class: `nav-count num${id === 'back' && count > 0 ? ' warn' : ''}` });
     if (count != null) countUp(badge, count, !state.counted);
     return el('button', {
       class: 'nav-item',
@@ -2203,6 +2354,9 @@ window.DebloatWords = (() => {
     // A page under "More" brings the rest of them out with it.
     if (folded && NAV.some(group => group.fold && group.items.includes(id))) fold(false);
     render();
+    // The page gone to is in sight in the list of pages, wherever that was left.
+    const here = document.querySelector('#side nav [aria-current="page"]');
+    if (here) here.scrollIntoView({ block: 'nearest' });
     const main = document.querySelector('main');
     main.scrollTop = 0;
     // It arrives from a little way back; see "enter" in the styles. Once it
@@ -2243,14 +2397,17 @@ window.DebloatWords = (() => {
     const lists = state.scan.lists;
     const history = state.scan.history;
     const items = cleanup();
-    const apps = items.filter(r => r.app);
-    const system = items.filter(r => !r.app);
+    const n = sorts(items);
+    const locked = stuckHere();
     const asks = lists.ask.filter(row => !row.locked).length;
 
-    const what = [
-      apps.length ? `${plural(apps.length, 'app', 'apps')} that an installer put there` : '',
-      system.length ? `${plural(system.length, 'piece', 'pieces')} of known junk that came with the phone` : '',
-    ].filter(Boolean).join(', and ');
+    // The same three sorts, in the same words, as the wizard counts: what
+    // puts apps on the phone, what it put there, and the rest of the junk.
+    const what = listOf([
+      n.installers ? `${plural(n.installers, 'installer that puts', 'installers that put')} apps on the phone by ${n.installers === 1 ? 'itself' : 'themselves'}` : '',
+      n.added ? `${plural(n.added, 'app', 'apps')} that an installer put there` : '',
+      n.rest ? `${plural(n.rest, 'other piece', 'other pieces')} of junk that came with the phone` : '',
+    ].filter(Boolean));
     const hero = el('section', { class: `card hero${magic ? ' staged' : ''}` },
       el('div', { class: 'hero-main' }, el('div', {},
         el('div', { class: 'hero-status' },
@@ -2259,21 +2416,27 @@ window.DebloatWords = (() => {
           history.length ? `, scanned at ${at(history[history.length - 1].time)}` : ''),
         el('div', { class: 'hero-number' },
           items.length ? `${plural(items.length, 'thing', 'things')} on this phone can go`
-            : 'This phone is clear of known junk'),
+            : locked.length ? 'Everything that can go has gone' : 'This phone is clear of known junk'),
         el('p', {},
           items.length ? `${what.charAt(0).toUpperCase()}${what.slice(1)}.`
-            : 'The installers that put sponsored apps on a phone, the lock screen feeds and the promos are gone, or were never here.',
+            : locked.length ? `${listOf(locked.map(nameOf))} ${locked.length === 1 ? 'is' : 'are'} locked by the phone's maker and ${locked.length === 1 ? 'has' : 'have'} to stay.`
+              : 'The installers that put sponsored apps on a phone, the lock screen feeds and the promos are gone, or were never here.',
           lists.back.length ? ` ${lists.back.length} came back after being removed.` : '',
-          asks ? ` ${plural(asks, 'more comes', 'more come')} with a catch, under Ask first.` : '')),
+          asks ? ` ${plural(asks, 'more comes', 'more come')} with a catch, under With a catch.` : ''),
+        // What the colours beside the wizard mean.
+        magic && items.length ? el('div', { class: 'legend' },
+          n.installers ? el('span', {}, el('i', { class: 'swatch bad', 'aria-hidden': 'true' }), plural(n.installers, 'installer', 'installers')) : null,
+          n.added + n.rest ? el('span', {}, el('i', { class: 'swatch warn', 'aria-hidden': 'true' }), plural(n.added + n.rest, 'other thing', 'other things')) : null) : null),
       el('div', { class: 'hero-actions' },
         items.length
           ? [magic ? el('button', { class: 'btn primary big', 'data-wizard': true, onclick: openWizard }, icon('wand', 24), 'Clean up with the wizard') : null,
             el('button', { class: magic ? 'btn' : 'btn primary big', onclick: review }, icon('review', magic ? 20 : 24), magic ? 'Review as a list' : 'Review cleanup')]
           : [asks ? el('button', { class: 'btn primary big', onclick: () => openDeck() }, icon('layers', 24), `Go through ${asks} more`) : null,
             el('button', { class: asks ? 'btn' : 'btn primary big', onclick: () => scan() }, icon('refresh', asks ? 20 : 24), 'Scan again')],
+        // The button and what it is for stay together.
         state.needsRestart
-          ? [el('button', { class: 'btn', onclick: restart }, icon('power'), 'Restart phone'),
-            el('span', { class: 'hint' }, 'so the lock and home screens catch up')]
+          ? el('span', { class: 'with-hint' }, el('button', { class: 'btn', onclick: restart }, icon('power'), 'Restart phone'),
+            el('span', { class: 'hint' }, 'so the lock and home screens catch up'))
           : null)),
       stage());
 
@@ -2284,7 +2447,10 @@ window.DebloatWords = (() => {
   // scan before and shows its trend; on the first, what it counts.
   function tiles() {
     const history = state.scan.history;
-    const now = history[history.length - 1] || { cleanup: 0, installed: 0, off: 0 };
+    const last = history[history.length - 1] || { cleanup: 0, installed: 0, off: 0 };
+    // What the maker has locked is still on the phone, and still junk, but
+    // it is not something to clean up.
+    const now = { ...last, cleanup: Math.max(0, last.cleanup - stuckHere().length) };
     const before = history.length > 1 ? history[history.length - 2] : null;
     const tile = (label, iconName, key, lowerIsBetter, counts) => {
       const value = el('div', { class: 'tile-value' });
@@ -2366,6 +2532,11 @@ window.DebloatWords = (() => {
     } else if (state.scan.changes.length) {
       out.push(check('ok', 'Nothing you removed has come back'));
     }
+    const locked = stuckHere();
+    if (locked.length) {
+      out.push(check('note', `${plural(locked.length, 'app is', 'apps are')} locked by the phone's maker`,
+        `${listOf(locked.map(nameOf))}. Android would not remove, switch off or silence ${locked.length === 1 ? 'it' : 'them'}, so ${locked.length === 1 ? 'it stays' : 'they stay'}.`));
+    }
     if (state.needsRestart) {
       out.push(check('warn', 'The phone wants a restart', 'So that its lock and home screens catch up.', button('Restart', restart, 'power')));
     }
@@ -2374,7 +2545,7 @@ window.DebloatWords = (() => {
         'Go through them one at a time, and keep what you use.', button('One at a time', () => openDeck(), 'layers')));
     }
     if (lists.unknown.length) {
-      out.push(check('note', `${plural(lists.unknown.length, 'app is', 'apps are')} not classified`,
+      out.push(check('note', `Nothing is known about ${plural(lists.unknown.length, 'app', 'apps')}`,
         listed ? 'The community list says what it can about them.' : 'The community list describes most apps on most phones.',
         listed ? button('See', () => go('unknown'), 'next') : button('Get the list', () => community(true), 'users')));
     }
@@ -2394,7 +2565,7 @@ window.DebloatWords = (() => {
     if (!result.ok) return toast(result.error, { tone: 'bad' });
     await scan({ quiet: true });
     const n = Number(state.scan && state.scan.meta.community) || 0;
-    return toast(on ? `The community list is in use: ${n} apps described. What it recommends removing is under Ask first.`
+    return toast(on ? `The community list is in use: ${n} apps described. What it recommends removing is under With a catch.`
       : 'The community list is no longer used.', { undo: on ? () => community(false) : null });
   }
 
@@ -2478,7 +2649,11 @@ window.DebloatWords = (() => {
         el('div', { class: 'state' },
           icon('done', 40),
           el('strong', {}, typeof view.empty === 'function' ? view.empty() : view.empty),
-          el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again')));
+          // What is most worth doing next: the cleanup if there is one to
+          // do, and otherwise another look at the phone.
+          cleanup().length
+            ? el('button', { class: 'btn primary', onclick: magic ? () => openWizard() : review }, icon(magic ? 'wand' : 'review'), magic ? 'Clean up with the wizard' : 'Review cleanup')
+            : el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again')));
     }
     ui.all = view.primary ? el('input', { type: 'checkbox', 'aria-label': 'Select all shown', onchange: toggleAll }) : null;
     ui.count = el('span', { class: 'count' });
@@ -2487,10 +2662,12 @@ window.DebloatWords = (() => {
       'aria-label': 'Filter this list', 'aria-keyshortcuts': '/',
       oninput: e => { state.filter = e.target.value; paint(); },
     });
-    ui.rows = el('div', { class: `rows${view.primary ? '' : ' nopick'}` });
+    ui.rows = el('div', { class: 'rows' });
     const card = el('section', { class: 'card' },
       el('div', { class: 'toolbar' },
-        ui.all ? el('label', { class: 'pick' }, ui.all) : null,
+        // Where there is nothing to tick, the room for the box is kept, so
+        // that everything under it is where it is on every other page.
+        ui.all ? el('label', { class: 'pick' }, ui.all) : el('span', { class: 'gutter' }),
         el('div', { class: 'search' }, icon('search'), ui.search),
         el('div', { class: 'grow' }),
         ui.count),
@@ -2515,7 +2692,7 @@ window.DebloatWords = (() => {
     }
     set(ui.count, shown.length === rows().length
       ? counted(shown.length, 'in this list')
-      : [el('span', { class: 'mono' }, shown.length), ' of ', el('span', { class: 'mono' }, rows().length), ' shown']);
+      : [el('span', { class: 'num' }, shown.length), ' of ', el('span', { class: 'num' }, rows().length), ' shown']);
 
     if (shown.length === 0) {
       set(ui.rows, el('div', { class: 'state' },
@@ -2534,6 +2711,7 @@ window.DebloatWords = (() => {
     const said = describe(row, state.view);
     const chips = said.chips.slice();
     if (state.view !== 'off' && reinstalls(row.pkg)) chips.unshift({ text: 'puts apps back', tone: 'bad' });
+    if (state.view !== 'off' && state.stuck.has(row.pkg)) chips.unshift({ text: 'locked by the maker', tone: 'bad' });
 
     const toggle = () => {
       if (state.selected.has(row.pkg)) state.selected.delete(row.pkg);
@@ -2547,9 +2725,10 @@ window.DebloatWords = (() => {
       'data-pkg': row.pkg, style: `--i:${index}`,
       onclick: () => openDetail(row.pkg),
     },
-    !view.primary ? null : can ? el('label', { class: 'pick', onclick: event => event.stopPropagation() },
+    // A row that cannot be ticked has a lock where its box would be.
+    can ? el('label', { class: 'pick', onclick: event => event.stopPropagation() },
       el('input', { type: 'checkbox', checked: state.selected.has(row.pkg), 'aria-label': `Select ${said.title}`, onchange: toggle }))
-      : el('span', {}),
+      : el('span', { class: 'gutter', title: 'The phone needs this one: it cannot be ticked' }, icon('lock', 16)),
     appCell(row.pkg, said.title, said.about),
     el('div', { class: 'note', title: said.about }, said.about),
     el('div', { class: 'chips' }, chipNodes(state.pending.has(row.pkg) ? [{ text: 'working' }] : firstChip(chips))),
@@ -2576,11 +2755,15 @@ window.DebloatWords = (() => {
     bar.classList.toggle('show', show);
     document.body.classList.toggle('has-bulk', show);
     if (!show) return;
+    // What the main button would do, said in full: an app that was added
+    // later is deleted for good, whatever the page's button is called.
+    const final = view.primary === 'restore' ? 0 : [...state.selected].filter(isApp).length;
+    const says = { remove: cleanupLabel(final, n - final), uninstall: cleanupLabel(final, n - final), restore: `Restore ${n}` };
     const button = (action, primary) => el('button', {
       class: `btn${primary ? ' primary' : ''}`,
       disabled: state.pending.size > 0,
       onclick: () => run(action),
-    }, icon(WORDS[action].icon), primary ? `${WORDS[action].verb} ${n}` : WORDS[action].verb);
+    }, icon(WORDS[action].icon), primary ? says[action] : WORDS[action].verb);
     set(bar,
       el('span', { class: 'n' }, counted(n, 'selected')),
       el('button', { class: 'btn quiet', onclick: () => { state.selected.clear(); paint(); } }, icon('x'), 'Clear'),
@@ -2601,27 +2784,32 @@ window.DebloatWords = (() => {
 
   // ---- Review before cleaning ----------------------------------------------
 
-  // What a cleanup would do, in words: the part that cannot be undone
-  // first, and in red.
+  // Two words for two things. An app that came with the phone is removed,
+  // and can be put back. One that was added later is deleted for good.
+  // What a cleanup would do, in those words: what cannot be undone first,
+  // and in red.
   function cleanupSays(apps, system) {
     if (!apps && !system) return ['Nothing is ticked.'];
     return [
-      apps ? el('span', { class: 'gone' }, `Uninstalls ${apps} for good`) : null,
+      apps ? el('span', { class: 'gone' }, `Deletes ${apps} for good`) : null,
       apps && system ? ', and ' : null,
       system ? `${apps ? 'removes' : 'Removes'} ${system}, which can be undone` : null,
       '.',
     ];
   }
   // The button says the same thing, shorter.
-  const cleanupLabel = (apps, system) => (apps && system ? `Uninstall ${apps} and remove ${system}`
-    : apps ? `Uninstall ${apps}` : system ? `Remove ${system}` : 'Nothing ticked');
+  const cleanupLabel = (apps, system) => (apps && system ? `Delete ${apps} for good and remove ${system}`
+    : apps ? `Delete ${apps} for good` : system ? `Remove ${system}` : 'Nothing ticked');
+  // What a cleanup starts with ticked: everything that can be put back.
+  // What would be deleted for good is left for its owner to tick.
+  const firstPicks = items => new Set(items.filter(row => !row.app).map(row => row.pkg));
 
   // What can go, in two groups by whether it can be undone, each with a box
   // that ticks the lot. `picked` is the set being chosen; `changed` hears of
   // every tick. Returns the rows and a function that draws them again.
   function checklist(items, picked, { changed = () => {}, hover = null } = {}) {
     const groups = [
-      { title: 'Uninstall', final: true, rows: items.filter(row => row.app) },
+      { title: 'Delete for good', final: true, rows: items.filter(row => row.app) },
       { title: 'Remove', rows: items.filter(row => !row.app) },
     ].filter(group => group.rows.length);
     const node = el('div', {});
@@ -2642,10 +2830,10 @@ window.DebloatWords = (() => {
         all.checked = mine === group.rows.length;
         all.indeterminate = mine > 0 && mine < group.rows.length;
         return [
-          el('div', { class: 'group-head' }, el('label', { class: 'pick' }, all), el('b', {}, group.title),
-            el('span', {}, counted(mine, `of ${group.rows.length}`)),
+          el('div', { class: 'group-head' }, el('label', { class: 'pick' }, all),
+            el('div', { class: 'group-title' }, el('b', {}, group.title), el('span', {}, counted(mine, `of ${group.rows.length}`))),
             el('span', { class: 'grow' }),
-            group.final ? el('span', { class: 'chip bad' }, 'Cannot be undone') : el('span', {}, 'Can be undone')),
+            el('span', { class: group.final ? 'chip bad' : 'chip' }, group.final ? 'cannot be undone' : 'can be undone')),
           group.rows.map(row => {
             const flip = () => {
               if (picked.has(row.pkg)) picked.delete(row.pkg);
@@ -2654,15 +2842,18 @@ window.DebloatWords = (() => {
               draw();
             };
             const said = describe(row, row.from);
-            // In a list to tick through, the whole row is the box.
+            const app = appCell(row.pkg, said.title, said.about);
+            // The box and the name tick a row. The rest of it does nothing,
+            // so that a press meant to look closer cannot untick.
+            app.addEventListener('click', flip);
             return el('div', {
-              class: `row${picked.has(row.pkg) ? ' selected' : ''}`, onclick: flip,
+              class: `row${picked.has(row.pkg) ? ' selected' : ''}`,
               onpointerenter: hover ? () => hover(row, true) : null,
               onpointerleave: hover ? () => hover(row, false) : null,
             },
-            el('label', { class: 'pick', onclick: event => event.stopPropagation() },
+            el('label', { class: 'pick' },
               el('input', { type: 'checkbox', checked: picked.has(row.pkg), 'aria-label': `Select ${said.title}`, onchange: flip })),
-            appCell(row.pkg, said.title, said.about),
+            app,
             el('div', { class: 'note', title: said.about }, said.about));
           }),
         ];
@@ -2672,12 +2863,13 @@ window.DebloatWords = (() => {
     return { node, draw };
   }
 
-  // Everything the cleanup would do, ticked. Untick to keep; nothing
-  // happens until the button is pressed, and what cannot be undone is asked
-  // about once more.
+  // Everything the cleanup would do. What can be put back is ticked; untick
+  // to keep. Nothing happens until the button is pressed, and what cannot be
+  // undone has to be ticked by hand and is then asked about once more.
   function review() {
     const items = cleanup();
-    const picked = new Set(items.map(r => r.pkg));
+    const picked = firstPicks(items);
+    const final = items.some(row => row.app);
     const dialog = document.getElementById('dialog');
     const summary = el('div', { class: 'grow' });
     const confirm = el('button', { class: 'btn primary' });
@@ -2695,32 +2887,28 @@ window.DebloatWords = (() => {
       },
     });
     const body = el('div', { class: 'dialog-body' }, list.node);
-    body.append(cue(body));
-    const show = () => {
-      dialog.classList.add('wide');
-      set(dialog,
-        el('div', { class: 'dialog-head' },
-          el('h2', {}, 'Review cleanup'),
-          el('p', {}, 'Everything below is ticked. Untick anything you want to keep.')),
-        body,
-        el('div', { class: 'dialog-foot' }, summary,
-          el('div', { class: 'acts' }, el('button', { class: 'btn', onclick: () => dialog.close() }, 'Cancel'), confirm)));
-      dialog.oncancel = null;
-      list.draw();
-    };
+    dialog.classList.add('wide');
+    set(dialog,
+      el('div', { class: 'dialog-head' },
+        el('h2', {}, 'Review cleanup'),
+        el('p', {}, 'What came with the phone is ticked: untick anything you want to keep.',
+          final ? ' What was added later is not: deleting it cannot be undone, so that is for you to tick.' : '')),
+      body,
+      cue(body),
+      el('div', { class: 'dialog-foot' }, summary,
+        el('div', { class: 'acts' }, el('button', { class: 'btn', onclick: () => dialog.close() }, 'Cancel'), confirm)));
+    dialog.oncancel = null;
+    list.draw();
 
     confirm.onclick = async () => {
       const chosen = items.filter(r => picked.has(r.pkg));
-      const final = chosen.filter(r => r.app).map(r => r.pkg);
-      if (final.length && !(await forGood(final))) {
-        // Not sure after all: back to the list, as it was left.
-        show();
-        return;
-      }
+      const gone = chosen.filter(r => r.app).map(r => r.pkg);
+      // Asked from inside this dialog, the question takes its place and
+      // gives it back: saying no leaves the list as it was.
+      if (gone.length && !(await forGood(gone))) return;
       dialog.close();
       await act('cleanup', chosen.map(r => r.pkg));
     };
-    show();
     dialog.showModal();
   }
 
@@ -2765,16 +2953,20 @@ window.DebloatWords = (() => {
   }
 
   // One screen of his: where in the steps it is, what he says, what is under
-  // that, and the buttons. A foot with nothing in it is not drawn.
-  function wizShow({ step, line, sub = '', notes = null, body = null, note = '', buttons = [] }) {
+  // that, and the buttons. A foot with nothing in it is not drawn. `focus`
+  // names where the keyboard starts: the main button as a rule, 'back' for
+  // the first of the others where the main one should not be a keypress away.
+  function wizShow({ step, line, sub = '', notes = null, body = null, note = '', buttons = [], focus = 'main' }) {
     wiz.step = step;
     const at = STEPS.findIndex(([id]) => id === step);
     const lineNode = el('p', { class: 'wiz-line', 'aria-hidden': 'true' });
     const scroller = el('div', { class: 'wiz-body' }, body);
-    if (body) scroller.append(cue(scroller));
     const foot = note || buttons.length ? el('div', { class: 'wiz-foot' }, el('div', { class: 'grow' }, note), el('div', { class: 'acts' }, buttons)) : null;
     set(wizNode,
       el('div', { class: 'wiz-top' },
+        // Where he sits when the window is too narrow for him to stand
+        // beside the card: see aim().
+        el('div', { class: 'wiz-pal', 'data-stage': 'side', 'data-stage-first': '', 'aria-hidden': 'true' }),
         el('ol', { class: 'wiz-steps', 'aria-label': 'Steps' }, STEPS.map(([, label], i) => el('li', {
           class: i < at ? 'done' : i === at ? 'now' : null, 'aria-current': i === at ? 'step' : null,
         }, label))),
@@ -2786,20 +2978,26 @@ window.DebloatWords = (() => {
         sub ? el('p', { class: 'wiz-sub' }, sub) : null,
         notes),
       scroller,
+      body ? cue(scroller) : null,
       foot);
     say(lineNode, line);
-    const first = wizNode.querySelector('.wiz-foot .btn.primary:not(:disabled)') || wizNode.querySelector('.wiz-top .btn:not(:disabled)');
+    const first = (focus === 'back' && wizNode.querySelector('.wiz-foot .btn:not(.primary):not(:disabled)'))
+      || wizNode.querySelector('.wiz-foot .btn.primary:not(:disabled)') || wizNode.querySelector('.wiz-top .btn:not(:disabled)');
     if (first) first.focus({ preventScroll: true });
   }
 
-  // Where on his screen he and the phone stand: beside the pane, or above it
-  // when the window is too narrow for both.
+  // Where on his screen he and the phone stand: beside the card where the
+  // window is wide enough for both. Where it is not, the card takes the
+  // window, the stage behind it goes dark, and he sits at the card's head.
   function aim() {
     if (!wiz.open) return;
     const beside = wizNode.offsetLeft > innerWidth * 0.3;
-    wizBack.dataset.into = beside
-      ? `0.02 0.08 ${((wizNode.offsetLeft - 16) / innerWidth).toFixed(3)} 0.96`
-      : `0.04 0.03 0.96 ${((wizNode.offsetTop - 8) / innerHeight).toFixed(3)}`;
+    if (beside) {
+      wizBack.dataset.stage = 'full';
+      wizBack.dataset.into = `0.02 0.08 ${((wizNode.offsetLeft - 16) / innerWidth).toFixed(3)} 0.96`;
+    } else {
+      delete wizBack.dataset.stage;
+    }
   }
 
   function openWizard(options) {
@@ -2814,8 +3012,8 @@ window.DebloatWords = (() => {
     renderDetail();
     for (const id of BEHIND) document.getElementById(id).inert = true;
     document.querySelector('main').inert = true;
+    document.body.classList.add('wiz-open');
     wizBack.hidden = false;
-    wizBack.dataset.stage = 'full';
     wizNode.hidden = false;
     aim();
     syncMagic();
@@ -2833,6 +3031,7 @@ window.DebloatWords = (() => {
     wiz.run += 1;
     typing += 1;
     if (magic) magic.talking(false);
+    document.body.classList.remove('wiz-open');
     wizBack.hidden = true;
     delete wizBack.dataset.stage;
     wizNode.hidden = true;
@@ -2871,7 +3070,7 @@ window.DebloatWords = (() => {
       step: 'connect',
       line: {
         nophone: 'I cannot see a phone yet.',
-        unauthorized: 'I can see it. It wants your say-so.',
+        unauthorized: 'I can see it. It is waiting for your answer.',
         offline: 'It is there, but it will not answer.',
         noadb: 'I am missing a tool.',
         broken: 'Something is wrong with adb.',
@@ -2879,8 +3078,9 @@ window.DebloatWords = (() => {
       }[kind],
       sub: said.text,
       body: said.body.length ? el('div', { class: 'wiz-coach' }, el('div', { class: 'coach-body' }, said.body)) : null,
-      note: kind === 'nohelper' ? '' : 'I look again every few seconds.',
-      buttons: kind === 'nohelper' ? [] : [el('button', { class: 'btn primary', onclick: wizScan }, icon('refresh'), 'Look again')],
+      note: kind === 'nohelper' ? '' : 'I look again every few seconds, and carry on as soon as it answers.',
+      // What there is to do is on the phone: nothing here is the next step.
+      buttons: kind === 'nohelper' ? [] : [el('button', { class: 'btn', onclick: wizScan }, icon('refresh'), 'Look again')],
     });
     return watchLink();
   }
@@ -2904,7 +3104,7 @@ window.DebloatWords = (() => {
     if (run !== wiz.run) return undefined;
     if (state.status !== 'ready') return wizConnect();
     wiz.items = cleanup();
-    wiz.picked = new Set(wiz.items.map(row => row.pkg));
+    wiz.picked = firstPicks(wiz.items);
     if (wiz.deck) {
       wiz.deck = false;
       return wizDeck();
@@ -2940,18 +3140,27 @@ window.DebloatWords = (() => {
     return undefined;
   }
 
+  // What can go, counted three ways that do not overlap, in the words used
+  // for them everywhere: the installers, the apps they put on the phone,
+  // and the rest of the junk that came with it.
+  function sorts(items) {
+    const installers = items.filter(row => reinstalls(row.pkg)).length;
+    const added = items.filter(row => row.app).length;
+    return { installers, added, rest: items.length - installers - added };
+  }
+
   // What the scan found. Each thing that can go is now circling the phone,
   // red if it is an installer, amber if not, and the numbers say so.
   function wizFound() {
     const items = wiz.items;
     const asks = state.scan.lists.ask.filter(row => !row.locked).length;
-    const hot = items.filter(row => reinstalls(row.pkg)).length;
-    const stat = (n, label, tone) => el('div', { class: 'wiz-stat' },
-      el('b', {}, tone ? el('i', { class: `swatch ${tone}`, 'aria-hidden': 'true' }) : null, n), el('span', {}, label));
+    const n = sorts(items);
+    const stat = (count, label, tone) => el('div', { class: 'wiz-stat' },
+      el('b', {}, el('i', { class: `swatch ${tone}`, 'aria-hidden': 'true' }), count), el('span', {}, label));
     const stats = el('div', { class: 'wiz-stats' },
-      stat(hot, hot === 1 ? 'installer: it puts apps on the phone by itself' : 'installers: they put apps on the phone by themselves', 'bad'),
-      stat(items.length - hot, 'other things that can go', 'warn'),
-      stat(asks, 'with a catch, for afterwards'));
+      stat(n.installers, n.installers === 1 ? 'installer, which puts apps on the phone by itself' : 'installers, which put apps on the phone by themselves', 'bad'),
+      stat(n.added, n.added === 1 ? 'app that an installer put there' : 'apps that an installer put there', 'warn'),
+      stat(n.rest, 'other junk that came with the phone', 'warn'));
     const later = asks
       ? ` ${plural(asks, 'more comes', 'more come')} with a catch; we can go through ${asks === 1 ? 'it' : 'them'} afterwards.`
       : '';
@@ -2960,11 +3169,13 @@ window.DebloatWords = (() => {
     magic.shades(items.length === 0);
     magic.act(items.length ? 'think' : 'cool');
     if (!items.length) {
+      const locked = stuckHere().length;
       return wizShow({
         step: 'scan',
-        line: 'Spotless. Nothing here I would send away.',
-        sub: `The installers that put sponsored apps on a phone, the lock screen feeds and the promos are gone, or were never here.${later}`,
-        body: stats,
+        line: locked ? 'Everything that can go has gone.' : 'Spotless. Nothing here I would send away.',
+        sub: `${locked
+          ? `${plural(locked, 'thing is', 'things are')} locked by the phone's maker and ${locked === 1 ? 'has' : 'have'} to stay.`
+          : 'The installers that put sponsored apps on a phone, the lock screen feeds and the promos are gone, or were never here.'}${later}`,
         buttons: asks
           ? [el('button', { class: 'btn', onclick: closeWizard }, 'Close'),
             el('button', { class: 'btn primary', onclick: wizDeck }, icon('layers'), `Go through ${asks}`)]
@@ -2974,18 +3185,20 @@ window.DebloatWords = (() => {
     return wizShow({
       step: 'scan',
       line: `${plural(items.length, 'thing', 'things')} on this phone ${items.length === 1 ? 'does' : 'do'} not belong.`,
-      sub: `That is ${items.length === 1 ? 'it' : 'them'}, circling the phone.${hot ? ` The red ${hot === 1 ? 'one goes' : 'ones go'} first, or the rest come back.` : ''}${later}`,
+      sub: `That is ${items.length === 1 ? 'it' : 'them'}, circling the phone.${n.installers ? ` The red ${n.installers === 1 ? 'one is an installer: it goes' : 'ones are the installers: they go'} first, or the rest come back.` : ''}${later}`,
       body: stats,
       note: 'Nothing changes until you say so.',
       buttons: [el('button', { class: 'btn primary', onclick: wizChoose }, 'Choose what goes', icon('next'))],
     });
   }
 
-  // Everything ticked, in two groups by whether it can be undone, as in the
-  // list. What is unticked drifts away from the phone and cools.
+  // What can be put back is ticked; what would be deleted for good is left
+  // for its owner to tick. What is unticked drifts away from the phone and
+  // cools.
   function wizChoose() {
     const items = wiz.items;
     const picked = wiz.picked;
+    const final = items.some(row => row.app);
     const note = el('span', {});
     const count = () => {
       const apps = items.filter(row => row.app && picked.has(row.pkg)).length;
@@ -2995,8 +3208,8 @@ window.DebloatWords = (() => {
       class: 'btn primary',
       onclick: async () => {
         // What cannot be undone is asked about once more, by name.
-        const final = items.filter(row => row.app && picked.has(row.pkg)).map(row => row.pkg);
-        if (final.length && !(await forGood(final))) return;
+        const gone = items.filter(row => row.app && picked.has(row.pkg)).map(row => row.pkg);
+        if (gone.length && !(await forGood(gone))) return;
         wizCast();
       },
     });
@@ -3018,19 +3231,25 @@ window.DebloatWords = (() => {
     wizShow({
       step: 'choose',
       line: 'Untick anything you would rather keep.',
-      sub: 'What came with the phone can be brought back later. What was added to it afterwards cannot.',
+      sub: final
+        ? 'What came with the phone is ticked, and can be put back later. What was added to it is not ticked: deleting that cannot be undone, so it is yours to tick.'
+        : 'Everything here came with the phone, and can be put back later.',
       body: list.node,
       note,
       buttons: [el('button', { class: 'btn', onclick: wizFound }, icon('back'), 'Back'), go],
+      // Not the main button: a stray Return here must not start the cleanup.
+      focus: 'back',
     });
     list.draw();
+    for (const row of items) mark(row);
   }
 
-  // What the tool said it did to an app, as a chip.
+  // What the tool said it did to an app, as a chip, in this window's words.
+  const SAID = { uninstalled: 'deleted for good', FAILED: 'locked by the maker' };
   function outcomeChip(how, pkg) {
     const said = how.has(pkg) ? how.get(pkg).said : 'no answer';
     const tone = !(how.has(pkg) && how.get(pkg).done) ? ' bad' : /^(removed|uninstalled)$/.test(said) ? ' ok' : ' warn';
-    return el('span', { class: `chip${tone}` }, said === 'FAILED' ? 'locked by the maker' : said);
+    return el('span', { class: `chip${tone}` }, SAID[said] || said);
   }
 
   // `chosen` is what goes, out of `all` that are circling the phone: the
@@ -3048,7 +3267,8 @@ window.DebloatWords = (() => {
     // What each app is, kept from before it goes: once it has gone, the scan
     // has nothing to say about it, and its picture would be lost.
     const texts = new Map(chosen.map(row => [row.pkg, `${describe(row, row.from || 'ask').about} ${known().get(row.pkg) || ''}`]));
-    const cell = row => appCell(row.pkg, '', texts.get(row.pkg));
+    const names = new Map(chosen.map(row => [row.pkg, nameOf(row.pkg)]));
+    const cell = row => appCell(row.pkg, names.get(row.pkg), texts.get(row.pkg));
     const bar = el('div', { class: 'working', role: 'progressbar', 'aria-label': 'Waiting for the phone' }, el('i'));
     wizShow({
       step: 'cast',
@@ -3068,9 +3288,9 @@ window.DebloatWords = (() => {
     for (const pkg of packages) state.pending.delete(pkg);
     log(`Clean up ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
     const how = Words.outcomes(result.output, packages);
+    noteOutcomes(how);
     const gone = packages.filter(pkg => how.has(pkg) && how.get(pkg).done);
     if (gone.length) state.needsRestart = true;
-    bar.classList.add('done');
     const tell = pkg => { if (pills.has(pkg)) pills.get(pkg).replaceWith(outcomeChip(how, pkg)); };
     // The phone has answered. Now the lightning, and only for what went.
     await magic.zapTiles(gone, gone.length > 12 ? 90 : 170, tell);
@@ -3079,36 +3299,44 @@ window.DebloatWords = (() => {
       magic.tile(pkg, 'fail');
       tell(pkg);
     }
+    // Every line has its answer: only now is the bar finished.
+    bar.classList.add('done');
     await scan({ quiet: true });
     wiz.busy = false;
-    return wizDone(result, chosen, how, cell);
+    return wizDone(result, chosen, how, cell, names);
   }
 
-  function wizDone(result, chosen, how, cell) {
+  function wizDone(result, chosen, how, cell, names) {
     const done = row => how.has(row.pkg) && how.get(row.pkg).done;
     const word = row => (how.has(row.pkg) ? how.get(row.pkg).said : '');
+    const count = said => chosen.filter(row => word(row) === said).length;
     const gone = chosen.filter(done);
     const stuck = chosen.filter(row => !done(row));
-    const taken = gone.filter(row => /^(removed|uninstalled)$/.test(word(row))).length;
-    const fellBack = gone.length - taken;
+    const removed = count('removed');
+    const deleted = count('uninstalled');
+    const off = count('switched off');
+    const muted = count('silenced');
+    // What Undo can put back: everything that came with the phone.
     const undo = gone.filter(row => !row.app).map(row => row.pkg);
-    const final = gone.length - undo.length;
     const left = state.status === 'ready' ? cleanup().length : 0;
-    const told = el('div', {}, chosen.map(row => el('div', { class: 'row told' }, cell(row), outcomeChip(how, row.pkg))));
-    const close = primary => el('button', { class: `btn${primary ? ' primary' : ''}`, onclick: closeWizard }, 'Close');
+    // What went wrong first, then what only half worked, then the rest.
+    const rank = row => (!done(row) ? 0 : /^(removed|uninstalled)$/.test(word(row)) ? 2 : 1);
+    const told = el('div', {}, chosen.slice().sort((a, b) => rank(a) - rank(b))
+      .map(row => el('div', { class: 'row told' }, cell(row), outcomeChip(how, row.pkg))));
     const asks = state.status === 'ready' ? state.scan.lists.ask.filter(row => !row.locked).length : 0;
     const report = `MAXAPACITY Debloat ${VERSION}\n${result.output || ''}`.trim();
     const noteLine = (tone, iconName, text) => el('li', { class: tone }, icon(iconName), el('span', {}, text));
+    const finish = el('button', { class: 'btn primary', onclick: closeWizard }, icon('check'), 'Done');
 
     if (!gone.length) {
       magic.act('idle');
       magic.act('shrug');
       return wizShow({
         step: 'done',
-        line: result.ok ? 'They would not budge.' : 'That did not work.',
-        sub: result.ok ? 'The phone\'s maker has locked what is listed below. Nothing about it was changed.' : result.error,
+        line: result.ok ? 'They could not be removed.' : 'That did not work.',
+        sub: result.ok ? 'The phone\'s maker has locked what is listed below. Nothing about it was changed, and I will not offer it again.' : result.error,
         body: result.ok ? told : null,
-        buttons: [el('button', { class: 'btn', onclick: wizScan }, icon('refresh'), 'Scan again'), close(true)],
+        buttons: [el('button', { class: 'btn', onclick: wizScan }, icon('refresh'), 'Scan again'), finish],
       });
     }
     magic.phone(left ? 'idle' : 'clean', ...junkOf(left ? cleanup() : []));
@@ -3116,27 +3344,29 @@ window.DebloatWords = (() => {
     magic.act('cool');
     magic.act('cheer');
     magic.celebrate();
-    // The headline counts what is out of the way; a line each for what that
-    // means, in the colour the answers below are in.
+    const them = n => (n === 1 ? 'it' : 'them');
+    // The headline counts what is out of the way; then a line for each thing
+    // that means, in the words and the colours of the answers below.
     return wizShow({
       step: 'done',
       line: stuck.length ? `${gone.length} of ${chosen.length} are out of the way.`
         : gone.length === 1 ? 'It is out of the way.' : `All ${gone.length} are out of the way.`,
       notes: el('ul', { class: 'wiz-notes' },
-        taken ? noteLine('ok', 'check', `${taken} removed.`) : null,
-        fellBack ? noteLine('warn', 'alert', `Android would not remove ${fellBack}, so ${fellBack === 1 ? 'it is' : 'they are'} switched off or silenced instead. That stops ${fellBack === 1 ? 'it' : 'them'} just the same.`) : null,
-        stuck.length ? noteLine('bad', 'lock', `${stuck.length} ${stuck.length === 1 ? 'is' : 'are'} locked by the phone's maker. Nothing about ${stuck.length === 1 ? 'it' : 'them'} was changed.`) : null,
-        final && undo.length ? noteLine('', 'info', `Undo brings back the ${undo.length} that came with the phone. The ${final} uninstalled ${final === 1 ? 'app' : 'apps'} cannot come back.`) : null,
+        removed ? noteLine('ok', 'check', `${removed} removed. Undo puts ${them(removed)} back.`) : null,
+        deleted ? noteLine('ok', 'check', `${deleted} deleted for good, as you asked. ${deleted === 1 ? 'That one' : 'Those'} cannot come back.`) : null,
+        off + muted ? noteLine('warn', 'alert', `Android would not remove ${off + muted}, so ${off + muted === 1 ? 'it is' : 'they are'} ${[off ? 'switched off' : '', muted ? 'silenced' : ''].filter(Boolean).join(' or ')} instead. That stops ${them(off + muted)} just the same, and Undo puts ${them(off + muted)} back too.`) : null,
+        stuck.length ? noteLine('bad', 'lock', `${listOf(stuck.map(row => names.get(row.pkg)))} ${stuck.length === 1 ? 'is' : 'are'} locked by the phone's maker and ${stuck.length === 1 ? 'has' : 'have'} to stay. Nothing about ${them(stuck.length)} was changed, and I will not offer ${them(stuck.length)} again.`) : null,
         noteLine('', 'power', 'Restart the phone when you are done, so its lock and home screens catch up.'),
         el('li', {}, el('span', {}), el('button', { class: 'btn quiet small', onclick: event => copy(report, event.currentTarget) }, icon('copy', 16), 'Copy what was done'))),
       body: told,
-      note: undo.length ? el('button', { class: 'btn', onclick: () => wizUndo(undo) }, icon('undo'), `Undo ${undo.length}`) : '',
-      // What is left to decide comes before the restart, which takes the
-      // phone away for a minute.
-      buttons: asks
-        ? [el('button', { class: 'btn', onclick: wizRestart }, icon('power'), 'Restart phone'),
-          el('button', { class: 'btn primary', onclick: wizDeck }, icon('layers'), `Go through ${asks} more`)]
-        : [close(false), el('button', { class: 'btn primary', onclick: wizRestart }, icon('power'), 'Restart phone')],
+      note: undo.length ? el('button', { class: 'btn', onclick: () => wizUndo(undo) }, icon('undo'), 'Undo') : '',
+      // Finished is finished: Done is the way out. What else there is to do
+      // is offered beside it, not instead of it.
+      buttons: [
+        asks ? el('button', { class: 'btn', onclick: wizDeck }, icon('layers'), `Go through ${asks} more`) : null,
+        el('button', { class: 'btn', onclick: wizRestart }, icon('power'), 'Restart phone'),
+        finish,
+      ],
     });
   }
 
@@ -3157,7 +3387,7 @@ window.DebloatWords = (() => {
     wiz.busy = false;
     if (state.status !== 'ready') return wizConnect();
     wiz.items = cleanup();
-    wiz.picked = new Set(wiz.items.map(row => row.pkg));
+    wiz.picked = firstPicks(wiz.items);
     return wizFound();
   }
 
@@ -3203,10 +3433,10 @@ window.DebloatWords = (() => {
       sub: left
         ? `${plural(left, 'thing is', 'things are')} still on it that could go. Scan again after a system update too: updates can bring things back.`
         : 'Scan again after a system update: updates can switch back on what was removed.',
-      buttons: asks
-        ? [el('button', { class: 'btn', onclick: closeWizard }, 'Close'),
-          el('button', { class: 'btn primary', onclick: wizDeck }, icon('layers'), `Go through ${asks} more`)]
-        : [el('button', { class: 'btn primary', onclick: closeWizard }, 'Close')],
+      buttons: [
+        asks ? el('button', { class: 'btn', onclick: wizDeck }, icon('layers'), `Go through ${asks} more`) : null,
+        el('button', { class: 'btn primary', onclick: closeWizard }, icon('check'), 'Done'),
+      ],
     });
   }
 
@@ -3254,8 +3484,10 @@ window.DebloatWords = (() => {
     const reason = Words.parts(Words.plain(said.title, known().get(pkg) || ''));
     // A rule that only names the app says nothing the name does not: then
     // it is where the app came from that is known.
+    // Failing that, what kind of thing it is can usually be told.
+    const kind = Words.kindOf(pkg, said.about);
     const what = reason.what && reason.what.toLowerCase() !== said.title.toLowerCase() ? reason.what
-      : listed ? listed.text : ruled ? said.about : '';
+      : listed ? listed.text : ruled ? said.about : kind ? KIND_SAYS[kind] : row.app ? 'An app that was added to the phone after it was made.' : '';
     const busy = state.pending.size > 0;
 
     const facts = [];
@@ -3282,7 +3514,7 @@ window.DebloatWords = (() => {
 
     const consequence = kept ? 'The phone needs this one to work. Nothing here will touch it.'
       : off ? 'It is out of the way now. Restore puts it back as it was.'
-        : row.app ? 'It was added to the phone after it was made, so removing it uninstalls it for good, along with whatever is saved in it. The Play Store is the only way back.'
+        : row.app ? 'It was added to the phone after it was made, so removing it deletes it for good, along with whatever is saved in it. The Play Store is the only way back.'
           : 'It came with the phone, so removing it can be undone: Already off brings it back whenever you like. Where Android will not remove it, it is switched off instead, which stops it just the same.';
 
     const one = async (action, final) => {
@@ -3291,19 +3523,17 @@ window.DebloatWords = (() => {
     };
     const buttons = kept ? null
       : off ? el('div', { class: 'pair' }, el('button', { class: 'btn primary', disabled: busy, onclick: () => one('restore') }, icon('restore'), 'Restore'))
-        : row.app ? el('div', { class: 'pair' }, el('button', { class: 'btn primary', disabled: busy, onclick: () => one('uninstall', true) }, icon('trash'), 'Uninstall'))
+        : row.app ? el('div', { class: 'pair' }, el('button', { class: 'btn primary', disabled: busy, onclick: () => one('uninstall', true) }, icon('trash'), 'Delete for good'))
           : [el('div', { class: 'pair' },
             el('button', { class: 'btn primary', disabled: busy, onclick: () => one('remove') }, icon('trash'), 'Remove'),
             el('button', { class: 'btn', disabled: busy, onclick: () => one('mute') }, icon('mute'), 'Silence')),
           el('p', {}, 'Silence leaves the app where it is, and stops its notifications and anything it does in the background.')];
 
-    panel.hidden = false;
-    set(panel,
-      el('div', { class: 'detail-head' },
+    const head = el('div', { class: 'detail-head' },
         appMark(pkg, said.about),
         el('div', {}, el('h2', {}, said.title), pkgNode(pkg)),
-        el('button', { class: 'btn quiet small', 'aria-label': 'Close', title: 'Close', onclick: closeDetail }, icon('x'))),
-      el('div', { class: 'detail-body' },
+        el('button', { class: 'btn quiet small', 'aria-label': 'Close', title: 'Close', onclick: closeDetail }, icon('x')));
+    const body = el('div', { class: 'detail-body' },
         reinstalls(pkg) || row.app || (kept && !off) ? el('div', { class: 'chips' },
           reinstalls(pkg) ? el('span', { class: 'chip bad' }, 'puts apps back') : null,
           row.app ? el('span', { class: 'chip' }, 'added later') : null,
@@ -3315,19 +3545,23 @@ window.DebloatWords = (() => {
           what && listed ? el('p', { class: 'check-detail' }, `From the community list, which rates removing it "${listed.rating}".`) : null),
         el('section', {},
           el('h3', {}, off ? 'If you bring it back' : 'If you remove it'),
-          el('p', {}, consequence),
+          el('p', { class: row.app && !off && !kept ? 'final' : null }, consequence),
           reinstalls(pkg) ? el('p', {}, 'It can put apps on the phone by itself. Remove it before the apps it installed, or they come back.') : null),
         el('section', {}, el('h3', {}, 'On this phone'), el('ul', { class: 'facts' }, facts.map(fact => el('li', {}, fact)))),
         el('section', {},
           el('h3', {}, 'Its name'),
-          el('p', {}, 'The phone only gives this app\'s package name, shown under the name above. The name is a reading of it, so the phone may call the app something else.'),
+          // Only a name that was worked out needs saying so.
+          el('p', {}, sureOf(pkg) ? 'The phone knows this app by its package name, shown under the name above.'
+            : 'The phone only gives this app\'s package name, shown under the name above. The name is a reading of it, so the phone may call the app something else.'),
           el('div', { class: 'detail-links' },
             el('button', { class: 'btn quiet small', onclick: event => copy(pkg, event.currentTarget) }, icon('copy', 16), 'Copy package name'),
             el('a', {
               class: 'btn quiet small', target: '_blank', rel: 'noopener noreferrer',
               href: `https://www.google.com/search?q=${encodeURIComponent(`"${pkg}" android`)}`,
-            }, icon('external', 16), 'Look it up on the web')))),
-      el('div', { class: 'detail-foot' }, buttons));
+            }, icon('external', 16), 'Look it up on the web'))));
+    panel.hidden = false;
+    // More than fits is said, under what does.
+    set(panel, head, body, cue(body), el('div', { class: 'detail-foot' }, buttons));
   }
 
   // ---- Find anything -------------------------------------------------------
@@ -3360,9 +3594,9 @@ window.DebloatWords = (() => {
       const asks = state.scan.lists.ask.filter(row => !row.locked).length;
       if (n && magic) add('Do', 'Clean up with the wizard', `${n} can go`, 'wand', () => openWizard());
       if (n) add('Do', 'Review the cleanup as a list', `${n} can go`, 'review', review);
-      if (asks) add('Do', 'Go through Ask first one at a time', plural(asks, 'app', 'apps'), 'layers', () => openDeck());
+      if (asks) add('Do', 'Go through what comes with a catch, one at a time', plural(asks, 'app', 'apps'), 'layers', () => openDeck());
     }
-    add('Do', ready ? 'Scan again' : 'Look for the phone again', '', 'refresh', () => scan());
+    add('Do', ready ? 'Scan again' : 'Look again', '', 'refresh', () => scan());
     if (ready) {
       const listed = Number(state.scan.meta.community) || 0;
       add('Do', 'Restart the phone', '', 'power', restart);
@@ -3389,7 +3623,7 @@ window.DebloatWords = (() => {
           const title = nameOf(row.pkg);
           const about = describe(row, name).about;
           out.push({
-            group: 'Apps', label: title, hint: `${VIEWS[name].label} · ${row.pkg}`, about, pkg: row.pkg,
+            group: 'Apps', label: title, hint: VIEWS[name].label, about, pkg: row.pkg,
             run: () => { go(name); openDetail(row.pkg); },
             search: `${title} ${row.pkg} ${about} ${VIEWS[name].label}`.toLowerCase(),
           });
@@ -3449,12 +3683,15 @@ window.DebloatWords = (() => {
         // What is beside an app is where it was found: under its name or its
         // package as a rule, and otherwise the words that matched.
         const named = !item.pkg || need.every(word => `${item.label} ${item.hint}`.toLowerCase().includes(word));
+        // Found by its package name alone, that is what is shown; found by
+        // what is said about it, that is.
+        const why = named ? item.hint : need.every(word => item.pkg.toLowerCase().includes(word)) ? item.pkg : item.about;
         return [head, el('div', {
           class: `palette-item${i === at ? ' on' : ''}`, role: 'option', 'aria-selected': String(i === at),
           onclick: () => pick(i),
           onpointermove: () => { if (at !== i) { at = i; mark(); } },
         }, item.pkg ? appGlyph(item.pkg, item.about) : icon(item.icon), el('span', { class: 'label' }, item.label),
-        el('span', { class: 'hint' }, named ? item.hint : item.about))];
+        el('span', { class: `hint${/^\d/.test(why) ? ' num' : ''}` }, why))];
       }));
     };
     input.addEventListener('input', draw);
@@ -3483,20 +3720,26 @@ window.DebloatWords = (() => {
   // ---- One at a time -------------------------------------------------------
 
   // The apps with a catch, one to a card: what it is, the catch, what
-  // removing it does, and two keys, keep or remove. Keep is the one in
-  // reach: it is the answer that cannot go wrong. Nothing happens until the
-  // last card is past and the tally agreed. `host` is where the cards are
-  // drawn; `done` gets the ones marked for removal, `show` hears which card
-  // is up, and `exit` adds a Cancel where there is no other way out.
+  // removing it does, and two buttons, Keep or Remove. Every button has a
+  // place it keeps from the first card to the last, so that none is ever
+  // where another was a moment ago, and Keep is the one under the keyboard:
+  // it is the answer that cannot go wrong. Nothing happens until the last
+  // card is past and the tally agreed, and what would be deleted for good is
+  // asked about once more. `host` is where the cards are drawn; `done` gets
+  // the ones marked for removal, `show` hears which card is up, and `exit`
+  // adds a Cancel where there is no other way out.
   function deck(rows, host, { done, cancel, show = () => {}, exit = false }) {
     const choice = new Map();
     let at = 0;
+    // While the last question is being asked, the keys are not for the cards.
+    let asking = false;
     const count = what => [...choice.values()].filter(value => value === what).length;
     const catchOf = row => {
       const listed = Words.community(row.note);
       return listed ? { what: listed.text, catch: '' } : Words.parts(Words.plain(nameOf(row.pkg), row.note));
     };
     const back = () => {
+      if (at === 0) return;
       at -= 1;
       draw();
     };
@@ -3512,7 +3755,24 @@ window.DebloatWords = (() => {
       at = rows.length;
       draw();
     };
-    const leave = exit ? el('button', { class: 'btn quiet', onclick: cancel }, 'Cancel') : null;
+    // The row of buttons, the same five places on every card and the tally:
+    // Back, a way out if there is no other, the room between, and two answers.
+    const keys = (first, second) => el('div', { class: 'deck-keys' },
+      el('button', { class: 'btn', onclick: back, disabled: at === 0 }, icon('back'), 'Back'),
+      exit ? el('button', { class: 'btn quiet', onclick: cancel }, 'Cancel') : el('span', {}),
+      el('span', {}),
+      first || el('span', {}),
+      second);
+    const agree = async going => {
+      const gone = going.filter(row => row.app).map(row => row.pkg);
+      if (gone.length) {
+        asking = true;
+        const sure = await forGood(gone);
+        asking = false;
+        if (!sure) return;
+      }
+      done(going);
+    };
     const tally = () => {
       const going = rows.filter(row => choice.get(row.pkg) === 'remove');
       const final = going.filter(row => row.app).length;
@@ -3526,16 +3786,16 @@ window.DebloatWords = (() => {
           going.length ? el('ul', {}, going.map(row => {
             const said = catchOf(row);
             return el('li', {}, el('b', {}, nameOf(row.pkg)),
-              el('span', {}, row.app ? el('span', { class: 'gone' }, 'Uninstalled for good, with whatever is saved in it.') : said.catch || said.what));
+              el('span', {}, row.app ? el('span', { class: 'gone' }, 'Deleted for good, with whatever is saved in it.') : said.catch || said.what));
           })) : el('p', {}, 'Nothing on the phone changes.'))),
-        el('div', { class: 'deck-keys' },
-          el('button', { class: 'btn', onclick: back }, icon('back'), 'Back'),
-          leave,
-          el('span', { class: 'grow' }, final ? '' : going.length ? 'These can be brought back from Already off.' : ''),
-          going.length ? el('button', { class: 'btn primary answer', onclick: () => done(going) }, icon('trash'), `Remove ${going.length}`)
-            : el('button', { class: 'btn primary answer', onclick: cancel }, 'Done'))));
-      const first = host.querySelector('.btn.primary');
-      if (first) first.focus({ preventScroll: true });
+        el('div', { class: 'deck-hint' }, going.length && !final ? 'These can be brought back from Already off.' : ''),
+        keys(null, going.length
+          ? el('button', { class: 'btn primary answer', onclick: () => agree(going) }, icon('trash'), `Remove ${going.length}`)
+          : el('button', { class: 'btn primary answer', onclick: cancel }, icon('check'), 'Done'))));
+      // Back, not the button that does it: the keys that answered the last
+      // card must not be able to agree to the tally as well.
+      const safe = host.querySelector('.deck-keys .btn');
+      if (safe) safe.focus({ preventScroll: true });
     };
     function draw() {
       if (at >= rows.length) return tally();
@@ -3547,18 +3807,16 @@ window.DebloatWords = (() => {
         el('div', { class: 'deck-count' }, el('span', {}, counted(at + 1, `of ${rows.length}`)), el('span', {}, counted(count('remove'), 'to remove, '), counted(count('keep'), 'to keep'))),
         el('div', { class: 'deck-bar' }, el('i', { style: `width:${(at / rows.length) * 100}%` })),
         el('div', { class: 'deck-card' },
-          appCell(row.pkg, said.title, said.about, true),
+          appCell(row.pkg, said.title, said.about),
           el('div', {}, el('h3', {}, Words.community(row.note) ? 'What the community list says' : 'What it is'),
             el('p', {}, what || said.about)),
           snag ? el('div', {}, el('h3', {}, 'The catch'), el('div', { class: 'catch' }, icon('alert'), el('p', {}, snag, '.'))) : null,
           el('div', {}, el('h3', {}, 'If you remove it'), el('p', { class: row.app ? 'gone' : 'after' }, row.app
-            ? 'It is uninstalled for good, with whatever is saved in it. The Play Store is the only way back.'
+            ? 'It is deleted for good, with whatever is saved in it. The Play Store is the only way back.'
             : 'It can be brought back from Already off whenever you like.'))),
-        el('div', { class: 'deck-keys' },
-          at > 0 ? el('button', { class: 'btn', onclick: back }, icon('back'), 'Back') : null,
-          rows.length - at > 3 ? el('button', { class: 'btn quiet', onclick: rest }, 'Keep the rest') : null,
-          leave,
-          el('span', { class: 'grow' }, 'Not sure? Keep it.'),
+        el('div', { class: 'deck-hint' }, 'Not sure? Keep it.',
+          rows.length - at > 3 ? el('button', { class: 'btn quiet small', onclick: rest }, 'Keep all the rest') : null),
+        keys(
           el('button', { class: 'btn answer keep', onclick: () => answer('keep') }, icon('shield'), 'Keep', el('kbd', {}, 'K')),
           el('button', { class: 'btn answer', onclick: () => answer('remove') }, icon('trash'), 'Remove', el('kbd', {}, 'R')))));
       // Keep is where the keyboard starts on every card, so that Return or
@@ -3567,22 +3825,23 @@ window.DebloatWords = (() => {
       if (safe) safe.focus({ preventScroll: true });
       return undefined;
     }
-    // K and R answer, the arrows too, and Backspace goes back. The listener
-    // goes when the cards do.
-    const keys = event => {
+    // K and R answer, and Backspace goes back; the keys say so on the
+    // buttons. The listener goes when the cards do.
+    const typed = event => {
+      if (asking) return;
       if (!host.isConnected) {
-        document.removeEventListener('keydown', keys);
+        document.removeEventListener('keydown', typed);
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey || at >= rows.length) return;
       const key = event.key.toLowerCase();
-      if (key === 'k' || key === 'arrowleft') answer('keep');
-      else if (key === 'r' || key === 'arrowright') answer('remove');
-      else if (key === 'backspace' && at > 0) back();
+      if (key === 'k') answer('keep');
+      else if (key === 'r') answer('remove');
+      else if (key === 'backspace') back();
       else return;
       event.preventDefault();
     };
-    document.addEventListener('keydown', keys);
+    document.addEventListener('keydown', typed);
     draw();
   }
 
@@ -3632,11 +3891,11 @@ window.DebloatWords = (() => {
     if (view === 'remove') return { text: `I can clear ${n === 1 ? 'this' : `all ${n} of these`}, and the rest of the junk, in one go.`, label: 'Clean up with the wizard', run: () => openWizard() };
     if (view === 'ask') return { text: 'Each of these comes with a catch. I can show you them one at a time.', label: 'One at a time', run: () => openDeck() };
     if (view === 'pushed') {
-      return active ? { text: 'An installer put these here, and it is still on the phone. It goes first, or they come back.', label: 'Clean up with the wizard', run: () => openWizard() }
-        : { text: 'An installer put these here. Uninstalling one deletes whatever is saved in it.' };
+      return active ? { text: 'Whatever put these here is still on the phone. It goes first, or they come back.', label: 'Clean up with the wizard', run: () => openWizard() }
+        : { text: 'An installer put these here. Deleting one also deletes whatever is saved in it.' };
     }
-    if (view === 'back') return { text: 'Back again. Whatever puts them back is still at work: look under Remove.', label: 'Go to Remove', run: () => go('remove') };
-    if (view === 'notifying') return { text: 'Bring the nuisance up on the phone\'s screen, then scan again. I will name the app behind it.', label: 'Scan again', run: () => scan() };
+    if (view === 'back') return { text: 'Back again. Whatever puts them back is still at work: look under Safe to remove.', label: 'Go there', run: () => go('remove') };
+    if (view === 'notifying') return { text: 'Bring the nuisance up on the phone, then scan again: I will name the app behind it.', label: 'Scan again', run: () => scan() };
     if (view === 'unknown') {
       return Number(state.scan.meta.community) ? null
         : { text: 'I do not know these. The community list describes most apps on most phones.', label: 'Get the list', run: () => community(true) };
@@ -3714,39 +3973,52 @@ window.DebloatWords = (() => {
   }
 
   // A question with two answers. Asked from inside a dialog that is already
-  // open, it takes that dialog's place and leaves it open afterwards, for
-  // whoever asked to put back what was there.
-  function ask({ title, text, yes }) {
+  // open, it takes that dialog's place and gives it back afterwards as it
+  // was. `risky` marks a yes that cannot be undone: that is then the plain
+  // button, with its words in red, and the way back is the one that stands
+  // out. Either way the way back is where the keyboard starts: Return must
+  // not agree to something by accident.
+  function ask({ title, text, yes, no = 'Cancel', risky = false }) {
     const dialog = document.getElementById('dialog');
-    const nested = dialog.open;
+    const held = dialog.open
+      ? { nodes: [...dialog.childNodes], wide: dialog.classList.contains('wide'), cancel: dialog.oncancel, focus: document.activeElement }
+      : null;
     dialog.classList.remove('wide');
     return new Promise(resolve => {
       const done = answer => {
-        if (!nested) dialog.close();
+        if (held) {
+          dialog.replaceChildren(...held.nodes);
+          dialog.classList.toggle('wide', held.wide);
+          dialog.oncancel = held.cancel;
+          if (held.focus && held.focus.isConnected) held.focus.focus({ preventScroll: true });
+        } else {
+          dialog.close();
+        }
         resolve(answer);
       };
+      const agree = el('button', { class: risky ? 'btn risky' : 'btn primary', onclick: () => done(true) }, yes);
+      const refuse = el('button', { class: risky ? 'btn primary' : 'btn', onclick: () => done(false) }, no);
       set(dialog,
         el('div', { class: 'dialog-head' }, el('h2', {}, title), el('p', {}, text)),
+        // The button that stands out is last, as everywhere.
         el('div', { class: 'dialog-foot' }, el('div', { class: 'grow' }),
-          el('div', { class: 'acts' },
-            el('button', { class: 'btn', onclick: () => done(false) }, 'Cancel'),
-            el('button', { class: 'btn primary', onclick: () => done(true) }, yes))));
+          el('div', { class: 'acts' }, risky ? [agree, refuse] : [refuse, agree])));
       // Escape says no. Asked from inside another dialog, it must not shut
       // that one as well.
       dialog.oncancel = event => {
-        if (nested) event.preventDefault();
+        if (held) event.preventDefault();
         done(false);
       };
-      if (!nested) dialog.showModal();
-      // Cancel is where the keyboard starts: Return must not agree to
-      // something by accident.
-      dialog.querySelector('.dialog-foot .btn').focus({ preventScroll: true });
+      if (!held) dialog.showModal();
+      refuse.focus({ preventScroll: true });
     });
   }
 
   // A closed dialog keeps nothing behind: no stale rows for a screen reader or
   // a search of the page to find.
   document.getElementById('dialog').addEventListener('close', event => {
+    // Opened again before this was heard: what is in it now is wanted.
+    if (event.target.open) return;
     event.target.classList.remove('wide');
     event.target.replaceChildren();
   });
@@ -3810,6 +4082,11 @@ window.DebloatWords = (() => {
 
   // Cards on the overview lean towards the pointer.
   const mainNode = document.querySelector('main');
+  // In a narrow window an open panel dims what is left of the page: a
+  // press there, which lands on the page itself, closes the panel.
+  mainNode.addEventListener('click', event => {
+    if (state.detail && event.target === mainNode && matchMedia('(max-width: 960px)').matches) closeDetail();
+  });
   mainNode.addEventListener('pointermove', event => {
     const card = event.target.closest ? event.target.closest('.tile') : null;
     if (!card || !magic || still()) return;

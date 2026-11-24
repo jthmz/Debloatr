@@ -1051,11 +1051,12 @@
     }
 
     // ---- Sparks and lightning, in window pixels ----
-    // "home" is the stage a spark must stay on: { left, top, right, bottom,
-    // radius }. One with no home may cross the window, as a spell does.
+    // A spark with a "home" must stay on the stage, wherever the stage is
+    // by the time it is drawn: the page under it may have scrolled. One
+    // with none may cross the window, as a spell does.
     function spark(x, y, vx, vy, life, size, colour, shape = 0, pull = 0, home = null) {
       if (sparks.length >= 1300 || settings.still) return;
-      sparks.push({ x, y, vx, vy, life, age: 0, size, r: colour[0], g: colour[1], b: colour[2], shape, pull, home });
+      sparks.push({ x, y, vx, vy, life, age: 0, size, r: colour[0], g: colour[1], b: colour[2], shape, pull, home: Boolean(home) });
     }
     // Is this point of the window inside a stage's rounded shape, with room
     // to spare for a spark of this size?
@@ -1183,7 +1184,7 @@
         s.x += s.vx * dt;
         s.y += s.vy * dt;
         const u = s.age / s.life;
-        if (s.home && !onStage(s.home, s.x, s.y, s.size)) continue;
+        if (s.home && !(scene.home && onStage(scene.home, s.x, s.y, s.size))) continue;
         data[k++] = s.x; data[k++] = s.y;
         data[k++] = Math.min(res.maxPoint / ratio, s.size * (s.shape ? 1 + 0.3 * Math.sin(s.age * 30) : 1 - u * 0.5));
         data[k++] = s.r; data[k++] = s.g; data[k++] = s.b;
@@ -1210,14 +1211,18 @@
     // ---- A frame ----
     // The stage to draw on: the wizard's own screen if it is open, else the
     // one on the overview, else the small one in the corner.
+    // A stage marked data-stage-first comes before any other, whatever its
+    // kind: the page uses that where one stage lies over another.
     function findStage() {
-      for (const kind of ['full', 'hero', 'side']) {
-        const node = document.querySelector(`[data-stage="${kind}"]`);
-        if (!node) continue;
-        const rect = node.getBoundingClientRect();
-        if (rect.width < 24 || rect.height < 24) continue;
-        if (rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth) continue;
-        return { kind, node, rect };
+      for (const pick of ['[data-stage-first]', '[data-stage="full"]', '[data-stage="hero"]', '[data-stage="side"]']) {
+        for (const node of document.querySelectorAll(pick)) {
+          const kind = node.dataset.stage;
+          if (!SHOTS[kind]) continue;
+          const rect = node.getBoundingClientRect();
+          if (rect.width < 24 || rect.height < 24) continue;
+          if (rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth) continue;
+          return { kind, node, rect };
+        }
       }
       return null;
     }
@@ -1413,7 +1418,7 @@
         drawScene(stage, clock, dt, innerWidth, innerHeight);
         ambient(dt, stage);
       } else {
-        scene.orbScreen = scene.headScreen = scene.phoneScreen = null;
+        scene.orbScreen = scene.headScreen = scene.phoneScreen = scene.home = null;
         for (const tile of scene.tiles) tile.screen = null;
       }
       gl.viewport(0, 0, canvas.width, canvas.height);
