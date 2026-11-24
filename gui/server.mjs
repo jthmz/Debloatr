@@ -148,6 +148,7 @@ function parseScan(tsv) {
   const history = [];
   const changes = [];
   const installers = [];
+  const known = [];
   for (const line of tsv.split('\n')) {
     if (!line) continue;
     const field = line.split('\t');
@@ -158,9 +159,10 @@ function parseScan(tsv) {
       history.push({ time, installed, cleanup, ask, notifying, off });
     } else if (kind === 'change') changes.push({ pkg: a, action: b, when: c });
     else if (kind === 'installer') installers.push({ pkg: a, active: b === 'active', note: c });
+    else if (kind === 'known') known.push({ pkg: a, tier: b, note: c });
     else if (lists[kind]) lists[kind].push({ pkg: a, note: b, app: c === 'app', locked: c === 'locked' });
   }
-  return { meta, lists, history, changes, installers };
+  return { meta, lists, history, changes, installers, known };
 }
 
 function listPhones() {

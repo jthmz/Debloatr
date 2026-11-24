@@ -213,6 +213,11 @@ has "$(printf 'meta\tcommunity\t0')"
 has "$(printf 'installer\tcom.dti.folderlauncher\tactive\tDigital Turbine: silently installs and reinstalls sponsored apps')"
 has "$(printf 'installer\tcom.LogiaGroup.LogiaDeck\tactive\t')"
 if [ "$(grep -c "^installer$(printf '\t')" "$OUT")" -eq 2 ]; then ok; else bad "only the installers on this phone should be listed"; fi
+# What the rules know about an app is said whether or not it is still on the
+# phone: one an earlier tool removed is known all the same.
+has "$(printf 'known\tcom.motorola.help\tsafe\tDevice Help app and its tips')"
+has "$(printf 'known\tcom.motorola.tracfone.rsu\tkeep\tTracfone SIM-unlock service')"
+if grep -q "^known$(printf '\t')com.motorola.timeweatherwidget" "$OUT"; then bad "an app nothing is known about should have no known line"; else ok; fi
 if awk -F'\t' '$1 == "history" { if (NF != 7) bad = 1; next } NF < 3 || NF > 4 { bad = 1 } END { exit bad }' "$OUT"; then
   ok
 else bad "tsv lines should have three or four fields, history lines seven"; fi
@@ -229,6 +234,8 @@ run scan --tsv
 if [ "$(grep -c "^history$(printf '\t')" "$OUT")" -ge 3 ]; then ok; else bad "tsv should carry the scan history"; fi
 has "$(printf 'change\tcom.motorola.help\tremoved\t')"
 has "$(printf 'change\tcom.candy.game\tuninstalled\t')"
+# Removed, and still known for what it was.
+has "$(printf 'known\tcom.motorola.help\tsafe\tDevice Help app and its tips')"
 
 # ---------------------------------------------------------------------------
 t "an installer that has been dealt with is reported as off, however that was done"

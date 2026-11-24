@@ -17,6 +17,10 @@
 # confirm what it is on a real phone before adding it: `debloat.sh scan` lists
 # candidates under NOT CLASSIFIED.
 #
+# The app reads two things out of a reason. One that starts with the app's
+# name and a colon ("Verizon Cloud: Verizon's backup service") gives the app
+# that name in the window; what follows a semicolon is shown as the catch.
+#
 # Patterns are plain extended regular expressions matched against the package
 # name: ^ $ . * + ? ( | ) [ ] and \. only. No \d \w \b and no {n,m}.
 #
@@ -47,17 +51,17 @@ keep     ^com\.qualcomm\.qti\.uim                         Qualcomm SIM card serv
 safe     ^com\.motorola\.ccc\.notification$               Motorola's own promotional notifications
 safe     ^com\.motorola\.(help|genie)$                    Device Help app and its tips
 safe     ^com\.motorola\.demo(\.env)?$                    Store demo mode
-caution  ^com\.motorola\.gamemode$                        Moto Gametime: in-game toolbar and suggested-games hub
+caution  ^com\.motorola\.gamemode$                        Moto Gametime: in-game toolbar and suggested-games hub; games lose that toolbar
 caution  ^com\.motorola\.moto$                            Moto app: tips and promos; also where Moto gestures are set up
 
 # --- Verizon ----------------------------------------------------------------
 keep     ^com\.(vzw|verizon)\..*(apn|[Ss]im[Ll]ock|\.ims|omadm|[Pp]rovision|[Aa]ctivation|[Ee]ntitlement)   Verizon network plumbing, going by its name (APN, IMS, SIM unlock)
-safe     ^com\.vzw\.hss\.myverizon$                       My Verizon
-safe     ^com\.verizon\.messaging\.vzmsgs$                Verizon Message+
-safe     ^com\.vcast\.mediamanager$                       Verizon Cloud
-safe     ^com\.vzw\.ecid$                                 Verizon Call Filter
+safe     ^com\.vzw\.hss\.myverizon$                       My Verizon: Verizon's account app, for bills, plan and data use
+safe     ^com\.verizon\.messaging\.vzmsgs$                Verizon Message+: Verizon's own texting app
+safe     ^com\.vcast\.mediamanager$                       Verizon Cloud: Verizon's backup and storage service
+safe     ^com\.vzw\.ecid$                                 Verizon Call Filter: Verizon's spam-call screening
 safe     ^com\.verizon\.llkagent$                         Verizon store demo agent
-safe     ^com\.securityandprivacy\.android\.verizon\.vms$ Verizon Digital Secure
+safe     ^com\.securityandprivacy\.android\.verizon\.vms$ Verizon Digital Secure: Verizon's security app
 safe     ^com\.asurion\.android\.verizon\.vms$            Verizon Tech Coach (Asurion)
 caution  ^com\.(vzw|verizon)\.                            Verizon component; may carry voicemail, Wi-Fi calling or activation
 

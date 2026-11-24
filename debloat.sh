@@ -1042,11 +1042,15 @@ previous_cleanup() {
 #   history<TAB>time<TAB>installed<TAB>to-clean-up<TAB>ask<TAB>notifying<TAB>off      (oldest first)
 #   change<TAB>package<TAB>what was done<TAB>when                                  (oldest first)
 #   installer<TAB>package<TAB>active|off<TAB>what the rule says about it
+#   known<TAB>package<TAB>tier<TAB>what the rules or the community list say about it
 #   <list><TAB>package<TAB>note<TAB>system|app|locked
 # "app" marks a regular app, whose removal cannot be undone from here;
 # "locked" one this tool refuses to remove or silence. An installer line is
 # there for every sponsored-app installer the rules know that this phone
 # carries, removed or not: "active" means it can still put apps on the phone.
+# A "known" line is there for every app the rules or the community list have
+# something to say about, on the phone or already off it, so that an app
+# keeps its name and its description once it has been removed.
 emit_tsv() {
   local pair
   printf 'meta\tversion\t%s\n' "$VERSION"
@@ -1070,6 +1074,7 @@ emit_tsv() {
     FILENAME == ARGV[3] { if ($2 == "muted") off[$1] = 1; next }
     $2 == "installer" { print "installer", $1, ((($1 in here) && !($1 in off)) ? "active" : "off"), $3 }
   ' "$TMP/installed" "$TMP/disabled" "$LOG" "$TMP/class_all"
+  awk -F'\t' -v OFS='\t' '$3 != "" { print "known", $1, $2, $3 }' "$TMP/class_all"
   for pair in back:l_back remove:l_safe ask:l_caution keep:l_keep pushed:l_sponsored \
     other:l_foreign notifying:l_notif unknown:l_unknown off:l_off; do
     awk -F'\t' -v OFS='\t' -v list="${pair%%:*}" '
