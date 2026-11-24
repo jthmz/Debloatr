@@ -57,38 +57,56 @@ once it is installed.
 
 What you get:
 
+- **Easy to read and to press**. The smallest words are 14 pixels tall, the
+  rest 16 and up, and the buttons that matter are tall enough to hit
+  without aiming. Each app has a
+  picture for the kind of thing it is, the steps to connect a phone are
+  drawn as well as written, and the words are plain ones. It is meant to be
+  usable by anyone, older eyes and hands included.
 - **Getting connected**. With no phone to talk to, the window does not show
   an error: it says which thing is missing (adb, the cable, USB debugging,
-  or the answer to the phone's own "Allow USB debugging?" question), gives the
-  steps for whoever made the phone, keeps looking, and carries on by itself
-  the moment the phone answers.
+  or the answer to the phone's own "Allow USB debugging?" question) and
+  gives the three steps, each with its picture, for whoever made the phone.
+  It keeps looking, ticks each step off as the phone is seen to have got
+  past it, and carries on by itself the moment the phone answers.
 - **The wizard**. He stands on the Overview beside the phone, with everything
   that can go circling it: red for the installers that put apps back, amber
-  for the rest. **Clean up with the wizard** gives him a screen of his own,
-  where he walks you through it: he scans the phone, shows what he found, lets
-  you untick what you want to keep, and takes the rest off. His lightning
-  falls only on what the phone says is gone, and he says what would not budge
-  and what Android would only let him switch off. He offers to undo it and to
-  restart the phone, and keeps his shades on for as long as the phone is
-  clean. On the other pages he waits in the corner with one useful thing to
-  say, and strikes the rows you remove.
+  for the rest, the same red and amber as on the phone's screen beside him.
+  **Clean up with the wizard** gives him a screen of his own, where he walks
+  you through it: he scans the phone, shows what he found, lets you untick
+  what you want to keep, and takes the rest off. His lightning falls only on
+  what the phone says is gone, each app's line gets its answer as the
+  lightning reaches it, and at the end he says how many were removed, which
+  Android would only let him switch off, and what would not budge. He offers
+  to undo it and to restart the phone, and keeps his shades on for as long
+  as the phone is clean. On the other pages he sits at the head of the page
+  with one useful thing to say, and strikes the rows you remove.
+- **What cannot be undone is said, and asked about**. Removing an app that
+  came with the phone can be undone. Uninstalling one that was added later
+  cannot: wherever that would happen, it is marked in red and asked about
+  once more, by name, before anything is done.
 - **One at a time**. The apps under Ask first each have a catch. Instead of
-  a list to puzzle over, they come one to a card: what it is, what you lose,
-  Keep or Remove. Nothing changes until the last card, and the tally, are
-  agreed.
-- **Names you can read**. The phone only gives package names, so each app is
-  shown with a name worked out from its package ("Motorola time weather
-  widget" for `com.motorola.timeweatherwidget`), the package beneath it, and
-  what the rules say about it. Any row opens a panel with everything known
-  about that app and the buttons to act on it alone.
-- **Overview**: what the last scan found, how that moved since the scan
-  before, and **Checks**: whether an installer can still put apps back,
-  whether anything has come back, and what else wants a look, each with the
-  one thing to do about it. **Review as a list** is the cleanup without the
-  wizard: everything it would do, ticked, split into what can be undone and
-  what cannot.
+  a list to puzzle over, they come one to a card: what it is, the catch,
+  and two big buttons, Keep or Remove. Keep is the one in reach. Nothing
+  changes until the last card, and the tally, are agreed.
+- **Names you can read**. The phone only gives package names. An app the
+  rules name is called that ("Moto Gametime" for `com.motorola.gamemode`), a
+  few dozen apps that turn up on many phones go by their own names ("Candy
+  Crush Saga"), and anything else gets a name worked out from its package
+  ("Motorola time weather widget" for `com.motorola.timeweatherwidget`).
+  Any row opens a panel with everything known about that app, its package
+  name, and the buttons to act on it alone.
+- **Overview**: what can go and the one button that deals with it; then
+  **Checks**: whether an installer can still put apps back, whether anything
+  has come back, and what else wants a look, each with the one thing to do
+  about it; then what was changed lately, with a Restore beside each; and
+  last the numbers, with how they moved since the scan before. **Review as
+  a list** is the cleanup without the wizard: everything it would do,
+  ticked, split into what can be undone and what cannot.
 - **The lists** from the scan, each with a filter. Tick apps and the actions
-  for them appear: Remove, Silence, Uninstall or Restore.
+  for them appear: Remove, Silence, Uninstall or Restore. The pages most
+  people never need (what is notifying, what nothing is known about, the
+  log) fold away under **More**.
 - **Find anything** (Cmd-K): any app the scan found, any page, anything the
   app can do, including fetching the community list.
 - **Undo** on every change that has one, and **Recent changes** with a Restore
@@ -108,18 +126,20 @@ version takes over from an older one that is still running.
 The wizard is drawn by the graphics card (WebGL), from `gui/magic.js`: no
 libraries, nothing downloaded, and every shape built there from a few numbers.
 He asks the helper for exactly what the list asks for. The wand beside the
-app's name sends him away and brings him back; without him the window is the
-plain one, with one button, **Review cleanup**. He holds still when the
-system asks for reduced motion, draws less often when the window is not the
-one in front, and is simply absent where there is no WebGL.
+app's name sends him away and brings him back, and says so each time, with an
+Undo; without him the window is the plain one, with one button, **Review
+cleanup**. His stage is dark in a light window too; everything else follows
+the system's appearance. He holds still when the system asks for reduced
+motion, draws less often when the window is not the one in front, and is
+simply absent where there is no WebGL.
 
 The app is a front for `debloat.sh`: it cannot do anything the commands below
 cannot, and the same safety rules apply. It listens on this computer only, and
 no other web page can talk to it. Nothing leaves this computer unless you ask:
 fetching the community list is one download, and **Look it up on the web**
-opens a search for a package name in your browser. It runs from a copy of its files in
-`~/Library/Application Support/MAXAPACITY Debloat`, so it keeps working if the
-app is moved or replaced while open. Its log is
+opens a search for a package name in your browser. It runs from a copy of
+its files in `~/Library/Application Support/MAXAPACITY Debloat`, so it keeps
+working if the app is moved or replaced while open. Its log is
 `~/Library/Logs/maxapacity-debloat.log`.
 
 To run the window without the app (also on Linux):
@@ -229,6 +249,11 @@ Regular apps (not preinstalled) are uninstalled for real, with their data.
 pattern matched against the package name, and the reason shown in the scan.
 The file's header explains the tiers.
 
+The app reads two things out of a reason. One that starts with a name and a
+colon (`Verizon Cloud: Verizon's backup and storage service`) gives the app
+that name in the window. What follows a semicolon (`...; games lose that
+toolbar`) is shown as the catch when the app comes up under Ask first.
+
 Your own rules go in `~/.maxapacity-debloat/rules.local.tsv`, same format.
 They are read first, so they override the built-in list. For example, to keep
 an app the built-in rules would remove:
@@ -307,11 +332,12 @@ token or for another host name, keeps going while a window is open however
 quiet that window is, stops by itself once the window has gone, and is reused
 rather than started twice; that a scan says which installers can still act;
 and that the community list is fetched and dropped through the tool. It also
-covers the window as far as it can without a screen: that the names and
-descriptions people read are worked out as they should be, that the wizard's
-drawing code is served and parses, that the page only asks it for things it
-has, and that every pose, spell and stage runs against a WebGL that draws
-nothing.
+covers the window as far as it can without a screen: that the names,
+pictures and descriptions people see are worked out as they should be, that
+an app keeps its name and description after it has been removed, that the
+wizard's drawing code is served and parses, that the page only asks it for
+things it has, and that every pose, spell and stage runs against a WebGL
+that draws nothing.
 
 `tools/package.sh` makes the two downloads: the app in a zip of its own, and
 the tool with what the app is built from. CI attaches both to a draft release
@@ -352,16 +378,21 @@ What this one does that those do not:
 - Every change is logged, and `restore` and `reapply` work from the log.
 
 What they do that this does not: Canta and ADB AppControl show the names and
-icons apps give themselves, where this reads a name from the package. Its
-own rules are written for Motorola and Verizon phones; for any other phone,
-the community list those tools use is one click or one command away.
+icons apps give themselves. This knows the names its rules give and those of
+a few dozen common apps, reads the rest from the package name, and draws a
+picture for the kind of app rather than its icon. Its own rules are written
+for Motorola and Verizon phones; for any other phone, the community list
+those tools use is one click or one command away.
 
 ## Limits
 
 - It manages apps. Anything built into the maker's system interface itself
   cannot be removed this way.
 - App names are not available over `adb`, only package names and folders.
-  The app shows a name read from the package name, never one it was given.
+  The app shows the name a rule gives, or its own name for a few dozen
+  common apps, and otherwise a name read from the package name, which may
+  not be what the phone calls it. The package name is in the panel each row
+  opens.
 - The built-in rules cover the common installers and feeds plus Motorola and
   Verizon. For other makers and carriers, `community` brings in a list that
   covers them; without it they mostly land under NOT CLASSIFIED.
