@@ -2369,6 +2369,17 @@ window.DebloatWords = (() => {
   // A package name that may break at its dots, never mid-word.
   const pkgNode = name => el('div', { class: 'pkg mono' },
     name.split('.').flatMap((part, i) => (i ? [el('wbr'), `.${part}`] : [part])));
+  // Drawing a list again replaces the box that was just ticked. The
+  // keyboard stays on whatever has taken its place, so that ticking with
+  // Space and moving on with Tab works down a list.
+  const keepFocus = (root, draw) => {
+    const active = document.activeElement;
+    const name = active && root.contains(active) ? active.getAttribute('aria-label') : null;
+    draw();
+    if (!name) return;
+    const again = [...root.querySelectorAll('input, button')].find(node => node.getAttribute('aria-label') === name);
+    if (again) again.focus({ preventScroll: true });
+  };
   // A grey bar where words are on their way.
   const bone = (w, h = 12) => el('div', { class: 'bone', style: `width:${w};max-width:100%;height:${h}px` });
   // A number set in the face numbers are set in, with the words after it.
@@ -3003,7 +3014,7 @@ window.DebloatWords = (() => {
         el('strong', {}, 'Nothing in this list matches that filter.'),
         el('button', { class: 'btn', onclick: () => { state.filter = ''; ui.search.value = ''; paint(); } }, 'Clear the filter')));
     } else {
-      set(ui.rows, shown.map((row, i) => rowNode(row, view, i)));
+      keepFocus(ui.rows, () => set(ui.rows, shown.map((row, i) => rowNode(row, view, i))));
     }
     renderTip();
     return renderBulk();
@@ -3134,7 +3145,7 @@ window.DebloatWords = (() => {
       { title: 'Remove', rows: items.filter(row => !row.app) },
     ].filter(group => group.rows.length);
     const node = el('div', {});
-    const draw = () => {
+    const draw = () => keepFocus(node, () => {
       set(node, groups.map(group => {
         const mine = group.rows.filter(row => picked.has(row.pkg)).length;
         const all = el('input', {
@@ -3180,7 +3191,7 @@ window.DebloatWords = (() => {
         ];
       }));
       changed(null);
-    };
+    });
     return { node, draw };
   }
 
