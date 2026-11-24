@@ -24,6 +24,8 @@ const ENV = {
   FAKE_ADB_STATE: path.join(WORK, 'phone.json'),
   DEBLOAT_STATE_DIR: path.join(WORK, 'state'),
   DEBLOAT_GUI_PORT: String(PORT),
+  // The community list comes from a file here, not from the network.
+  DEBLOAT_COMMUNITY_URL: `file://${path.join(WORK, 'community.json')}`,
 };
 const ctl = (...args) => execFileSync('python3', [path.join(HERE, 'fake_adb.py'), 'ctl', ...args], { env: ENV });
 
@@ -98,15 +100,124 @@ test('the page and the drawing code parse, and agree on what the wizard can do',
   const page = fs.readFileSync(path.join(HERE, '..', 'gui', 'ui.html'), 'utf8');
   const code = fs.readFileSync(path.join(HERE, '..', 'gui', 'magic.js'), 'utf8');
   const inline = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(found => found[1]);
-  assert.equal(inline.length, 1);
-  assert.doesNotThrow(() => new vm.Script(inline[0], { filename: 'ui.html' }));
+  // Two blocks: the words, which need no page, and the page itself.
+  assert.equal(inline.length, 2);
+  for (const block of inline) assert.doesNotThrow(() => new vm.Script(block, { filename: 'ui.html' }));
   assert.doesNotThrow(() => new vm.Script(code, { filename: 'magic.js' }));
   assert.ok(page.includes('<script src="/magic.js"></script>'));
-  const asked = new Set([...inline[0].matchAll(/\b(?:magic|engine)\.([a-zA-Z]+)\(/g)].map(found => found[1]));
+  const asked = new Set([...inline[1].matchAll(/\b(?:magic|engine)\.([a-zA-Z]+)\(/g)].map(found => found[1]));
   assert.ok(asked.size >= 10, 'the page should be asking the wizard for things');
   for (const name of asked) {
     assert.match(code, new RegExp(`\\n      (?:async )?${name}\\(`), `magic.js has no ${name}()`);
   }
+});
+
+// What a person reads in place of a package name, and what each list says
+// about an app, are worked out by the page's first script block. It needs no
+// page, so it runs here as it stands.
+test('apps are named and described the way a person would say it', () => {
+  const page = fs.readFileSync(path.join(HERE, '..', 'gui', 'ui.html'), 'utf8');
+  const sandbox = { window: {} };
+  vm.runInNewContext(/<script>([\s\S]*?)<\/script>/.exec(page)[1], sandbox, { filename: 'ui.html' });
+  const words = sandbox.window.DebloatWords;
+
+  const names = {
+    'com.motorola.timeweatherwidget': 'Motorola time weather widget',
+    'com.vzw.hss.myverizon': 'My Verizon',
+    'com.dti.folderlauncher': 'Digital Turbine folder launcher',
+    'com.LogiaGroup.LogiaDeck': 'Digital Turbine Logia deck',
+    'com.facebook.appmanager': 'Facebook app manager',
+    'com.glance.lockscreen': 'Glance lock screen',
+    'com.instagram.android': 'Instagram',
+    'com.candy.game': 'Candy game',
+    'com.verizon.remoteSimlock': 'Verizon remote SIM lock',
+    // Scraps that are there for the makers are left out, and an
+    // abbreviation that means something is said as what it means.
+    'com.vzw.apnlib': 'Verizon APN',
+    'com.verizon.mips.services': 'Verizon services',
+    'com.aura.oobe.motorola': 'Aura setup Motorola',
+    // Nothing in it to read: the package name is at least true.
+    'x.y': 'Y',
+  };
+  for (const [pkg, name] of Object.entries(names)) assert.equal(words.readable(pkg), name, pkg);
+  assert.equal(words.initial('com.vzw.hss.myverizon'), 'V');
+  assert.equal(words.initial('com.candy.game'), 'C');
+
+  const known = words.reasons({ remove: [{ pkg: 'com.motorola.help', note: 'Device Help app and its tips' }], ask: [], keep: [] });
+  const say = (row, list) => JSON.parse(JSON.stringify(words.describe(row, list, known)));
+  assert.deepEqual(say({ pkg: 'com.candy.game', note: 'installed by com.dti.folderlauncher', app: true }, 'pushed'),
+    // A list made only of apps that were added later says so once, at its top.
+    { title: 'Candy game', about: 'Put here by Digital Turbine', chips: [] });
+  // In any other list such an app is marked: removing it is an uninstall.
+  assert.deepEqual(say({ pkg: 'com.candy.game', note: '3 up; put there by com.dti.folderlauncher', app: true }, 'notifying'),
+    { title: 'Candy game', about: 'Put here by Digital Turbine', chips: [{ text: '3 notifications', tone: 'warn' }, { text: 'added later' }] });
+  assert.deepEqual(say({ pkg: 'com.motorola.ccc.notification', note: '2 up; under REMOVE: Motorola\'s own promotional notifications' }, 'notifying'),
+    { title: 'Motorola notification', about: 'Motorola\'s own promotional notifications', chips: [{ text: '2 notifications', tone: 'warn' }] });
+  assert.deepEqual(say({ pkg: 'com.motorola.timeweatherwidget', note: 'product/app/TimeWeather; community list, expert: Does a thing.' }, 'unknown'),
+    { title: 'Motorola time weather widget', about: 'Does a thing.', chips: [{ text: 'experts only', tone: 'bad' }] });
+  // With nothing else known, the folder an app lives in is the hint, said plainly.
+  assert.equal(say({ pkg: 'com.motorola.timeweatherwidget', note: 'product/app/TimeWeather' }, 'unknown').about, 'Came with the phone, in a folder named TimeWeather');
+  assert.deepEqual(say({ pkg: 'com.motorola.mystery', note: '(updated since the factory)' }, 'unknown'),
+    { title: 'Motorola mystery', about: 'Came with the phone, and has been updated since', chips: [] });
+  assert.deepEqual(say({ pkg: 'com.motorola.help', note: 'was removed' }, 'back'),
+    { title: 'Motorola help', about: 'Device Help app and its tips. It was removed, and it is back', chips: [] });
+  assert.deepEqual(say({ pkg: 'com.motorola.tracfone.rsu', note: 'removed, by this tool; the rules would keep it: Tracfone SIM-unlock service' }, 'off'),
+    { title: 'Motorola Tracfone', about: 'Tracfone SIM-unlock service', chips: [{ text: 'removed' }, { text: 'phone may need it', tone: 'warn' }] });
+  assert.equal(say({ pkg: 'com.example.gone', note: 'switched off, by this tool' }, 'off').about, 'Taken off by this app');
+  // A rule that only names the app adds nothing to the name: there is still
+  // where the app came from. One that starts with the name loses the echo.
+  assert.equal(say({ pkg: 'com.vzw.hss.myverizon', note: 'My Verizon' }, 'remove').about, 'Came with the phone, from Verizon');
+  assert.equal(say({ pkg: 'com.vzw.hss.myverizon', note: 'My Verizon: Verizon\'s account app' }, 'remove').about, 'Verizon\'s account app');
+  assert.deepEqual(say({ pkg: 'org.example.thing', note: 'community list: A thing.' }, 'ask').chips, [{ text: 'community list' }]);
+  // An app the phone needs is marked wherever it could otherwise be ticked.
+  assert.deepEqual(say({ pkg: 'com.android.thing', note: '1 up', locked: true }, 'notifying').chips.map(chip => chip.text), ['1 notification', 'phone needs it']);
+
+  // An app is called what its maker calls it where that is known, else what
+  // a rule names it, else a reading of its package name. A rule that starts
+  // with who made the app names nothing; the community list is not searched.
+  const given = words.names({ remove: [], ask: [], keep: [] }, [
+    { pkg: 'com.motorola.gamemode', tier: 'caution', note: 'Moto Gametime: in-game toolbar and suggested-games hub; games lose that toolbar' },
+    { pkg: 'com.vcast.mediamanager', tier: 'safe', note: 'Verizon Cloud: Verizon\'s backup and storage service' },
+    { pkg: 'com.dti.folderlauncher', tier: 'installer', note: 'Digital Turbine: silently installs and reinstalls sponsored apps' },
+    { pkg: 'org.example.thing', tier: 'none', note: 'community list, expert: Note: it does a thing.' },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify([...given.entries()])), [['com.motorola.gamemode', 'Moto Gametime'], ['com.vcast.mediamanager', 'Verizon Cloud']]);
+  assert.equal(words.nameOf('com.motorola.gamemode', given), 'Moto Gametime');
+  assert.equal(words.nameOf('com.dti.folderlauncher', given), 'Digital Turbine folder launcher');
+  assert.equal(words.nameOf('com.king.candycrushsaga', given), 'Candy Crush Saga');
+  assert.equal(words.kindOf('com.king.candycrushsaga'), 'game');
+  // Beside its own name, a description loses the echo of it.
+  assert.deepEqual(JSON.parse(JSON.stringify(words.describe({ pkg: 'com.motorola.gamemode', note: 'Moto Gametime: in-game toolbar and suggested-games hub; games lose that toolbar' }, 'ask', new Map(), given))),
+    { title: 'Moto Gametime', about: 'In-game toolbar and suggested-games hub; games lose that toolbar', chips: [] });
+  // What the scan knows covers apps that are no longer on the phone.
+  assert.equal(words.reasons({ remove: [], ask: [], keep: [] }, [{ pkg: 'com.glance.lockscreen', tier: 'safe', note: 'Glance lock screen feed' }]).get('com.glance.lockscreen'), 'Glance lock screen feed');
+
+  // The picture beside a name: what kind of thing it is, going by what is
+  // said about it and by its own name; nothing when neither says.
+  assert.equal(words.kindOf('com.dti.folderlauncher', 'Digital Turbine: silently installs and reinstalls sponsored apps'), 'installer');
+  assert.equal(words.kindOf('com.glance.lockscreen', 'Glance lock screen feed'), 'feed');
+  assert.equal(words.kindOf('com.candy.game'), 'game');
+  assert.equal(words.kindOf('com.motorola.ccc.notification', 'Motorola\'s own promotional notifications'), 'promo');
+  assert.equal(words.kindOf('com.verizon.mips.services', 'Verizon component; may carry voicemail, Wi-Fi calling or activation'), 'carrier');
+  assert.equal(words.kindOf('com.motorola.timeweatherwidget'), '');
+  // A rule with a downside says it after a semicolon: what it is, then the catch.
+  assert.deepEqual({ ...words.parts('Verizon component; may carry voicemail') }, { what: 'Verizon component', catch: 'May carry voicemail' });
+  assert.deepEqual({ ...words.parts('Glance lock screen feed') }, { what: 'Glance lock screen feed', catch: '' });
+
+  // The tool's own result lines, read back for the apps that were asked about.
+  const how = words.outcomes([
+    'moto g stylus - 2025 (mona), Android 16',
+    '  skipped       com.motorola.launcher3      it is the home screen (--force overrides)',
+    '  FAILED        com.glance.lockscreen       Android refused every option',
+    '  switched off  com.dti.folderlauncher      Android would not remove it',
+    '  uninstalled   com.candy.game',
+    'Done: 1 removed, 1 skipped, 1 failed.',
+  ].join('\n'), ['com.glance.lockscreen', 'com.dti.folderlauncher', 'com.candy.game', 'com.not.mentioned']);
+  assert.deepEqual([...how.entries()].map(([pkg, o]) => [pkg, o.said, o.done]), [
+    ['com.glance.lockscreen', 'FAILED', false],
+    ['com.dti.folderlauncher', 'switched off', true],
+    ['com.candy.game', 'uninstalled', true],
+  ]);
 });
 
 // The drawing code, run for a while against a WebGL that does nothing. No
@@ -117,6 +228,9 @@ test('the drawing code runs every act, spell and stage without an error', async 
   let now = 0;
   let frame = null;
   let stage = 'hero';
+  // A stage that asks to come before any other, as the wizard's own does
+  // where his card covers the window.
+  let first = '';
   const drawn = { drawElements: 0, drawArrays: 0 };
   const listeners = {};
   const gl = new Proxy({}, {
@@ -134,7 +248,7 @@ test('the drawing code runs every act, spell and stage without an error', async 
     },
   });
   const node = kind => ({
-    dataset: kind === 'full' ? { into: '0.02 0.14 0.5 0.95' } : {},
+    dataset: kind === 'full' ? { stage: kind, into: '0.02 0.14 0.5 0.95' } : { stage: kind },
     getBoundingClientRect: () => ({ left: 40, top: 40, right: 840, bottom: 640, width: 800, height: 600 }),
   });
   const sandbox = {
@@ -153,6 +267,8 @@ test('the drawing code runs every act, spell and stage without an error', async 
       hasFocus: () => true,
       addEventListener() {},
       querySelector: selector => (selector === `[data-stage="${stage}"]` ? node(stage) : null),
+      querySelectorAll: selector => (selector === '[data-stage-first]' ? (first ? [node(first)] : [])
+        : selector === `[data-stage="${stage}"]` ? [node(stage)] : []),
     },
   };
   sandbox.window = sandbox;
@@ -169,7 +285,7 @@ test('the drawing code runs every act, spell and stage without an error', async 
   };
 
   magic.phone('scan');
-  magic.tiles(Array.from({ length: 14 }, (_, i) => ({ id: `com.example.app${i}`, kind: ['remove', 'pushed', 'back'][i % 3] })));
+  magic.tiles(Array.from({ length: 14 }, (_, i) => ({ id: `com.example.app${i}`, kind: ['remove', 'pushed', 'back', 'installer', 'ask'][i % 5] })));
   listeners.pointermove({ clientX: 500, clientY: 300 });
   for (const act of ['idle', 'hello', 'scan', 'think', 'channel', 'zap', 'cheer', 'cool', 'shrug', 'search', 'no such act']) {
     magic.act(act);
@@ -179,12 +295,16 @@ test('the drawing code runs every act, spell and stage without an error', async 
   for (const kind of ['hero', 'side', 'none', 'full']) {
     stage = kind;
     for (const light of [false, true]) {
-      magic.set({ light });
-      magic.phone(light ? 'clean' : 'idle', 0.3);
-      run(0.3);
+      // Each look, and each thing the phone can be showing.
+      magic.set({ light, look: light ? 'violet' : 'graphite' });
+      for (const phone of ['none', 'ask', 'idle', 'scan', 'clean']) {
+        magic.phone(phone, 0.3);
+        run(0.1);
+      }
       assert.equal(magic.visible(), kind !== 'none');
     }
   }
+  magic.set({ look: 'no such look' });
   // He stands in the left half of his own screen, where the page put him:
   // that is the camera, the projection and the stage all agreeing.
   const orb = magic.orb();
@@ -199,13 +319,31 @@ test('the drawing code runs every act, spell and stage without an error', async 
   magic.poke();
   magic.celebrate();
   magic.burst(100, 100, {});
+  // Each app struck is reported as it is struck, whether or not it had a
+  // tile to strike: the page gives each its answer from this.
+  const struck = [];
   const spells = Promise.all([
-    magic.zapTiles(['com.example.app0', 'com.example.app4', 'not there'], 1),
+    magic.zapTiles(['com.example.app0', 'com.example.app4', 'not there'], 1, id => struck.push(id)),
     magic.zapRects([{ left: 300, top: 200, width: 400, height: 40 }], 1),
   ]);
   run(1);
   await spells;
   run(2);
+  assert.deepEqual(struck, ['com.example.app0', 'com.example.app4', 'not there']);
+
+  // A stage that asks to come first is the one drawn on, whatever else is
+  // on the page; with it gone, the other is found again.
+  first = 'side';
+  run(0.2);
+  assert.equal(magic.visible(), true);
+  stage = 'none';
+  run(0.2);
+  assert.equal(magic.visible(), true, 'the stage that comes first is enough by itself');
+  first = '';
+  run(0.2);
+  assert.equal(magic.visible(), false);
+  stage = 'hero';
+  run(0.2);
 
   // Asked to hold still, and then switched off, it must not trip either.
   magic.set({ still: true });
@@ -406,6 +544,44 @@ test('and while a window is open but silent, for as long as it stays open', asyn
   assert.equal(code, 0);
 });
 
+// The helper counts its idle time from when its work ended. A scan that
+// takes longer than the idle limit, asked for with no window open, must not
+// leave it due to stop the moment the scan is done: whoever asked has the
+// answer to act on. The Mac app's launcher tests rely on this.
+test('and for its idle time after a long job, not from when the job was asked for', async () => {
+  // An adb that takes its time, so that the scan outlasts the idle limit.
+  const slow = path.join(WORK, 'slow');
+  fs.mkdirSync(slow, { recursive: true });
+  fs.writeFileSync(path.join(slow, 'adb'), `#!/bin/sh\nsleep 0.2\nexec "${path.join(HERE, 'bin', 'adb')}" "$@"\n`, { mode: 0o755 });
+  const port = PORT + 7;
+  const env = {
+    ...ENV,
+    PATH: `${slow}${path.delimiter}${ENV.PATH}`,
+    DEBLOAT_STATE_DIR: path.join(WORK, 'state-slow'),
+    DEBLOAT_GUI_PORT: String(port),
+    DEBLOAT_GUI_IDLE_MS: '1000',
+    DEBLOAT_GUI_GRACE_MS: '1000',
+  };
+  const child = spawn(process.execPath, [path.join(HERE, '..', 'gui', 'server.mjs'), '--no-open', '--exit-when-idle'], { env });
+  const up = new Promise(resolve => child.stdout.on('data', chunk => { if (String(chunk).includes('is open at')) resolve(); }));
+  const exited = new Promise(resolve => child.on('exit', code => resolve(code)));
+  await up;
+  const itsToken = tokenIn((await getFrom(port, '/')).text);
+  const asked = Date.now();
+  const scan = await getFrom(port, '/api/scan', { 'x-debloat-token': itsToken });
+  const took = Date.now() - asked;
+  assert.equal(scan.status, 200);
+  assert.ok(took > 1500, `the scan has to outlast the idle limit for this to mean anything: it took ${took} ms`);
+  // Longer than the helper takes to notice that it is idle, and shorter
+  // than it should then wait.
+  await sleep(650);
+  const there = await listening(port);
+  const code = await Promise.race([exited, sleep(6000).then(() => 'still running')]);
+  child.kill();
+  assert.equal(there, true, 'the helper stopped the moment its work ended');
+  assert.equal(code, 0);
+});
+
 test('started in the background, it returns at once and carries on by itself', async () => {
   const port = PORT + 4;
   const env = { ...ENV, DEBLOAT_GUI_PORT: String(port), DEBLOAT_GUI_IDLE_MS: '700', DEBLOAT_GUI_GRACE_MS: '5000' };
@@ -513,6 +689,67 @@ test('a helper from another version of the app is asked to stop, and this one ta
   assert.ok(!after.text.includes('content="0.0.1"'));
   assert.notEqual(tokenIn(after.text), tokenIn(before.text));
   newer.kill();
+});
+
+test('scan says which installers can still act', async () => {
+  ctl('init');
+  const before = (await authed('GET', '/api/scan')).json;
+  assert.deepEqual(before.installers.map(i => [i.pkg, i.active]).sort(),
+    [['com.LogiaGroup.LogiaDeck', true], ['com.dti.folderlauncher', true]]);
+  assert.match(before.installers.find(i => i.pkg === 'com.dti.folderlauncher').note, /Digital Turbine/);
+  await authed('POST', '/api/act', { action: 'remove', packages: ['com.LogiaGroup.LogiaDeck'] });
+  const after = (await authed('GET', '/api/scan')).json;
+  assert.equal(after.installers.find(i => i.pkg === 'com.LogiaGroup.LogiaDeck').active, false);
+  assert.equal(after.installers.find(i => i.pkg === 'com.dti.folderlauncher').active, true);
+  // Removed, and still known for what it is: the page names it from this.
+  assert.deepEqual(after.known.find(k => k.pkg === 'com.LogiaGroup.LogiaDeck'),
+    { pkg: 'com.LogiaGroup.LogiaDeck', tier: 'installer', note: 'Digital Turbine installer as shipped on Verizon phones' });
+  assert.ok(!after.known.some(k => k.pkg === 'com.motorola.timeweatherwidget'), 'an app nothing is known about has no line');
+  ctl('init');
+});
+
+test('the community list is fetched and dropped through the tool, and scan says whether it is in use', async () => {
+  const list = path.join(WORK, 'community.json');
+  assert.equal((await authed('GET', '/api/scan')).json.meta.community, '0');
+
+  // Nothing to fetch yet: a readable refusal, and nothing in use.
+  const missing = (await authed('POST', '/api/community', { on: true })).json;
+  assert.equal(missing.ok, false);
+  assert.match(missing.error, /^Could not download the community list/);
+
+  fs.writeFileSync(list, JSON.stringify({
+    'com.motorola.timeweatherwidget': { list: 'Oem', description: 'Time and weather widget.', removal: 'Recommended' },
+    'com.motorola.mystery': { list: 'Oem', description: 'Nobody is sure.', removal: 'Expert' },
+  }, null, 2));
+  const fetched = (await authed('POST', '/api/community', { on: true })).json;
+  assert.equal(fetched.ok, true);
+  assert.match(fetched.output, /Saved the community list: 2 packages/);
+  const withList = (await authed('GET', '/api/scan')).json;
+  assert.equal(withList.meta.community, '2');
+  assert.ok(withList.lists.ask.some(r => r.pkg === 'com.motorola.timeweatherwidget' && r.note === 'community list: Time and weather widget.'));
+  assert.ok(withList.lists.unknown.some(r => r.pkg === 'com.motorola.mystery' && r.note.includes('community list, expert: Nobody is sure.')));
+
+  const dropped = (await authed('POST', '/api/community', { on: false })).json;
+  assert.equal(dropped.ok, true);
+  const without = (await authed('GET', '/api/scan')).json;
+  assert.equal(without.meta.community, '0');
+  assert.ok(!without.lists.ask.some(r => r.pkg === 'com.motorola.timeweatherwidget'));
+
+  assert.equal((await request('POST', '/api/community', { body: { on: true } })).status, 401);
+  fs.rmSync(list, { force: true });
+});
+
+test('with no adb at all the helper says that is what is missing', async () => {
+  const port = PORT + 6;
+  // A PATH with node's own folder and nothing else of ours in it.
+  const env = { ...ENV, DEBLOAT_GUI_PORT: String(port), PATH: '/nonexistent' };
+  const bare = spawn(process.execPath, [path.join(HERE, '..', 'gui', 'server.mjs'), '--no-open'], { env });
+  await new Promise(resolve => bare.stdout.on('data', chunk => { if (String(chunk).includes('is open at')) resolve(); }));
+  const page = await getFrom(port, '/');
+  const phones = JSON.parse((await getFrom(port, '/api/phones', { 'x-debloat-token': tokenIn(page.text) })).text);
+  assert.equal(phones.ok, false);
+  assert.equal(phones.missing, 'adb');
+  bare.kill();
 });
 
 test('a missing phone comes back as a readable error, not a crash', async () => {

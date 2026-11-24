@@ -52,26 +52,103 @@ The app needs Node.js 18 or newer and `adb`:
 `brew install node android-platform-tools`. It looks for them where Homebrew
 and Android Studio put them, and failing that asks the shell your Terminal
 uses. An app built by `install.sh` also remembers where they were when it was
-built.
+built. Without `adb` the window still opens, says so, and finds it by itself
+once it is installed.
 
 What you get:
 
+- **Easy to read and to press**. The smallest words are 14 pixels tall, the
+  rest 16 and up, and the buttons that matter are tall enough to hit
+  without aiming. Each app has a
+  picture for the kind of thing it is, the steps to connect a phone are
+  drawn as well as written, and the words are plain ones. It is meant to be
+  usable by anyone, older eyes and hands included.
+- **Getting connected**. With no phone to talk to, the window does not show
+  an error: it says which thing is missing (adb, the cable, USB debugging,
+  or the answer to the phone's own "Allow USB debugging?" question) and
+  gives the three steps, each with its picture, for whoever made the phone.
+  It keeps looking, ticks each step off as the phone is seen to have got
+  past it, and carries on by itself the moment the phone answers.
 - **The wizard**. He stands on the Overview beside the phone, with everything
-  that can go circling it. **Clean up with the wizard** gives him a screen of
-  his own, where he walks you through it: he scans the phone, shows what he
-  found, lets you untick what you want to keep, and takes the rest off. His
-  lightning falls only on what the phone says is gone, and he tells you what
-  would not budge. He offers to undo it and to restart the phone, and keeps
-  his shades on for as long as the phone is clean. On the other pages he
-  waits in the corner, and strikes the rows you remove.
-- **Overview**: what the last scan found and how that moved since the scan
-  before. **Review as a list** is the same cleanup without the wizard: it
-  lists everything it would do, ticked, split into what can be undone and
-  what cannot. Untick what you want to keep.
-- **The lists** from the scan, each with a filter. Tick apps and the actions
-  for them appear: Remove, Silence, Uninstall or Restore.
-- **Undo** on every change that has one, and **Recent changes** with a Restore
-  beside each.
+  that can go circling it: red for the installers that put apps back, amber
+  for the rest, the same red and amber as on the phone's screen beside him.
+  **Clean up with the wizard** gives him a screen of his own, where he walks
+  you through it: he scans the phone, shows what he found, lets you untick
+  what you want to keep, and takes the rest off. His lightning falls only on
+  what the phone says is gone, each app's line gets its answer as the
+  lightning reaches it, and at the end he says how many were removed, which
+  Android would only let him switch off, and which the phone's maker has
+  locked. Those he remembers, and does not offer again: they are no longer
+  counted anywhere as something to do, and cannot be ticked in a list,
+  though each one's own panel has a way to try once more. He offers to put
+  back what can be put back, and to restart the phone, and asks before he
+  does either; he keeps his shades on for as long as the phone is clean. On the other pages he
+  sits at the head of the page with one useful thing to say, and strikes the
+  rows you remove. Pressing him, wherever he is, brings him out. In a window
+  too narrow for him to stand beside his card, the card takes the window and
+  he sits at its head.
+- **What cannot be undone is never done for you**. Removing an app that
+  came with the phone can be undone, and a cleanup starts with those
+  ticked. Deleting one that was added later cannot, so those are never
+  ticked for you: you tick them, they are marked in red as deleted for
+  good, and they are asked about once more, by name, with keeping them as
+  the answer under the keyboard. The lime button is never the one that
+  deletes: a button that would is plain, with its words in red, and ends in
+  "…" because it asks first. Answer that you would rather keep them and they
+  are unticked again, so the lime button is back and only does what can be
+  undone. And a press cannot land on the wrong thing. For a moment after one
+  screen gives way to another, or the phone's answer moves what is on this
+  one, no press does anything. A button that changes the phone, or answers
+  a card, waits a second longer, dimmed until it is ready. Pressed too soon
+  it shakes its head and waits again: a hand that goes on pressing is never
+  let through, only one that has been still. The cards' keys wait the same
+  way. And for a second after any press, another one near it is taken only
+  by what was already there: whatever has just come under the pointer, or
+  moved there, takes nothing. An app's panel that goes over to another app
+  has that app's buttons, which wait their second like any others that
+  have just come. A press on a button that is switched off while the phone
+  is busy counts as a press too. Unsteady hands press twice.
+- **One at a time**. The apps under With a catch each have one. Instead of
+  a list to puzzle over, they come one to a card: what it is, the catch,
+  and two big buttons, Keep or Remove, at the foot of the window: in sight
+  whatever its size, and in the same place from the first card to the last.
+  Keep is the one under the keyboard. Nothing changes until the last card,
+  and the tally, are agreed.
+- **Names you can read**. The phone only gives package names. An app the
+  rules name is called that ("Moto Gametime" for `com.motorola.gamemode`), a
+  few dozen apps that turn up on many phones go by their own names ("Candy
+  Crush Saga"), and anything else gets a name worked out from its package
+  ("Motorola time weather widget" for `com.motorola.timeweatherwidget`),
+  set lighter than a name that is known, because it is only a reading.
+  Any row opens a panel with everything known about that app, its package
+  name, and the buttons to act on it alone.
+- **Overview**: what can go and the one button that deals with it; then
+  **Checks**: whether an installer can still put apps back, whether anything
+  has come back, and what else wants a look, each with the one thing to do
+  about it; then what was changed lately, with a Put back beside each; and
+  last the numbers, with how they moved since the scan before. **Review
+  cleanup** is the cleanup without the wizard: everything it would do,
+  split into what can be undone and what cannot. Where that list is longer
+  than its box, a strip under it says how many more there are and brings
+  them up, every one of them: nothing you are agreeing to is passed over.
+  The Tab key goes down the same list, and only ever stands on a row that
+  is in sight in full.
+  Whichever way a cleanup is started, what puts apps back is removed first.
+- **The lists** from the scan, each with a filter, under plainer names than
+  the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
+  FIRST, **Unknown apps** is NOT CLASSIFIED. Tick apps and the actions for
+  them appear: Remove, Silence, Delete for good or Put back; they step aside
+  while one app's panel is open, which has that app's own. The pages most
+  people never need (what is notifying, what nothing is known about, the
+  log) fold away under **More**. Every page fits in the sidebar of a window
+  of the size the app opens at; in a shorter one the list of pages scrolls,
+  and says which way there is more.
+- **Find anything** (the magnifier beside the name, or Cmd-K): any app the
+  scan found, any page, anything the app can do, including fetching the
+  community list.
+- **Undo** on every change that has one, said at the foot of the sidebar
+  where it is never on top of something to press, and **Recent changes**
+  with a Put back beside each.
 - **Activity**: what is on the phone's screen right now, a live watch for
   installs, and the phone's own answer to everything the app asked.
 - **Restart phone**, offered after a cleanup, so the lock and home screens
@@ -87,16 +164,21 @@ version takes over from an older one that is still running.
 The wizard is drawn by the graphics card (WebGL), from `gui/magic.js`: no
 libraries, nothing downloaded, and every shape built there from a few numbers.
 He asks the helper for exactly what the list asks for. The wand beside the
-app's name sends him away and brings him back; without him the window is the
-plain one, with one button, **Review cleanup**. He holds still when the
-system asks for reduced motion, draws less often when the window is not the
-one in front, and is simply absent where there is no WebGL.
+app's name sends him away and brings him back, and says so each time, with an
+Undo; without him the window is the plain one, with one button, **Review
+cleanup**. His stage is dark in a light window too; everything else follows
+the system's appearance. He holds still when the system asks for reduced
+motion, draws less often when the window is not the one in front, and is
+simply absent where there is no WebGL.
 
 The app is a front for `debloat.sh`: it cannot do anything the commands below
 cannot, and the same safety rules apply. It listens on this computer only, and
-no other web page can talk to it. It runs from a copy of its files in
-`~/Library/Application Support/MAXAPACITY Debloat`, so it keeps working if the
-app is moved or replaced while open. Its log is
+no other web page can talk to it. Nothing leaves this computer unless you ask:
+fetching the community list is one download, and **Look it up on the web**
+opens a search for a package name in your browser. That link waits like a
+button that changes the phone, so that it is not pressed by mistake. It runs from a copy of
+its files in `~/Library/Application Support/MAXAPACITY Debloat`, so it keeps
+working if the app is moved or replaced while open. Its log is
 `~/Library/Logs/maxapacity-debloat.log`.
 
 To run the window without the app (also on Linux):
@@ -193,6 +275,10 @@ off, then silence it (block its notifications and background activity). It
 reports which one took. A phone maker can lock a package against all three;
 that shows as `FAILED` and nothing about it is changed.
 
+Some phones refuse the first of those for anything preinstalled; Android 17
+does, by every report. The app is then switched off, and the result says
+"switched off" beside it, in the terminal and in the app.
+
 Regular apps (not preinstalled) are uninstalled for real, with their data.
 `restore` cannot bring those back; it prints the Play Store link instead.
 
@@ -201,6 +287,11 @@ Regular apps (not preinstalled) are uninstalled for real, with their data.
 `rules.tsv` decides what counts as junk: one line per rule with a tier, a
 pattern matched against the package name, and the reason shown in the scan.
 The file's header explains the tiers.
+
+The app reads two things out of a reason. One that starts with a name and a
+colon (`Verizon Cloud: Verizon's backup and storage service`) gives the app
+that name in the window. What follows a semicolon (`...; games lose that
+toolbar`) is shown as the catch when the app comes up under With a catch.
 
 Your own rules go in `~/.maxapacity-debloat/rules.local.tsv`, same format.
 They are read first, so they override the built-in list. For example, to keep
@@ -220,11 +311,11 @@ a folder name. This fills that in:
 ./debloat.sh community
 ```
 
-It downloads the package list that
+In the app, the same thing is **Get the list** under Checks, or in Find
+anything. It downloads the package list that
 [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)
 keeps, several thousand preinstalled apps across makers and carriers, each
-with a description and a rating. It needs `curl` and no phone, and the app
-uses the result too. From then on:
+with a description and a rating. It needs `curl` and no phone. From then on:
 
 - What the list rates **Recommended** shows under **ASK FIRST**, with the
   list's description as the reason. `apply` leaves these alone; only `apply
@@ -278,10 +369,14 @@ node --test test/gui.test.mjs
 Does the same for the app's helper: that it refuses requests without its
 token or for another host name, keeps going while a window is open however
 quiet that window is, stops by itself once the window has gone, and is reused
-rather than started twice. It also covers the wizard as far as it can
-without a screen: that his drawing code is served and parses, that the page
-only asks it for things it has, and that every pose, spell and stage runs
-against a WebGL that draws nothing.
+rather than started twice; that a scan says which installers can still act;
+and that the community list is fetched and dropped through the tool. It also
+covers the window as far as it can without a screen: that the names,
+pictures and descriptions people see are worked out as they should be, that
+an app keeps its name and description after it has been removed, that the
+wizard's drawing code is served and parses, that the page only asks it for
+things it has, and that every pose, spell and stage runs against a WebGL
+that draws nothing.
 
 `tools/package.sh` makes the two downloads: the app in a zip of its own, and
 the tool with what the app is built from. CI attaches both to a draft release
@@ -301,21 +396,42 @@ an empty alternative, like `(|a)`, is an error there.
 - [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)
   is a desktop app for Windows, macOS and Linux that also works over `adb`
   without root. Its package list is kept by a community and covers far more
-  makers than the rules here.
+  makers than the rules here. It shows package names in one long list with
+  filters, and you install `adb` yourself.
 - [Canta](https://github.com/samolego/Canta) runs on the phone itself through
-  Shizuku, so it needs no computer, and uses that same list.
+  Shizuku, so it needs no computer, and uses that same list. It shows each
+  app's own name and icon.
+- [ADB AppControl](https://adbappcontrol.com) is a Windows program with a
+  wider remit: it manages apps in general. It shows names and icons once its
+  helper app is installed on the phone.
 
-This tool is narrower. It is built around the installers that put apps back:
-it removes them, shows which app installed what, watches installs as they
-happen, and keeps a record so that `restore` and `reapply` know what was done.
-Its own rules are written for Motorola and Verizon phones. For any other
-phone, `./debloat.sh community` brings in the same list those tools use.
+What this one does that those do not:
+
+- It is built around the installers that put apps back. It removes them
+  first, shows which app installed what, says in every scan whether one can
+  still act, and lists what has come back.
+- It walks you through: getting connected, the cleanup, and the apps with a
+  catch one at a time.
+- It never reports a removal it has not checked, and says so when Android
+  would only let an app be switched off, or not touched at all.
+- Every change is logged, and `restore` and `reapply` work from the log.
+
+What they do that this does not: Canta and ADB AppControl show the names and
+icons apps give themselves. This knows the names its rules give and those of
+a few dozen common apps, reads the rest from the package name, and draws a
+picture for the kind of app rather than its icon. Its own rules are written
+for Motorola and Verizon phones; for any other phone, the community list
+those tools use is one click or one command away.
 
 ## Limits
 
 - It manages apps. Anything built into the maker's system interface itself
   cannot be removed this way.
 - App names are not available over `adb`, only package names and folders.
+  The app shows the name a rule gives, or its own name for a few dozen
+  common apps, and otherwise a name read from the package name, which may
+  not be what the phone calls it. The package name is in the panel each row
+  opens.
 - The built-in rules cover the common installers and feeds plus Motorola and
   Verizon. For other makers and carriers, `community` brings in a list that
   covers them; without it they mostly land under NOT CLASSIFIED.

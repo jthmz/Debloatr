@@ -116,10 +116,9 @@ if [ -z "$NODE" ]; then
   fi
   exit 1
 fi
-if ! command -v adb >/dev/null 2>&1; then
-  alert "adb is needed to reach the phone. In Terminal, run: brew install android-platform-tools"
-  exit 1
-fi
+# No adb is not a reason to stay shut: the window says how to get it, and
+# finds it by itself once it is there, since Homebrew's folder is on the PATH
+# above whether or not anything is in it yet.
 
 mkdir -p "$(dirname "$LOG")"
 # The log gets a line or two per start; begin again before it grows large.

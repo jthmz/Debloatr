@@ -127,7 +127,7 @@
     return { verts, idx };
   }
 
-  const ball = (rings = 12, seg = 20) => lathe(Array.from({ length: rings + 1 }, (_, i) => {
+  const ball = (rings = 16, seg = 28) => lathe(Array.from({ length: rings + 1 }, (_, i) => {
     const a = -Math.PI / 2 + i / rings * Math.PI;
     return [Math.cos(a), Math.sin(a)];
   }), seg);
@@ -215,16 +215,22 @@
     shoe: [0.36, 0.2, 0.12],
     white: [1, 1, 1],
     phone: [0.13, 0.135, 0.16],
+    ghost: [0.21, 0.22, 0.26],
     glass: [0.72, 1, 0.42],
   };
-  // What circles the phone, by why it is there.
+  // What circles the phone. Colour says what it is, in the page's own red
+  // and amber: red for what puts junk back, amber for the rest that can go,
+  // grey for what is being asked about or kept.
+  const BAD = [0.973, 0.443, 0.443];
+  const WARN = [0.984, 0.749, 0.141];
   const KIND = {
-    remove: [1, 0.3, 0.44],
-    pushed: [1, 0.6, 0.12],
-    back: [0.95, 0.2, 0.3],
-    ask: [0.98, 0.76, 0.2],
-    keep: [0.25, 0.72, 0.7],
-    fail: [0.42, 0.3, 0.34],
+    installer: BAD,
+    back: BAD,
+    remove: WARN,
+    pushed: WARN,
+    ask: [0.725, 0.733, 0.765],
+    keep: [0.34, 0.36, 0.42],
+    fail: [0.4, 0.26, 0.28],
   };
 
   // ---- Shaders -------------------------------------------------------------
@@ -244,20 +250,25 @@
     precision mediump float;
     uniform vec3 uColor; uniform vec3 uEmit; uniform vec4 uGlass;
     uniform vec3 uEye; uniform vec3 uLight; uniform vec4 uOrb;
+    uniform vec3 uAmbLo; uniform vec3 uAmbHi; uniform vec3 uRim;
     varying vec3 vN; varying vec3 vW;
     void main() {
       vec3 n = normalize(vN);
       vec3 v = normalize(uEye - vW);
       if (dot(n, v) < 0.0) n = -n;
       float lit = smoothstep(-0.3, 0.8, dot(n, uLight));
-      vec3 amb = mix(vec3(0.30, 0.20, 0.46), vec3(0.62, 0.66, 0.98), n.y * 0.5 + 0.5);
+      vec3 amb = mix(uAmbLo, uAmbHi, n.y * 0.5 + 0.5);
       vec3 c = uColor * (amb * 0.62 + vec3(1.0, 0.96, 0.9) * lit * 0.72);
       vec3 toOrb = uOrb.xyz - vW;
       c += uColor * vec3(0.75, 1.0, 0.1) * max(dot(n, normalize(toOrb)), 0.0) * uOrb.w / (1.0 + dot(toOrb, toOrb) * 1.6);
       float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-      c += vec3(0.55, 0.5, 1.0) * rim * uGlass.z;
+      c += uRim * rim * uGlass.z;
       c += vec3(1.0) * pow(max(dot(n, normalize(uLight + v)), 0.0), 48.0) * uGlass.w;
+      c *= mix(0.7, 1.0, smoothstep(0.0, 0.55, vW.y));
       c += uEmit;
+      // Past full brightness a colour is scaled back as a whole, so lime
+      // stays lime and does not burn out to yellow.
+      c /= max(1.0, max(c.r, max(c.g, c.b)));
       float a = clamp(uGlass.x + rim * uGlass.y, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
     }`;
@@ -280,6 +291,10 @@
     float seg(vec2 p, vec2 a, vec2 b) {
       vec2 pa = p - a, ba = b - a;
       return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+    }
+    float box(vec2 p, vec2 c, vec2 size, float r) {
+      vec2 d = abs(p - c) - size + r;
+      return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
     }
     float tri(vec2 p, float rot) {
       float a = atan(p.y, p.x) + rot;
@@ -304,25 +319,49 @@
         vec2 q = abs(p) * uB.xy - (uB.xy - uB.z);
         if (length(max(q, 0.0)) > uB.z) discard;
         vec2 uv = p * 0.5 + 0.5;
-        vec3 bg = mix(vec3(0.09, 0.06, 0.27), vec3(0.24, 0.13, 0.58), uv.y);
+        // The same picture with x and y on one scale, for drawing shapes.
+        vec2 k = vec2(uv.x, (uv.y - 0.5) * uB.y / uB.x + 0.5);
+        vec3 bg = mix(vec3(0.075, 0.08, 0.095), vec3(0.135, 0.14, 0.165), uv.y);
         vec2 g = vec2(uv.x * 4.0, uv.y * 7.4 - 0.7);
         vec2 cell = floor(g);
         vec2 f = fract(g) - 0.5;
         float icon = smoothstep(0.09, 0.03, length(max(abs(f) - 0.23, 0.0))) * step(0.0, cell.y) * step(cell.y, 5.0);
         float h = hash(cell + 3.0);
-        vec3 ic = h < 0.33 ? vec3(0.42, 0.82, 1.0) : (h < 0.66 ? vec3(0.74, 0.62, 1.0) : vec3(0.93, 0.94, 1.0));
-        ic *= 0.6 + 0.3 * hash(cell);
-        float junk = step(hash(cell + 7.0), uA.z);
-        ic = mix(ic, vec3(1.0, 0.3, 0.45) * (0.85 + 0.15 * sin(uTime * 4.0 + h * 6.28)), junk);
+        vec3 ic = vec3(0.3, 0.32, 0.37) + vec3(0.16) * h;
+        // Each of the 24 icons has a place in a fixed order; the first few
+        // are the junk, and the first of those the installers. So the screen
+        // shows as many amber and red icons as are circling the phone.
+        float rank = mod((cell.x + 4.0 * cell.y) * 7.0 + 3.0, 24.0);
+        float junk = step(rank + 0.5, uA.z);
+        vec3 jc = mix(vec3(0.984, 0.749, 0.141), vec3(0.973, 0.443, 0.443), step(rank + 0.5, uA.y));
+        ic = mix(ic, jc * (0.85 + 0.15 * sin(uTime * 4.0 + h * 6.28)), junk);
         vec3 c = mix(bg, ic, icon * 0.92);
         if (uA.x < 0.5) {
-          c = bg * 0.3 + vec3(0.02) + vec3(0.2, 0.16, 0.4) * (0.5 + 0.5 * sin(uTime * 2.0)) * 0.12;
+          // Nothing plugged in: a plug, waiting.
+          float plug = min(min(box(k, vec2(0.5, 0.56), vec2(0.13, 0.085), 0.03), box(k, vec2(0.5, 0.33), vec2(0.022, 0.15), 0.012)),
+            min(box(k, vec2(0.44, 0.7), vec2(0.022, 0.055), 0.01), box(k, vec2(0.56, 0.7), vec2(0.022, 0.055), 0.01)));
+          c = bg * 1.15 + vec3(0.62, 0.65, 0.72) * smoothstep(0.012, 0.0, plug) * (0.55 + 0.3 * sin(uTime * 2.4));
+        } else if (uA.x > 3.5) {
+          // The phone is asking whether to trust this computer: a heading
+          // and two lines, a box to tick with a line beside it, and two
+          // buttons, the one to press lit.
+          c = bg * 0.6;
+          float card = smoothstep(0.012, 0.0, box(k, vec2(0.5, 0.5), vec2(0.43, 0.36), 0.06));
+          c = mix(c, vec3(0.2, 0.21, 0.25), card);
+          float words = min(box(k, vec2(0.34, 0.74), vec2(0.2, 0.026), 0.02),
+            min(box(k, vec2(0.43, 0.63), vec2(0.29, 0.014), 0.012), box(k, vec2(0.36, 0.57), vec2(0.22, 0.014), 0.012)));
+          words = min(words, box(k, vec2(0.52, 0.44), vec2(0.2, 0.014), 0.012));
+          c = mix(c, vec3(0.6, 0.63, 0.7), smoothstep(0.01, 0.0, words) * card);
+          c = mix(c, vec3(0.75, 1.0, 0.0), smoothstep(0.01, 0.0, box(k, vec2(0.21, 0.44), vec2(0.04, 0.04), 0.012)) * card);
+          c = mix(c, vec3(0.44, 0.46, 0.52), smoothstep(0.008, 0.0, abs(box(k, vec2(0.4, 0.26), vec2(0.11, 0.05), 0.024)) - 0.004) * card);
+          float allow = box(k, vec2(0.71, 0.26), vec2(0.13, 0.055), 0.024);
+          c = mix(c, vec3(0.75, 1.0, 0.0), smoothstep(0.01, 0.0, allow) * card);
+          c += vec3(0.75, 1.0, 0.0) * smoothstep(0.07, 0.0, abs(allow - 0.03 - 0.03 * fract(uTime * 0.9))) * 0.5 * (1.0 - fract(uTime * 0.9));
         } else if (uA.x > 1.5 && uA.x < 2.5) {
           float beam = smoothstep(0.09, 0.0, abs(uv.y - fract(uTime * 0.55)));
-          c += vec3(0.75, 1.0, 0.0) * (beam * 0.95 + 0.07);
+          c += vec3(0.75, 1.0, 0.0) * (beam * 0.95 + 0.05);
         } else if (uA.x > 2.5) {
-          c = mix(c, bg * 1.25, 0.72);
-          vec2 k = vec2(uv.x, (uv.y - 0.5) * uB.y / uB.x + 0.5);
+          c = mix(c, bg * 1.2, 0.75);
           float tickmark = min(seg(k, vec2(0.30, 0.50), vec2(0.44, 0.37)), seg(k, vec2(0.44, 0.37), vec2(0.72, 0.65)));
           float mark = smoothstep(0.062, 0.04, tickmark) + smoothstep(0.03, 0.012, abs(length(k - 0.5) - 0.40));
           c = mix(c, vec3(0.75, 1.0, 0.0), clamp(mark, 0.0, 1.0));
@@ -331,6 +370,13 @@
       } else if (uMode == 3) {
         float g = exp(-r * r * 4.5) * smoothstep(1.0, 0.6, r) * uA.x;
         o = vec4(uTint * g, g * uA.y);
+      } else if (uMode == 5) {
+        // How far outside the stage's rounded edge this is; drawn with a
+        // blend that takes away, it wears the rim down to a smooth line.
+        vec2 px = (p * 0.5 + 0.5) * uB.xy;
+        vec2 q = abs(px - uB.xy * 0.5) - (uB.xy * 0.5 - uB.z);
+        float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uB.z;
+        o = vec4(0.0, 0.0, 0.0, smoothstep(-uB.w, 0.0, d));
       } else {
         vec2 px = (p * 0.5 + 0.5) * uB.xy;
         vec2 q = abs(px - uB.xy * 0.5) - (uB.xy * 0.5 - uB.z);
@@ -339,11 +385,10 @@
         vec2 id = floor(gp);
         float d = length(fract(gp) - 0.2 - vec2(hash(id), hash(id + 17.0)) * 0.6);
         float tw = 0.55 + 0.45 * sin(uTime * (0.6 + hash(id + 9.0) * 1.8) + hash(id) * 6.28);
-        float s = smoothstep(0.085, 0.0, d) * step(0.6, hash(id + 5.0)) * tw * (0.35 + 0.65 * hash(id + 2.0));
+        float s = smoothstep(0.07, 0.0, d) * step(0.74, hash(id + 5.0)) * tw * (0.25 + 0.5 * hash(id + 2.0)) * uA.x;
         s *= smoothstep(0.08, 0.6, px.y / uB.y);
-        vec3 sc = mix(vec3(0.85, 0.86, 1.0), vec3(0.75, 1.0, 0.2), step(0.86, hash(id + 31.0)));
         float haze = exp(-pow(px.y / uB.y * 3.0, 2.0)) * 0.26;
-        o = vec4(sc * s + vec3(0.36, 0.22, 0.9) * haze, s * 0.3 + haze * 0.15);
+        o = vec4(vec3(0.86, 0.88, 0.95) * s + uTint * haze, s * 0.3 + haze * 0.15);
       }
       gl_FragColor = o;
     }`;
@@ -388,13 +433,13 @@
     }`;
   const BOLT_FS = `
     precision mediump float;
-    uniform vec3 uColor; uniform float uOver;
+    uniform vec3 uColor; uniform vec3 uCore; uniform float uOver;
     varying float vV; varying float vA;
     void main() {
       float core = smoothstep(0.36, 0.08, abs(vV));
       float glow = pow(max(0.0, 1.0 - abs(vV)), 2.2);
       float i = max(core, glow * 0.75) * vA;
-      gl_FragColor = vec4(mix(uColor, vec3(1.0), core) * i, i * uOver);
+      gl_FragColor = vec4(mix(uColor, uCore, core) * i, i * uOver);
     }`;
 
   // ---- Poses ---------------------------------------------------------------
@@ -420,6 +465,8 @@
     shrug: () => ({ armLOut: 1.0, armLFwd: 0.45, armROut: 0.95, armRFwd: 0.5, y: 0.03, headTilt: 0.26, brow: 1, frown: 0, staffOut: 0.5, look: 0.4 }),
     search: t => ({ turn: Math.sin(t * 1.1) * 0.5, headYaw: Math.sin(t * 1.1 + 0.4) * 0.55, armLOut: 0.3, armLFwd: 2.25, pitch: 0.08, frown: 0.6, look: 0 }),
   };
+  // Where his eyes go when left to themselves: mostly to whoever is there.
+  const GLANCES = [[0, 0], [0, 0], [0.5, 0.05], [0.3, -0.3], [-0.35, 0.05], [0.12, 0.22]];
   // The ones that play once and hand back to whatever was going on.
   const ONCE = { hello: 1.7, zap: 0.42, cheer: 2.0, shrug: 1.6 };
 
@@ -431,6 +478,19 @@
     } catch (e) { /* no WebGL here */ }
     if (!gl) return null;
 
+    // How he is dressed and lit. Graphite and lime are the app's own
+    // colours; violet is what he first wore, kept for those who miss it.
+    const LOOKS = {
+      graphite: { robe: [0.215, 0.225, 0.26], hat: [0.175, 0.185, 0.215], ambLo: [0.22, 0.23, 0.27], ambHi: [0.66, 0.69, 0.76], rim: [0.8, 0.88, 1.0], haze: [0.05, 0.055, 0.065], stars: 0.7, floor: [0.5, 0.53, 0.6] },
+      violet: { robe: [0.33, 0.23, 0.86], hat: [0.28, 0.19, 0.76], ambLo: [0.30, 0.20, 0.46], ambHi: [0.62, 0.66, 0.98], rim: [0.55, 0.5, 1.0], haze: [0.36, 0.22, 0.9], stars: 1.4, floor: [0.45, 0.35, 0.9] },
+    };
+    let look = LOOKS.graphite;
+    function dress(name) {
+      look = LOOKS[name] || LOOKS.graphite;
+      C.robe = look.robe;
+      C.hat = look.hat;
+    }
+    dress(options.look);
     const settings = {
       still: Boolean(options.still),          // reduced motion: poses, no movement
       light: Boolean(options.light),          // the page behind is light
@@ -447,12 +507,13 @@
     let slow = 0;           // how many frames in a row took too long
     let cap = 2;            // the most pixels per CSS pixel worth drawing
     let active = 0;         // the time until which this draws every frame
-    const pointer = { x: -1, y: -1 };
+    const pointer = { x: -1, y: -1, at: 0 };
 
     const scene = {
-      phone: 'none',        // none | idle | scan | clean
+      phone: 'none',        // none | ask | idle | scan | clean
       phoneShown: 0,
-      junk: 0,
+      junk: 0,              // how many of the screen's 24 icons are junk
+      hot: 0,               // and how many of those are installers
       tiles: [],
       circle: 0.5,
       orbScreen: null,      // where things are in the window, for spells
@@ -460,11 +521,14 @@
       phoneScreen: null,
       visible: false,
       stage: '',
+      home: null,           // the stage's shape in the window
+      swayX: 0,             // how far the eye has moved with the pointer
+      swayY: 0,
     };
     const wizard = {
       base: 'idle', baseSince: 0, once: null, onceSince: 0, shades: false, talk: 0,
       pose: { ...REST, shades: 0, blink: 0, lookX: 0, lookY: 0, hatX: 0, hatZ: 0, beardZ: 0, spin: 0, hop: 0 },
-      nextBlink: 2, lastYaw: 0, poke: 0,
+      nextBlink: 2, lastYaw: 0, poke: 0, glance: [0, 0], glanceAt: 3, arrive: 1,
     };
     const sparks = [];
     const bolts = [];
@@ -502,27 +566,27 @@
 
     function build() {
       const r = {};
-      r.mesh = program(MESH_VS, MESH_FS, ['aPos', 'aNor'], ['uVP', 'uM', 'uN', 'uColor', 'uEmit', 'uGlass', 'uEye', 'uLight', 'uOrb']);
+      r.mesh = program(MESH_VS, MESH_FS, ['aPos', 'aNor'], ['uVP', 'uM', 'uN', 'uColor', 'uEmit', 'uGlass', 'uEye', 'uLight', 'uOrb', 'uAmbLo', 'uAmbHi', 'uRim']);
       r.quad = program(QUAD_VS, QUAD_FS, ['aPos'], ['uMVP', 'uFlat', 'uMode', 'uTime', 'uA', 'uB', 'uTint']);
       r.point = program(POINT_VS, POINT_FS, ['aPos', 'aSize', 'aColor', 'aShape'], ['uRes', 'uScale', 'uOver']);
-      r.bolt = program(BOLT_VS, BOLT_FS, ['aPos', 'aV', 'aA'], ['uRes', 'uColor', 'uOver']);
+      r.bolt = program(BOLT_VS, BOLT_FS, ['aPos', 'aV', 'aA'], ['uRes', 'uColor', 'uCore', 'uOver']);
       r.m = {
         ball: mesh(ball()),
-        robe: mesh(lathe(ROBE, 28)),
-        hem: mesh(lathe([[0.76, 0], [0.772, 0.035], [0.762, 0.075], [0.735, 0.1]], 28)),
-        belt: mesh(lathe([[0.468, 0.83], [0.486, 0.87], [0.476, 0.93], [0.445, 0.965]], 24)),
-        sleeve: mesh(lathe([[0, 0.03], [0.10, 0], [0.125, -0.2], [0.165, -0.45], [0.215, -0.62], [0.16, -0.6]], 16)),
-        cuff: mesh(lathe([[0.216, -0.59], [0.224, -0.61], [0.214, -0.628], [0.185, -0.615]], 16)),
-        beard: mesh(lathe([[0, 0.03], [0.2, 0], [0.27, -0.1], [0.25, -0.28], [0.17, -0.5], [0.07, -0.68], [0, -0.76]], 18)),
-        brim: mesh(lathe([[0, 0], [0.5, -0.012], [0.6, 0.008], [0.612, 0.03], [0.5, 0.052], [0.33, 0.062]], 28)),
-        band: mesh(lathe([[0.326, 0.045], [0.337, 0.062], [0.318, 0.14], [0.298, 0.152]], 24)),
-        hat1: mesh(lathe(HAT1, 22)),
-        hat2: mesh(lathe(HAT2, 18)),
-        hat3: mesh(lathe(HAT3, 14)),
+        robe: mesh(lathe(ROBE, 44)),
+        hem: mesh(lathe([[0.76, 0], [0.772, 0.035], [0.762, 0.075], [0.735, 0.1]], 44)),
+        belt: mesh(lathe([[0.468, 0.83], [0.486, 0.87], [0.476, 0.93], [0.445, 0.965]], 40)),
+        sleeve: mesh(lathe([[0, 0.03], [0.10, 0], [0.125, -0.2], [0.165, -0.45], [0.215, -0.62], [0.16, -0.6]], 24)),
+        cuff: mesh(lathe([[0.216, -0.59], [0.224, -0.61], [0.214, -0.628], [0.185, -0.615]], 24)),
+        beard: mesh(lathe([[0, 0.03], [0.2, 0], [0.27, -0.1], [0.25, -0.28], [0.17, -0.5], [0.07, -0.68], [0, -0.76]], 28)),
+        brim: mesh(lathe([[0, 0], [0.5, -0.012], [0.6, 0.008], [0.612, 0.03], [0.5, 0.052], [0.33, 0.062]], 44)),
+        band: mesh(lathe([[0.326, 0.045], [0.337, 0.062], [0.318, 0.14], [0.298, 0.152]], 36)),
+        hat1: mesh(lathe(HAT1, 36)),
+        hat2: mesh(lathe(HAT2, 30)),
+        hat3: mesh(lathe(HAT3, 22)),
         staff: mesh(lathe([[0, 0], [0.03, 0.01], [0.037, 1.2], [0.032, 2.2], [0.05, 2.26], [0, 2.27]], 10)),
         cradle: mesh(lathe([[0.03, 0], [0.085, 0.04], [0.12, 0.11], [0.105, 0.12], [0.07, 0.07], [0.03, 0.05]], 14)),
-        phone: mesh(slab(0.92, 1.86, 0.11, 0.14)),
-        tile: mesh(slab(1, 1, 0.26, 0.26)),
+        phone: mesh(slab(0.92, 1.86, 0.11, 0.14, 8)),
+        tile: mesh(slab(1, 1, 0.26, 0.26, 7)),
         lens: mesh(slab(0.2, 0.115, 0.03, 0.04)),
         box: mesh(slab(2, 2, 2, 0.02, 1)),
         star: mesh(starShape()),
@@ -552,6 +616,9 @@
       gl.uniformMatrix4fv(res.mesh.u.uVP, false, vp);
       gl.uniform3fv(res.mesh.u.uEye, eye);
       gl.uniform3f(res.mesh.u.uLight, -0.42, 0.72, 0.55);
+      gl.uniform3fv(res.mesh.u.uAmbLo, look.ambLo);
+      gl.uniform3fv(res.mesh.u.uAmbHi, look.ambHi);
+      gl.uniform3fv(res.mesh.u.uRim, look.rim);
       gl.uniform4f(res.mesh.u.uOrb, orbWorld[0], orbWorld[1], orbWorld[2], orbGlow);
       gl.enableVertexAttribArray(0);
       gl.enableVertexAttribArray(1);
@@ -640,9 +707,13 @@
       const t = Math.tan(fov / 2);
       const dist = Math.max(tall / (2 * t * fh), wide / (2 * t * aspect * fw));
       const lift = dist * 0.11;
-      eye[0] = cx; eye[1] = cy + lift; eye[2] = dist;
-      // Look at the centre from a little above.
-      let zx = 0, zy = lift, zz = dist;
+      // The eye moves a little against the pointer, which is what makes
+      // near things slide over far ones: the scene has depth to look into.
+      eye[0] = cx - scene.swayX * dist * 0.1;
+      eye[1] = cy + lift + scene.swayY * dist * 0.05;
+      eye[2] = dist;
+      // Look at the centre from there: a little above, as a rule.
+      let zx = eye[0] - cx, zy = eye[1] - cy, zz = dist;
       let l = Math.hypot(zx, zy, zz);
       zx /= l; zy /= l; zz /= l;
       let xx = zz, xz = -zx;
@@ -698,6 +769,10 @@
       RY(p.turn + p.spin);
       RX(p.pitch);
       RZ(p.lean);
+      if (depth === 0 && wizard.arrive < 0.45 && !settings.still) {
+        const grown = back(wizard.arrive / 0.45);
+        S(grown, grown, grown);
+      }
 
       for (const s of [-1, 1]) {
         push(); T(s * 0.22, 0.065, 0.62); S(0.14, 0.078, 0.22); draw(m.ball, C.shoe); pop();
@@ -721,11 +796,14 @@
       push(); T(0, 0.27, -0.07); S(0.34, 0.335, 0.32); draw(m.ball, C.cream); pop();
       push(); T(0, 0.29, 0); S(0.3, 0.31, 0.29); draw(m.ball, C.skin); pop();
       push(); T(0, 0.255, 0.29); S(0.085, 0.08, 0.09); draw(m.ball, C.nose); pop();
-      const ex = p.lookX * 0.02, ey = -p.lookY * 0.013;
+      // The white of each eye, and the pupil that does the looking.
+      const ex = p.lookX * 0.019, ey = -p.lookY * 0.016;
+      const lid = 1 - 0.94 * p.blink;
       for (const s of [-1, 1]) {
-        push(); T(s * 0.112 + ex, 0.34 + ey, 0.26); S(0.034, 0.045 * (1 - 0.93 * p.blink), 0.022); draw(m.ball, C.dark, { spec: 0.7, rim: 0 }); pop();
+        push(); T(s * 0.112, 0.342, 0.252); S(0.05, 0.06 * lid, 0.03); draw(m.ball, C.white, { emit: 0.1, rim: 0 }); pop();
+        push(); T(s * 0.112 + ex, 0.34 + ey * lid, 0.276); S(0.027, 0.031 * lid, 0.014); draw(m.ball, C.dark, { spec: 0.8, rim: 0 }); pop();
         if (p.blink < 0.5 && p.shades < 0.5) {
-          push(); T(s * 0.112 + ex + 0.012, 0.356 + ey, 0.281); S(0.011, 0.011, 0.006); draw(m.ball, C.white, { emit: 1 }); pop();
+          push(); T(s * 0.112 + ex + 0.009, 0.352 + ey, 0.289); S(0.008, 0.008, 0.004); draw(m.ball, C.white, { emit: 1 }); pop();
         }
         push(); T(s * 0.118, 0.425 + p.brow * 0.035, 0.258); RZ(s * (0.06 + p.frown * 0.34 - p.brow * 0.22)); S(0.08, 0.027, 0.034); draw(m.ball, C.cream); pop();
         push(); T(s * 0.088, 0.196, 0.287); RZ(s * -0.45); S(0.128, 0.054, 0.062); draw(m.ball, C.cream); pop();
@@ -742,7 +820,7 @@
       if (p.shades > 0.01) {
         const down = ease(p.shades);
         push();
-        T(0, mix(0.62, 0.35, down), mix(0.2, 0.292, down));
+        T(0, mix(0.62, 0.35, down), mix(0.2, 0.306, down));
         RX(mix(-1.1, 0, down));
         for (const s of [-1, 1]) {
           push(); T(s * 0.118, 0, 0); draw(m.lens, C.dark, { spec: 1.4, rim: 1.1 }); pop();
@@ -841,11 +919,20 @@
       const quick = name === 'zap' ? 30 : 11;
       const k = settings.still ? 1 : 1 - Math.exp(-quick * dt);
 
-      // Looking at the pointer, when there is nothing better to look at.
+      // Looking at the pointer, when there is nothing better to look at; and
+      // once the pointer has been still a while, about himself: at the
+      // phone, at the orb, back at whoever is watching.
       let lookYaw = 0, lookPitch = 0;
-      if (scene.headScreen && pointer.x >= 0) {
+      if (scene.headScreen && pointer.x >= 0 && performance.now() - pointer.at < 4000) {
         lookYaw = clamp((pointer.x - scene.headScreen.x) / 420, -1, 1) * 0.65;
         lookPitch = clamp((pointer.y - scene.headScreen.y) / 420, -1, 1) * 0.4;
+      } else if (!settings.still) {
+        if (t > wizard.glanceAt) {
+          wizard.glance = GLANCES[Math.floor(Math.random() * GLANCES.length)];
+          wizard.glanceAt = t + 1.8 + Math.random() * 4;
+        }
+        lookYaw = wizard.glance[0];
+        lookPitch = wizard.glance[1];
       }
       want.headYaw += lookYaw * want.look - want.turn * 0.5 * want.look;
       want.headPitch += lookPitch * want.look;
@@ -873,6 +960,7 @@
       p.hatX += ((Math.sin(t * 1.4 + 1) * 0.05 - (p.y + p.hop) * 1.5) * sway - p.hatX) * (1 - Math.exp(-6 * dt));
       p.beardZ += (clamp(-yawSpeed * 0.07, -0.3, 0.3) * sway - p.beardZ) * (1 - Math.exp(-7 * dt));
 
+      wizard.arrive += dt;
       wizard.nextBlink -= dt;
       if (wizard.nextBlink < 0) wizard.nextBlink = 2 + Math.random() * 3.5;
       p.blink = !settings.still && wizard.nextBlink < 0.13 ? Math.sin(wizard.nextBlink / 0.13 * Math.PI) : 0;
@@ -956,27 +1044,40 @@
       RX(-0.05 + Math.sin(t * 0.8) * 0.04 * w);
       RZ(0.06);
       S(shown, shown, shown);
-      draw(res.m.phone, C.phone, { spec: 0.6, rim: 1.1 });
+      const absent = scene.phone === 'none';
+      draw(res.m.phone, absent ? C.ghost : C.phone, { spec: 0.6, rim: absent ? 1.8 : 1.1 });
       push(); T(0, 0, 0.062); RX(-Math.PI / 2); S(0.415, 1, 0.885); screenAt.set(STACK[top]); screenShown = true; pop();
       pop();
     }
 
     // ---- Sparks and lightning, in window pixels ----
-    function spark(x, y, vx, vy, life, size, colour, shape = 0, pull = 0) {
+    // A spark with a "home" must stay on the stage, wherever the stage is
+    // by the time it is drawn: the page under it may have scrolled. One
+    // with none may cross the window, as a spell does.
+    function spark(x, y, vx, vy, life, size, colour, shape = 0, pull = 0, home = null) {
       if (sparks.length >= 1300 || settings.still) return;
-      sparks.push({ x, y, vx, vy, life, age: 0, size, r: colour[0], g: colour[1], b: colour[2], shape, pull });
+      sparks.push({ x, y, vx, vy, life, age: 0, size, r: colour[0], g: colour[1], b: colour[2], shape, pull, home: Boolean(home) });
     }
-    // The colours of magic: lime on dark, and violet where the page is light
-    // and lime would not show.
-    const ink = dark => (dark || !settings.light ? [[0.75, 1, 0.05], [1, 1, 0.85], [0.55, 0.9, 1]] : [[0.45, 0.25, 1], [0.75, 0.3, 0.95], [0.42, 0.6, 0]]);
-    function burst(x, y, { count = 26, power = 1, dark = false, colour = null } = {}) {
+    // Is this point of the window inside a stage's rounded shape, with room
+    // to spare for a spark of this size?
+    function onStage(home, x, y, size) {
+      const hw = (home.right - home.left) / 2, hh = (home.bottom - home.top) / 2;
+      const qx = Math.abs(x - home.left - hw) - (hw - home.radius), qy = Math.abs(y - home.top - hh) - (hh - home.radius);
+      const d = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - home.radius;
+      return d < -size * 0.5;
+    }
+    // The colour of magic is the one accent the app has: charged lime, with
+    // white heat. On a light page that lime would not show, so it is drawn in
+    // the darker lime the page itself uses there, with ink for heat.
+    const ink = dark => (dark || !settings.light ? [[0.749, 1, 0], [1, 1, 0.9], [0.86, 1, 0.45]] : [[0.36, 0.5, 0], [0.09, 0.09, 0.1], [0.42, 0.56, 0]]);
+    function burst(x, y, { count = 26, power = 1, dark = false, colour = null, home = null } = {}) {
       const inks = ink(dark);
       for (let i = 0; i < count; i++) {
         const a = Math.random() * TAU, sp = (60 + Math.random() * 260) * power;
         spark(x, y, Math.cos(a) * sp, Math.sin(a) * sp - 40, 0.35 + Math.random() * 0.5, 5 + Math.random() * 9,
-          colour && i % 3 === 0 ? colour : inks[i % inks.length], i % 4 === 0 ? 1 : 0, 0);
+          colour && i % 3 === 0 ? colour : inks[i % inks.length], i % 4 === 0 ? 1 : 0, 0, home);
       }
-      for (let i = 0; i < 4; i++) spark(x + (Math.random() - 0.5) * 16, y + (Math.random() - 0.5) * 16, 0, -12, 0.3, 46 * power, inks[0], 0, 0);
+      for (let i = 0; i < 4; i++) spark(x + (Math.random() - 0.5) * 16, y + (Math.random() - 0.5) * 16, 0, -12, 0.3, 46 * power, inks[0], 0, 0, home);
     }
     function bolt(x0, y0, x1, y1, { dark = false, width = 1, life = 0.24, steady = false } = {}) {
       if (settings.still) return;
@@ -1056,8 +1157,10 @@
       gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 16, 8);
       gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 16, 12);
       for (const [first, count, b] of runs) {
+        const onDark = b.dark || !settings.light;
         gl.uniform3fv(res.bolt.u.uColor, ink(b.dark)[0]);
-        gl.uniform1f(res.bolt.u.uOver, b.dark || !settings.light ? 0.25 : 1);
+        gl.uniform3fv(res.bolt.u.uCore, onDark ? C.white : C.dark);
+        gl.uniform1f(res.bolt.u.uOver, onDark ? 0.25 : 1);
         gl.drawArrays(gl.TRIANGLE_STRIP, first, count);
       }
       gl.disableVertexAttribArray(2);
@@ -1081,6 +1184,7 @@
         s.x += s.vx * dt;
         s.y += s.vy * dt;
         const u = s.age / s.life;
+        if (s.home && !(scene.home && onStage(scene.home, s.x, s.y, s.size))) continue;
         data[k++] = s.x; data[k++] = s.y;
         data[k++] = Math.min(res.maxPoint / ratio, s.size * (s.shape ? 1 + 0.3 * Math.sin(s.age * 30) : 1 - u * 0.5));
         data[k++] = s.r; data[k++] = s.g; data[k++] = s.b;
@@ -1107,23 +1211,27 @@
     // ---- A frame ----
     // The stage to draw on: the wizard's own screen if it is open, else the
     // one on the overview, else the small one in the corner.
+    // A stage marked data-stage-first comes before any other, whatever its
+    // kind: the page uses that where one stage lies over another.
     function findStage() {
-      for (const kind of ['full', 'hero', 'side']) {
-        const node = document.querySelector(`[data-stage="${kind}"]`);
-        if (!node) continue;
-        const rect = node.getBoundingClientRect();
-        if (rect.width < 24 || rect.height < 24) continue;
-        if (rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth) continue;
-        return { kind, node, rect };
+      for (const pick of ['[data-stage-first]', '[data-stage="full"]', '[data-stage="hero"]', '[data-stage="side"]']) {
+        for (const node of document.querySelectorAll(pick)) {
+          const kind = node.dataset.stage;
+          if (!SHOTS[kind]) continue;
+          const rect = node.getBoundingClientRect();
+          if (rect.width < 24 || rect.height < 24) continue;
+          if (rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth) continue;
+          return { kind, node, rect };
+        }
       }
       return null;
     }
     const SHOTS = {
       // centre x, centre y, width and height of what must be seen, and
       // how many wizards deep the orb goes
-      full: { box: [1.42, 1.56, 5.0, 3.75], nest: 2 },
-      hero: { box: [1.42, 1.5, 4.85, 3.4], nest: 1 },
-      side: { box: [0.2, 2.02, 1.55, 1.75], nest: 1 },
+      full: { box: [1.42, 1.5, 5.0, 3.9], nest: 2 },
+      hero: { box: [1.42, 1.4, 4.85, 3.75], nest: 1 },
+      side: { box: [0.2, 2.0, 2.3, 2.3], nest: 1 },
     };
 
     function drawScene(stage, t, dt, winW, winH) {
@@ -1132,6 +1240,8 @@
       const style = getComputedStyle(stage.node);
       const radius = Math.min(parseFloat(style.borderTopLeftRadius) || 0, rect.width / 2, rect.height / 2);
       const into = (stage.node.dataset.into || '0.03 0.04 0.97 0.96').split(/\s+/).map(Number);
+      // The stage's shape in the window, for the sparks that must stay on it.
+      scene.home = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, radius };
 
       const px = v => Math.round(v * ratio);
       const box = [px(rect.left), px(winH - rect.bottom), px(rect.width), px(rect.height)];
@@ -1152,12 +1262,20 @@
         gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       }
       useQuad();
-      quad(4, [0, 0, 0, 0], [rect.width, rect.height, radius, 0], C.white, true);
+      quad(4, [look.stars, 0, 0, 0], [rect.width, rect.height, radius, 0], look.haze, true);
       if (masked) {
         gl.stencilFunc(gl.EQUAL, 1, 0xff);
         gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
       }
 
+      // Where the pointer is, measured from the middle of the stage, moves
+      // the eye; when it has been still a while the eye drifts home.
+      const moving = !settings.still && pointer.x >= 0 && performance.now() - pointer.at < 4000;
+      const wantX = moving ? clamp((pointer.x - (rect.left + rect.width / 2)) / innerWidth, -0.5, 0.5) : 0;
+      const wantY = moving ? clamp((pointer.y - (rect.top + rect.height / 2)) / innerHeight, -0.5, 0.5) : 0;
+      const ease3 = settings.still ? 1 : 1 - Math.exp(-3 * dt);
+      scene.swayX += (wantX - scene.swayX) * ease3;
+      scene.swayY += (wantY - scene.swayY) * ease3;
       frame(rect, shot.box[0], shot.box[1], shot.box[2], shot.box[3], into);
       scene.phoneShown += ((kind === 'side' ? 0 : 1) - scene.phoneShown) * (settings.still ? 1 : 1 - Math.exp(-8 * dt));
       identity(STACK[0]);
@@ -1168,7 +1286,11 @@
         push(); T(PHONE[0], 0.01, 0); S(1.5, 1, 1.5);
         quad(0, [scene.circle, scene.circle * 0.22, 0, 0], [0, 0, 0, 0], C.lime, false);
         pop();
-        push(); T(0, 0.012, 0.05); S(1.05, 1, 0.8); quad(1, [0.5, 0, 0, 0], [0, 0, 0, 0], C.dark, false); pop();
+        // A pool of light to stand in, the orb's own light on the floor,
+        // and his shadow in both.
+        push(); T(0.25, 0.008, 0.2); S(2.4, 1, 1.7); quad(3, [0.085, 0, 0, 0], [0, 0, 0, 0], look.floor, false); pop();
+        push(); T(orbWorld[0], 0.009, orbWorld[2] * 0.6); S(1.4, 1, 1.1); quad(3, [0.05 + orbGlow * 0.05, 0, 0, 0], [0, 0, 0, 0], C.lime, false); pop();
+        push(); T(0, 0.012, 0.05); S(1.05, 1, 0.8); quad(1, [0.55, 0, 0, 0], [0, 0, 0, 0], C.dark, false); pop();
       }
 
       gl.enable(gl.DEPTH_TEST);
@@ -1188,8 +1310,8 @@
         useQuad();
         STACK[1].set(screenAt);
         top = 1;
-        const state = { none: 0, idle: 1, scan: 2, clean: 3 }[scene.phone];
-        quad(2, [state, 0, scene.junk, 0], [0.415, 0.885, 0.1, 0], C.white, false);
+        const state = { none: 0, idle: 1, scan: 2, clean: 3, ask: 4 }[scene.phone] || 0;
+        quad(2, [state, scene.hot, scene.junk, 0], [0.415, 0.885, 0.1, 0], C.white, false);
         top = 0;
       }
 
@@ -1198,10 +1320,18 @@
       useMesh();
       for (const item of late) paint(item.m, item.color, item.o, item.matrix);
       useQuad();
-      glowAt(orbWorld[0], orbWorld[1], orbWorld[2], 0.55 + orbGlow * 0.22, C.lime, 0.32 + orbGlow * 0.22, 0.1);
+      // Beside a page of words the orb glows less: there it is not the point.
+      const shine = kind === 'side' ? 0.55 : 1;
+      glowAt(orbWorld[0], orbWorld[1], orbWorld[2], 0.55 + orbGlow * 0.22, C.lime, (0.32 + orbGlow * 0.22) * shine, 0.1);
       if (kind !== 'side' && scene.phone === 'clean') glowAt(PHONE[0], PHONE[1], PHONE[2] - 0.2, 2.1, C.lime, 0.3, 0.1);
       gl.depthMask(true);
       gl.disable(gl.DEPTH_TEST);
+      // The stencil cuts the stage out in whole pixels, which shows as steps
+      // on a curve. This takes the outermost pixel and a half away by
+      // degrees, so the edge is smooth whatever the screen.
+      gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+      quad(5, [0, 0, 0, 0], [rect.width, rect.height, radius, 1.5 / ratio], C.white, true);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.disable(gl.SCISSOR_TEST);
       if (masked) gl.disable(gl.STENCIL_TEST);
 
@@ -1219,15 +1349,16 @@
       const inks = ink(dark);
       const size = stage.kind === 'side' ? 0.5 : stage.kind === 'hero' ? 0.75 : 1.2;
       const name = wizard.once || wizard.base;
-      if (Math.random() < dt * (name === 'channel' ? 0 : 5)) {
+      const home = scene.home;
+      if (Math.random() < dt * (name === 'channel' ? 0 : stage.kind === 'side' ? 2 : 5)) {
         spark(orb.x + (Math.random() - 0.5) * 14 * size, orb.y + (Math.random() - 0.5) * 14 * size,
-          (Math.random() - 0.5) * 30, -30 - Math.random() * 40, 0.8 + Math.random() * 0.6, (4 + Math.random() * 5) * size, inks[Math.random() < 0.7 ? 0 : 1], Math.random() < 0.3 ? 1 : 0, 0);
+          (Math.random() - 0.5) * 30, -30 - Math.random() * 40, 0.8 + Math.random() * 0.6, (4 + Math.random() * 5) * size, inks[Math.random() < 0.7 ? 0 : 1], Math.random() < 0.3 ? 1 : 0, 0, home);
       }
       if (name === 'channel') {
         // Drawn in from all around, faster as they near the orb.
         for (let i = 0; i < 3; i++) {
           const a = Math.random() * TAU, d = (70 + Math.random() * 70) * size;
-          spark(orb.x + Math.cos(a) * d, orb.y + Math.sin(a) * d, -Math.sin(a) * 160, Math.cos(a) * 160, 0.55, (5 + Math.random() * 6) * size, inks[i % 3], i === 0 ? 1 : 0, 26);
+          spark(orb.x + Math.cos(a) * d, orb.y + Math.sin(a) * d, -Math.sin(a) * 160, Math.cos(a) * 160, 0.55, (5 + Math.random() * 6) * size, inks[i % 3], i === 0 ? 1 : 0, 26, home);
         }
       }
       if (name === 'scan' && scene.phoneScreen && !bolts.some(b => b.steady)) {
@@ -1269,6 +1400,8 @@
       resize();
 
       const stage = findStage();
+      // Seen for the first time, or stepping onto his own screen: he arrives.
+      if (stage && (!scene.visible || (stage.kind === 'full' && scene.stage !== 'full'))) wizard.arrive = 0;
       scene.visible = Boolean(stage);
       scene.stage = stage ? stage.kind : '';
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1285,7 +1418,7 @@
         drawScene(stage, clock, dt, innerWidth, innerHeight);
         ambient(dt, stage);
       } else {
-        scene.orbScreen = scene.headScreen = scene.phoneScreen = null;
+        scene.orbScreen = scene.headScreen = scene.phoneScreen = scene.home = null;
         for (const tile of scene.tiles) tile.screen = null;
       }
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1297,6 +1430,8 @@
       try {
         res = build();
       } catch (e) {
+        // Said once, where someone looking for the reason will find it.
+        if (window.console) console.warn(`MAXAPACITY Debloat: the wizard could not start (${e.message})`);
         res = null;
         return false;
       }
@@ -1311,6 +1446,7 @@
     addEventListener('pointermove', event => {
       pointer.x = event.clientX;
       pointer.y = event.clientY;
+      pointer.at = performance.now();
       active = performance.now() + 4000;
     }, { passive: true });
     document.addEventListener('pointerleave', () => { pointer.x = -1; });
@@ -1341,13 +1477,16 @@
       poke() {
         wake();
         if (!settings.still) wizard.poke = 0.7;
-        if (scene.orbScreen) burst(scene.orbScreen.x, scene.orbScreen.y, { count: 18, power: 0.6, dark: true });
+        if (scene.orbScreen) burst(scene.orbScreen.x, scene.orbScreen.y, { count: 18, power: 0.6, dark: true, home: scene.home });
       },
-      // The phone: 'none' while there is none, 'idle', 'scan' or 'clean'.
-      // "junk" is how much of its screen is still junk, 0 to 1.
-      phone(state, junk = 0) {
+      // The phone: 'none' while there is none, 'ask' while it is asking
+      // whether to trust this computer, then 'idle', 'scan' or 'clean'.
+      // "junk" is how much of its screen is still junk, 0 to 1, and "hot"
+      // how much of the screen is installers, which show in red.
+      phone(state, junk = 0, hot = 0) {
         scene.phone = state;
-        scene.junk = clamp(junk, 0, 0.6);
+        scene.junk = Math.round(clamp(junk, 0, 0.75) * 24);
+        scene.hot = Math.min(scene.junk, Math.round(clamp(hot, 0, 0.75) * 24));
         wake();
       },
       // The apps circling the phone: [{ id, kind, state }]. Ones already
@@ -1387,10 +1526,12 @@
         else { tile.state = state; tile.since = clock; }
         wake();
       },
-      // Lightning from the orb to each of these apps in turn; each goes.
-      async zapTiles(ids, pause = 150) {
+      // Lightning from the orb to each of these apps in turn; each goes,
+      // and "each" hears of it as it does.
+      async zapTiles(ids, pause = 150, each = null) {
         wake(ids.length * pause + 2000);
         for (const id of ids) {
+          if (each) each(id);
           const tile = scene.tiles.find(candidate => candidate.id === id && candidate.state !== 'zap' && candidate.state !== 'out');
           if (!tile) continue;
           if (scene.orbScreen && tile.screen) {
@@ -1440,6 +1581,7 @@
       orb() { return scene.orbScreen; },
       visible() { return scene.visible; },
       set(changes) {
+        if (changes.look) dress(changes.look);
         Object.assign(settings, changes);
         canvas.style.display = settings.enabled ? '' : 'none';
         if (!settings.enabled) { sparks.length = 0; bolts.length = 0; }

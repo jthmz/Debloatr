@@ -135,7 +135,9 @@ def load():
 
 
 def save(state):
-    tmp = STATE_PATH + ".tmp"
+    # A name of its own for each process: two of these writing at once (the
+    # helper's adb and a test's "ctl") must not take each other's file away.
+    tmp = "%s.%d.tmp" % (STATE_PATH, os.getpid())
     with open(tmp, "w") as f:
         json.dump(state, f, indent=1, sort_keys=True)
     os.replace(tmp, STATE_PATH)

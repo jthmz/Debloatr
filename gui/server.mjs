@@ -125,6 +125,10 @@ function runTool(args) {
     execFile(BASH, [TOOL, '--no-color', ...args], { maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
       const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0;
       busy -= 1;
+      // Idle is counted from when the work ended, not from when it was asked
+      // for: a long scan must not leave the helper due to stop the moment it
+      // is done, before whoever asked can act on the answer.
+      lastSeen = Date.now();
       resolve({ code, stdout, stderr });
     });
   }));
@@ -147,6 +151,8 @@ function parseScan(tsv) {
   const lists = Object.fromEntries(LISTS.map(name => [name, []]));
   const history = [];
   const changes = [];
+  const installers = [];
+  const known = [];
   for (const line of tsv.split('\n')) {
     if (!line) continue;
     const field = line.split('\t');
@@ -156,15 +162,23 @@ function parseScan(tsv) {
       const [time, installed, cleanup, ask, notifying, off] = field.slice(1).map(Number);
       history.push({ time, installed, cleanup, ask, notifying, off });
     } else if (kind === 'change') changes.push({ pkg: a, action: b, when: c });
+    else if (kind === 'installer') installers.push({ pkg: a, active: b === 'active', note: c });
+    else if (kind === 'known') known.push({ pkg: a, tier: b, note: c });
     else if (lists[kind]) lists[kind].push({ pkg: a, note: b, app: c === 'app', locked: c === 'locked' });
   }
-  return { meta, lists, history, changes };
+  return { meta, lists, history, changes, installers, known };
 }
 
 function listPhones() {
   return new Promise(resolve => {
-    execFile('adb', ['devices'], (err, stdout) => {
-      if (err) return resolve({ ok: false, error: 'adb is not installed. On a Mac: brew install android-platform-tools' });
+    execFile('adb', ['devices'], (err, stdout, stderr) => {
+      // "missing" lets the page tell "there is no adb" from "adb is unwell".
+      if (err && err.code === 'ENOENT') {
+        return resolve({ ok: false, missing: 'adb', error: 'adb is not installed. On a Mac: brew install android-platform-tools' });
+      }
+      if (err) {
+        return resolve({ ok: false, error: `adb could not list the phones: ${String(stderr || err.message).trim().split('\n')[0]}` });
+      }
       const phones = stdout.split('\n').slice(1)
         .map(l => l.trim().split(/\s+/))
         .filter(p => p.length === 2)
@@ -314,6 +328,16 @@ async function handle(req, res) {
     return send(res, 200, { ok: true, partial: result.code === 2, output });
   }
 
+  // The community list: fetch it, or stop using it. The tool does the
+  // fetching, from the one address it knows, and only when asked.
+  if (req.method === 'POST' && url.pathname === '/api/community') {
+    let body;
+    try { body = await readJson(req); } catch (e) { return send(res, 400, { error: 'bad request' }); }
+    const result = await runTool(body.on === false ? ['community', 'off'] : ['community']);
+    if (result.code !== 0) return send(res, 200, { ok: false, error: toolError(result) });
+    return send(res, 200, { ok: true, output: result.stdout.trim() });
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/restart') {
     const result = await runTool([...forPhone(serial), 'restart']);
     if (result.code !== 0) return send(res, 200, { ok: false, error: toolError(result) });
@@ -331,7 +355,7 @@ async function handle(req, res) {
     busy += 1;
     child.stdout.on('data', chunk => res.write(chunk));
     child.stderr.on('data', chunk => res.write(chunk));
-    child.on('close', () => { busy -= 1; res.end(); });
+    child.on('close', () => { busy -= 1; lastSeen = Date.now(); res.end(); });
     req.on('close', () => child.kill('SIGTERM'));
     return undefined;
   }
