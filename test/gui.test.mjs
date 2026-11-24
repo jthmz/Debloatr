@@ -24,6 +24,8 @@ const ENV = {
   FAKE_ADB_STATE: path.join(WORK, 'phone.json'),
   DEBLOAT_STATE_DIR: path.join(WORK, 'state'),
   DEBLOAT_GUI_PORT: String(PORT),
+  // The community list comes from a file here, not from the network.
+  DEBLOAT_COMMUNITY_URL: `file://${path.join(WORK, 'community.json')}`,
 };
 const ctl = (...args) => execFileSync('python3', [path.join(HERE, 'fake_adb.py'), 'ctl', ...args], { env: ENV });
 
@@ -513,6 +515,63 @@ test('a helper from another version of the app is asked to stop, and this one ta
   assert.ok(!after.text.includes('content="0.0.1"'));
   assert.notEqual(tokenIn(after.text), tokenIn(before.text));
   newer.kill();
+});
+
+test('scan says which installers can still act', async () => {
+  ctl('init');
+  const before = (await authed('GET', '/api/scan')).json;
+  assert.deepEqual(before.installers.map(i => [i.pkg, i.active]).sort(),
+    [['com.LogiaGroup.LogiaDeck', true], ['com.dti.folderlauncher', true]]);
+  assert.match(before.installers.find(i => i.pkg === 'com.dti.folderlauncher').note, /Digital Turbine/);
+  await authed('POST', '/api/act', { action: 'remove', packages: ['com.LogiaGroup.LogiaDeck'] });
+  const after = (await authed('GET', '/api/scan')).json;
+  assert.equal(after.installers.find(i => i.pkg === 'com.LogiaGroup.LogiaDeck').active, false);
+  assert.equal(after.installers.find(i => i.pkg === 'com.dti.folderlauncher').active, true);
+  ctl('init');
+});
+
+test('the community list is fetched and dropped through the tool, and scan says whether it is in use', async () => {
+  const list = path.join(WORK, 'community.json');
+  assert.equal((await authed('GET', '/api/scan')).json.meta.community, '0');
+
+  // Nothing to fetch yet: a readable refusal, and nothing in use.
+  const missing = (await authed('POST', '/api/community', { on: true })).json;
+  assert.equal(missing.ok, false);
+  assert.match(missing.error, /^Could not download the community list/);
+
+  fs.writeFileSync(list, JSON.stringify({
+    'com.motorola.timeweatherwidget': { list: 'Oem', description: 'Time and weather widget.', removal: 'Recommended' },
+    'com.motorola.mystery': { list: 'Oem', description: 'Nobody is sure.', removal: 'Expert' },
+  }, null, 2));
+  const fetched = (await authed('POST', '/api/community', { on: true })).json;
+  assert.equal(fetched.ok, true);
+  assert.match(fetched.output, /Saved the community list: 2 packages/);
+  const withList = (await authed('GET', '/api/scan')).json;
+  assert.equal(withList.meta.community, '2');
+  assert.ok(withList.lists.ask.some(r => r.pkg === 'com.motorola.timeweatherwidget' && r.note === 'community list: Time and weather widget.'));
+  assert.ok(withList.lists.unknown.some(r => r.pkg === 'com.motorola.mystery' && r.note.includes('community list, expert: Nobody is sure.')));
+
+  const dropped = (await authed('POST', '/api/community', { on: false })).json;
+  assert.equal(dropped.ok, true);
+  const without = (await authed('GET', '/api/scan')).json;
+  assert.equal(without.meta.community, '0');
+  assert.ok(!without.lists.ask.some(r => r.pkg === 'com.motorola.timeweatherwidget'));
+
+  assert.equal((await request('POST', '/api/community', { body: { on: true } })).status, 401);
+  fs.rmSync(list, { force: true });
+});
+
+test('with no adb at all the helper says that is what is missing', async () => {
+  const port = PORT + 6;
+  // A PATH with node's own folder and nothing else of ours in it.
+  const env = { ...ENV, DEBLOAT_GUI_PORT: String(port), PATH: '/nonexistent' };
+  const bare = spawn(process.execPath, [path.join(HERE, '..', 'gui', 'server.mjs'), '--no-open'], { env });
+  await new Promise(resolve => bare.stdout.on('data', chunk => { if (String(chunk).includes('is open at')) resolve(); }));
+  const page = await getFrom(port, '/');
+  const phones = JSON.parse((await getFrom(port, '/api/phones', { 'x-debloat-token': tokenIn(page.text) })).text);
+  assert.equal(phones.ok, false);
+  assert.equal(phones.missing, 'adb');
+  bare.kill();
 });
 
 test('a missing phone comes back as a readable error, not a crash', async () => {

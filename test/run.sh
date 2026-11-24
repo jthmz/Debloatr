@@ -209,6 +209,10 @@ has "$(printf 'remove\tcom.motorola.help\tDevice Help app and its tips\tsystem')
 has "$(printf 'pushed\tcom.candy.game\tinstalled by com.dti.folderlauncher\tapp')"
 has "$(printf 'keep\tcom.vzw.apnlib\t')"
 has "$(printf 'off\tcom.gone.byothertool\tremoved\tsystem')"
+has "$(printf 'meta\tcommunity\t0')"
+has "$(printf 'installer\tcom.dti.folderlauncher\tactive\tDigital Turbine: silently installs and reinstalls sponsored apps')"
+has "$(printf 'installer\tcom.LogiaGroup.LogiaDeck\tactive\t')"
+if [ "$(grep -c "^installer$(printf '\t')" "$OUT")" -eq 2 ]; then ok; else bad "only the installers on this phone should be listed"; fi
 if awk -F'\t' '$1 == "history" { if (NF != 7) bad = 1; next } NF < 3 || NF > 4 { bad = 1 } END { exit bad }' "$OUT"; then
   ok
 else bad "tsv lines should have three or four fields, history lines seven"; fi
@@ -225,6 +229,20 @@ run scan --tsv
 if [ "$(grep -c "^history$(printf '\t')" "$OUT")" -ge 3 ]; then ok; else bad "tsv should carry the scan history"; fi
 has "$(printf 'change\tcom.motorola.help\tremoved\t')"
 has "$(printf 'change\tcom.candy.game\tuninstalled\t')"
+
+# ---------------------------------------------------------------------------
+t "an installer that has been dealt with is reported as off, however that was done"
+fresh
+run -y remove com.LogiaGroup.LogiaDeck com.dti.folderlauncher
+has_row removed com.LogiaGroup.LogiaDeck
+has_row "switched off" com.dti.folderlauncher
+run scan --tsv; rc 0
+has "$(printf 'installer\tcom.LogiaGroup.LogiaDeck\toff\t')"
+has "$(printf 'installer\tcom.dti.folderlauncher\toff\t')"
+hasnt "$(printf '\tactive\t')"
+run -y restore com.dti.folderlauncher
+run scan --tsv; rc 0
+has "$(printf 'installer\tcom.dti.folderlauncher\tactive\t')"
 
 # ---------------------------------------------------------------------------
 t "restart restarts the phone, and a dry run does not"
@@ -742,10 +760,31 @@ if command -v node >/dev/null 2>&1; then
     helper_stops
     rm -rf "${FAKEHOME:?}/Library/Android" "${FAKEHOME:?}/platform-tools"
 
-    t "the launcher says what is missing instead of opening a dead window"
-    launch "$BUNDLED" HOME="$WORK/emptyhome"; rc 1
-    has "needed"
-    if helper_listening; then bad "nothing should have been started"; else ok; fi
+    # With nothing of its own to go on, the launcher can still find a node in
+    # one of the usual places. Then the window opens, and it is the window
+    # that says adb is missing. With no node either, the launcher says so.
+    t "with no adb to be found the window still opens, to say how to get it"
+    launch "$BUNDLED" HOME="$WORK/emptyhome"
+    if [ "$RC" -eq 0 ]; then
+      PAGE=""
+      for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        PAGE="$(helper_get /)" && [ -n "$PAGE" ] && break
+        sleep 0.3
+      done
+      TOKEN="$(printf '%s\n' "$PAGE" | sed -n 's/.*name="debloat-token" content="\([0-9a-f]*\)".*/\1/p')"
+      case "$(helper_get /api/phones "$TOKEN")" in
+        *'"missing":"adb"'*) ok ;;
+        *) bad "the helper should say that adb is what is missing" ;;
+      esac
+      case "$(helper_get /api/scan "$TOKEN")" in
+        *'db is not installed'*) ok ;;
+        *) bad "a scan should say that adb is not installed" ;;
+      esac
+      helper_stops
+    else
+      has "needed"
+      if helper_listening; then bad "nothing should have been started"; else ok; fi
+    fi
   fi
 else
   printf '  (skipped: no node here)\n'
@@ -843,6 +882,8 @@ else bad "an Expert entry should be a note, in one line of plain text"; fi
 t "what the list recommends joins ASK FIRST; the rest explains NOT CLASSIFIED"
 fresh
 run community; rc 0
+run scan --tsv; rc 0
+has "$(printf 'meta\tcommunity\t4')"
 run scan; rc 0
 in_section "ASK FIRST" "com.motorola.timeweatherwidget"
 in_section "ASK FIRST" 'community list: Time and weather "widget". Safe to remove.'

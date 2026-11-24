@@ -244,18 +244,19 @@
     precision mediump float;
     uniform vec3 uColor; uniform vec3 uEmit; uniform vec4 uGlass;
     uniform vec3 uEye; uniform vec3 uLight; uniform vec4 uOrb;
+    uniform vec3 uAmbLo; uniform vec3 uAmbHi; uniform vec3 uRim;
     varying vec3 vN; varying vec3 vW;
     void main() {
       vec3 n = normalize(vN);
       vec3 v = normalize(uEye - vW);
       if (dot(n, v) < 0.0) n = -n;
       float lit = smoothstep(-0.3, 0.8, dot(n, uLight));
-      vec3 amb = mix(vec3(0.30, 0.20, 0.46), vec3(0.62, 0.66, 0.98), n.y * 0.5 + 0.5);
+      vec3 amb = mix(uAmbLo, uAmbHi, n.y * 0.5 + 0.5);
       vec3 c = uColor * (amb * 0.62 + vec3(1.0, 0.96, 0.9) * lit * 0.72);
       vec3 toOrb = uOrb.xyz - vW;
       c += uColor * vec3(0.75, 1.0, 0.1) * max(dot(n, normalize(toOrb)), 0.0) * uOrb.w / (1.0 + dot(toOrb, toOrb) * 1.6);
       float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-      c += vec3(0.55, 0.5, 1.0) * rim * uGlass.z;
+      c += uRim * rim * uGlass.z;
       c += vec3(1.0) * pow(max(dot(n, normalize(uLight + v)), 0.0), 48.0) * uGlass.w;
       c += uEmit;
       float a = clamp(uGlass.x + rim * uGlass.y, 0.0, 1.0);
@@ -343,7 +344,7 @@
         s *= smoothstep(0.08, 0.6, px.y / uB.y);
         vec3 sc = mix(vec3(0.85, 0.86, 1.0), vec3(0.75, 1.0, 0.2), step(0.86, hash(id + 31.0)));
         float haze = exp(-pow(px.y / uB.y * 3.0, 2.0)) * 0.26;
-        o = vec4(sc * s + vec3(0.36, 0.22, 0.9) * haze, s * 0.3 + haze * 0.15);
+        o = vec4(sc * s + uTint * haze, s * 0.3 + haze * 0.15);
       }
       gl_FragColor = o;
     }`;
@@ -431,6 +432,13 @@
     } catch (e) { /* no WebGL here */ }
     if (!gl) return null;
 
+    const LOOKS = {
+      violet: { robe: [0.33, 0.23, 0.86], hat: [0.28, 0.19, 0.76], ambLo: [0.30, 0.20, 0.46], ambHi: [0.62, 0.66, 0.98], rim: [0.55, 0.5, 1.0], haze: [0.36, 0.22, 0.9] },
+      graphite: { robe: [0.2, 0.21, 0.245], hat: [0.165, 0.175, 0.205], ambLo: [0.2, 0.21, 0.25], ambHi: [0.62, 0.65, 0.72], rim: [0.78, 0.86, 1.0], haze: [0.1, 0.11, 0.13] },
+    };
+    const look = LOOKS[options.look] || LOOKS.violet;
+    C.robe = look.robe;
+    C.hat = look.hat;
     const settings = {
       still: Boolean(options.still),          // reduced motion: poses, no movement
       light: Boolean(options.light),          // the page behind is light
@@ -502,7 +510,7 @@
 
     function build() {
       const r = {};
-      r.mesh = program(MESH_VS, MESH_FS, ['aPos', 'aNor'], ['uVP', 'uM', 'uN', 'uColor', 'uEmit', 'uGlass', 'uEye', 'uLight', 'uOrb']);
+      r.mesh = program(MESH_VS, MESH_FS, ['aPos', 'aNor'], ['uVP', 'uM', 'uN', 'uColor', 'uEmit', 'uGlass', 'uEye', 'uLight', 'uOrb', 'uAmbLo', 'uAmbHi', 'uRim']);
       r.quad = program(QUAD_VS, QUAD_FS, ['aPos'], ['uMVP', 'uFlat', 'uMode', 'uTime', 'uA', 'uB', 'uTint']);
       r.point = program(POINT_VS, POINT_FS, ['aPos', 'aSize', 'aColor', 'aShape'], ['uRes', 'uScale', 'uOver']);
       r.bolt = program(BOLT_VS, BOLT_FS, ['aPos', 'aV', 'aA'], ['uRes', 'uColor', 'uOver']);
@@ -552,6 +560,9 @@
       gl.uniformMatrix4fv(res.mesh.u.uVP, false, vp);
       gl.uniform3fv(res.mesh.u.uEye, eye);
       gl.uniform3f(res.mesh.u.uLight, -0.42, 0.72, 0.55);
+      gl.uniform3fv(res.mesh.u.uAmbLo, look.ambLo);
+      gl.uniform3fv(res.mesh.u.uAmbHi, look.ambHi);
+      gl.uniform3fv(res.mesh.u.uRim, look.rim);
       gl.uniform4f(res.mesh.u.uOrb, orbWorld[0], orbWorld[1], orbWorld[2], orbGlow);
       gl.enableVertexAttribArray(0);
       gl.enableVertexAttribArray(1);
@@ -1152,7 +1163,7 @@
         gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       }
       useQuad();
-      quad(4, [0, 0, 0, 0], [rect.width, rect.height, radius, 0], C.white, true);
+      quad(4, [0, 0, 0, 0], [rect.width, rect.height, radius, 0], look.haze, true);
       if (masked) {
         gl.stencilFunc(gl.EQUAL, 1, 0xff);
         gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);

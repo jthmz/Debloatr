@@ -1041,9 +1041,12 @@ previous_cleanup() {
 #   meta<TAB>key<TAB>value
 #   history<TAB>time<TAB>installed<TAB>to-clean-up<TAB>ask<TAB>notifying<TAB>off      (oldest first)
 #   change<TAB>package<TAB>what was done<TAB>when                                  (oldest first)
+#   installer<TAB>package<TAB>active|off<TAB>what the rule says about it
 #   <list><TAB>package<TAB>note<TAB>system|app|locked
 # "app" marks a regular app, whose removal cannot be undone from here;
-# "locked" one this tool refuses to remove or silence.
+# "locked" one this tool refuses to remove or silence. An installer line is
+# there for every sponsored-app installer the rules know that this phone
+# carries, removed or not: "active" means it can still put apps on the phone.
 emit_tsv() {
   local pair
   printf 'meta\tversion\t%s\n' "$VERSION"
@@ -1056,9 +1059,17 @@ emit_tsv() {
   printf 'meta\toverlays_off\t%s\n' "$(count_lines "$TMP/overlays_off")"
   printf 'meta\thave_installers\t%s\n' "$HAVE_INSTALLERS"
   printf 'meta\thave_paths\t%s\n' "$HAVE_PATHS"
+  printf 'meta\tcommunity\t%s\n' "$(count_lines "$COMMUNITY")"
   tail -n 30 "$STATE/history.tsv" \
     | awk -F'\t' -v OFS='\t' '{ print "history", $1, $2, $6, $7, $8, $10 }'
   awk -F'\t' -v OFS='\t' 'NF >= 2 { print "change", $1, $2, ($3 == "" ? "-" : $3) }' "$LOG"
+  # Out of the way means removed, switched off or silenced, by anything.
+  awk -F'\t' -v OFS='\t' '
+    FILENAME == ARGV[1] { here[$1] = 1; next }
+    FILENAME == ARGV[2] { off[$1] = 1; next }
+    FILENAME == ARGV[3] { if ($2 == "muted") off[$1] = 1; next }
+    $2 == "installer" { print "installer", $1, ((($1 in here) && !($1 in off)) ? "active" : "off"), $3 }
+  ' "$TMP/installed" "$TMP/disabled" "$LOG" "$TMP/class_all"
   for pair in back:l_back remove:l_safe ask:l_caution keep:l_keep pushed:l_sponsored \
     other:l_foreign notifying:l_notif unknown:l_unknown off:l_off; do
     awk -F'\t' -v OFS='\t' -v list="${pair%%:*}" '
