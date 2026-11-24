@@ -1697,12 +1697,28 @@ window.DebloatWords = (() => {
   // would refuse the pages "More" has just brought out: for a second after
   // the list has moved by itself (scrolled by "More", brought to its top
   // by the band over it, given more room or less by what is said at its
-  // foot) no page in it takes a press, and one that refuses shakes its
-  // head as well.
+  // foot) a page in it takes a press only if it was in sight before, and
+  // is where it was. One that refuses shakes its head as well. A page
+  // that stayed put is pressed as ever: what is said at the foot of the
+  // sidebar comes after everything that is done, and going to a page is
+  // what is most often done next.
   // Presses are timed by when they were made, not by when a busy page got
   // round to hearing of them.
   let swapped = 0;      // when one screen last gave way to another
   let shifted = 0;      // when the list of pages last moved by itself
+  // The pages in sight in that list and how far down the window each is:
+  // as last drawn, as last drawn with other room than it has now, as it
+  // was when a band over an end of it was last pressed, and as it was
+  // before it last moved by itself.
+  let navSeen = new Map();
+  let navSeenRoom = 0;
+  let navOther = new Map();
+  let navAtCue = new Map();
+  let navWas = new Map();
+  const moved = before => {
+    navWas = before;
+    shifted = performance.now();
+  };
   let armed = 0;        // when buttons that change the phone take a press again
   let arming = 0;
   // The last press: when, where, and what was within reach of it then.
@@ -1779,15 +1795,23 @@ window.DebloatWords = (() => {
     // on purpose and can do no harm, so they are always let through. They
     // are remembered like any press: one press too many must not land on
     // what the strip was lying over.
+    // The list of pages, in the second after it has moved by itself.
+    const unsettled = on('#side nav') && now - shifted < 1000;
+    const stayed = () => {
+      const item = event.target.closest('.nav-item');
+      const label = item && item.querySelector('span:nth-child(2)');
+      const was = label ? navWas.get(label.textContent) : undefined;
+      return was !== undefined && Math.abs(was - item.getBoundingClientRect().top) < 4;
+    };
     const refused = !on('.below, .nav-cue') && (now - swapped < 600 || again
-      || (on('#side nav') && now - shifted < 1000) || (on('.commits') && now < armed));
+      || (unsettled && !stayed()) || (on('.commits') && now < armed));
     if (refused) {
       event.stopPropagation();
       event.preventDefault();
       if (byHand) pressed.at = now;
       wait(now + 1000);
       // In the list of pages, too, a hand that goes on pressing waits on.
-      if (on('#side nav')) shifted = now;
+      if (unsettled) shifted = now;
       nope(event.target.closest ? event.target.closest('.commits, .nav-item') : null);
       return;
     }
@@ -2792,6 +2816,7 @@ window.DebloatWords = (() => {
           class: 'nav-item nav-fold', 'aria-expanded': String(!folded),
           onclick: () => {
             const was = document.querySelector('#side nav').scrollTop;
+            const before = navSeen;
             fold(!folded);
             renderSide();
             // The line pressed is a new one now: the keyboard stays on it,
@@ -2802,7 +2827,7 @@ window.DebloatWords = (() => {
             if (!folded) inSight(list.lastElementChild);
             // Where the list had to move for that, the line pressed is no
             // longer under the hand that pressed it, and another page is.
-            if (list.scrollTop !== was) shifted = performance.now();
+            if (list.scrollTop !== was) moved(before);
           },
         }, icon('chevron'), el('span', {}, group.label), el('span', {})),
         folded ? null : group.items.map(item),
@@ -2841,6 +2866,7 @@ window.DebloatWords = (() => {
       class: `nav-cue ${side}`, hidden: true,
       onclick: () => {
         cueAt = performance.now();
+        navAtCue = navSeen;
         nav.scrollBy({ top: pageBy(side === 'down'), behavior: still() ? 'auto' : 'smooth' });
       },
     });
@@ -2857,13 +2883,16 @@ window.DebloatWords = (() => {
     // Within a few pixels of an end is at it: the box's own padding is not
     // more to see.
     const edges = () => {
+      // A list that has since been drawn again is no longer on the page,
+      // and has nothing to say about where the pages are.
+      if (!nav.isConnected) return;
       // Whether the list is longer than its box, not counting the room it
       // is given at its end for being so.
       nav.classList.toggle('long', nav.scrollHeight - (nav.classList.contains('long') ? 36 : 0) > nav.clientHeight + 1);
       navAt = nav.scrollTop;
       // Pressed until the list is at its top, the upper band goes, and the
       // first page is where it was: one press too many is for the band.
-      if (!up.hidden && nav.scrollTop <= 8 && performance.now() - cueAt < 2000) shifted = performance.now();
+      if (!up.hidden && nav.scrollTop <= 8 && performance.now() - cueAt < 2000) moved(navAtCue);
       up.hidden = nav.scrollTop <= 8;
       down.hidden = nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 8;
       // A line a band lies partly over is not shown cut through.
@@ -2889,6 +2918,14 @@ window.DebloatWords = (() => {
       }
       tell(up, 'up-more', Math.max(1, above), 'above');
       tell(down, 'more', Math.max(1, below), 'below');
+      // Which pages are in sight now, and where (see the guard against an
+      // unmeant press).
+      if (nav.clientHeight !== navSeenRoom) {
+        navOther = navSeen;
+        navSeenRoom = nav.clientHeight;
+      }
+      navSeen = new Map(lines.filter(node => node.classList.contains('nav-item') && !node.classList.contains('under'))
+        .map(node => [node.querySelector('span:nth-child(2)').textContent, node.getBoundingClientRect().top]));
     };
     nav.addEventListener('scroll', edges, { passive: true });
 
@@ -2931,8 +2968,10 @@ window.DebloatWords = (() => {
           inSight(nav.querySelector('[aria-current="page"]'));
           // Lines that moved as the room changed, and lines that what was
           // said at the foot of the sidebar was lying over, are not what a
-          // press on its way there was aimed at.
-          shifted = performance.now();
+          // press on its way there was aimed at. Those that stayed where
+          // they were are: the list as it was with the room it had before
+          // is what says which.
+          moved(navSeenRoom === nav.clientHeight ? navOther : navSeen);
         }
         edges();
       });
