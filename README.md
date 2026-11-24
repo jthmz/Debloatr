@@ -115,9 +115,9 @@ What you get:
   has come back, and what else wants a look, each with the one thing to do
   about it; then what was changed lately, with a Put back beside each; and
   last the numbers, with how they moved since the scan before. **Review
-  cleanup** is the cleanup without the wizard: everything it would do, in
-  the order it would do it (what puts apps back goes first), split into
-  what can be undone and what cannot.
+  cleanup** is the cleanup without the wizard: everything it would do,
+  split into what can be undone and what cannot. Whichever way a cleanup is
+  started, what puts apps back is removed first.
 - **The lists** from the scan, each with a filter, under plainer names than
   the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
   FIRST, **Unknown apps** is NOT CLASSIFIED. Tick apps and the actions for
