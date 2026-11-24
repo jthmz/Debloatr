@@ -38,6 +38,10 @@ jobs:
     needs: linux
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # One at a time: two runs replacing the same draft at once get in each
+    # other's way, and the one that loses fails.
+    concurrency:
+      group: latest-build-draft
     permissions:
       contents: write
     env:
