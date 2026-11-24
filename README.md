@@ -1,0 +1,2 @@
+# Debloatr
+Android debloat tool 
