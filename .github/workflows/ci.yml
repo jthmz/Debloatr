@@ -110,5 +110,5 @@ jobs:
       - name: Test
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo bash:3.2 sh -c '
-            apk add --no-cache python3 > /dev/null &&
+            apk add --no-cache python3 curl > /dev/null &&
             bash test/run.sh'

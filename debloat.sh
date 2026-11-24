@@ -13,7 +13,7 @@
 # Written for the bash 3.2 and BSD tools that ship with macOS; runs the same
 # on Linux. test/run.sh exercises every command against a simulated phone.
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 
 set -u
 set -f
@@ -24,6 +24,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)" || exit 1
 RULES_BUILTIN="$HERE/rules.tsv"
 STATE_ROOT="${DEBLOAT_STATE_DIR:-$HOME/.maxapacity-debloat}"
 RULES_LOCAL="$STATE_ROOT/rules.local.tsv"
+# The community list, once `debloat.sh community` has fetched it:
+# "package<TAB>caution|note<TAB>what the list says about it". It is the package
+# list of Universal Android Debloater Next Generation, which that project
+# publishes under the GPL-3.0; it is downloaded, never shipped with this tool.
+COMMUNITY="$STATE_ROOT/community.tsv"
+COMMUNITY_URL="${DEBLOAT_COMMUNITY_URL:-https://raw.githubusercontent.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation/main/resources/assets/uad_lists.json}"
 TAB="$(printf '\t')"
 
 # What a package name looks like. Everything sent to the phone is checked
@@ -104,6 +110,12 @@ Look (changes nothing)
                      notifications up. Run it while the junk is showing
   watch              Keep running and report every app that gets installed,
                      and which app installed it
+
+More rules (needs no phone)
+  community          Download the community list of preinstalled apps, which
+                     covers many more makers. What it recommends removing
+                     joins ASK FIRST; the rest explains NOT CLASSIFIED
+  community off      Stop using it and delete the downloaded copy
 
 Change (asks first)
   apply              Remove everything listed under REMOVE in the scan
@@ -278,6 +290,11 @@ load_rules() {
     fi
     cat "$RULES_BUILTIN"
   } | tr -d '\r' > "$TMP/rules"
+  if [ -f "$COMMUNITY" ]; then
+    cat "$COMMUNITY" > "$TMP/community"
+  else
+    : > "$TMP/community"
+  fi
 
   local tier re why rc rules=0
   while read -r tier re why <&3 || [ -n "$tier" ]; do
@@ -303,9 +320,19 @@ load_rules() {
 }
 
 # $1: file of package names. Prints "package<TAB>tier<TAB>reason" using the
-# first rule that matches; tier is "none" when no rule does.
+# first rule that matches; tier is "none" when no rule does. The community
+# list is asked only then, so every rule here and in rules.local.tsv wins over
+# it. It can raise a package to "caution", never further; for the rest it
+# only supplies the reason, and the tier stays "none".
 classify() {
   awk -v OFS='\t' '
+    FILENAME == ARGV[2] {
+      if (split($0, field, "\t") >= 3) {
+        ctier[field[1]] = field[2]
+        cwhy[field[1]] = field[3]
+      }
+      next
+    }
     FILENAME == ARGV[1] {
       if ($0 ~ /^[ \t]*#/ || $0 ~ /^[ \t]*$/) next
       n++
@@ -326,9 +353,13 @@ classify() {
           break
         }
       }
+      if (t == "none" && ($0 in ctier)) {
+        if (ctier[$0] == "caution") t = "caution"
+        w = cwhy[$0]
+      }
       print $0, t, w
     }
-  ' "$TMP/rules" "$1"
+  ' "$TMP/rules" "$TMP/community" "$1"
 }
 
 # ---- What is on the phone -------------------------------------------------
@@ -828,7 +859,7 @@ scan_lists() {
   # to what they are. Resource overlays are skinning data, not apps.
   awk -F'\t' -v OFS='\t' '
     FILENAME == ARGV[1] || FILENAME == ARGV[2] { skip[$1] = 1; next }
-    FILENAME == ARGV[3] { if ($2 != "none") skip[$1] = 1; next }
+    FILENAME == ARGV[3] { if ($2 != "none") skip[$1] = 1; else said[$1] = $3; next }
     FILENAME == ARGV[4] { path[$1] = $2; next }
     ($1 in skip) || $1 ~ /^com\.google\./ { next }
     {
@@ -842,6 +873,7 @@ scan_lists() {
         hint = ""
         for (i = 2; i < n; i++) hint = hint (hint == "" ? "" : "/") part[i]
       }
+      if (said[$1] != "") hint = hint (hint == "" ? "" : "; ") said[$1]
       print $1, hint
     }
   ' "$TMP/blocked" "$TMP/disabled" "$TMP/class" "$TMP/paths" "$TMP/system" > "$TMP/l_unknown"
@@ -973,6 +1005,9 @@ render_report() {
   fi
   if [ "$n_unknown" -gt 0 ]; then
     say "  NOT CLASSIFIED is left alone. Remove one with: debloat.sh remove <package>"
+    if [ ! -f "$COMMUNITY" ]; then
+      say "  To learn what most of those are: debloat.sh community"
+    fi
   fi
 }
 
@@ -1036,6 +1071,100 @@ emit_tsv() {
       }
     ' "$TMP/third" "$TMP/blocked" "$TMP/${pair#*:}"
   done
+}
+
+# The community list arrives as JSON, one entry per package:
+#   "com.example.app": {
+#     "list": "Oem",
+#     "description": "What it is.\nWhat removing it breaks.",
+#     "removal": "Recommended"
+#   },
+# It is written one field to a line, which is what this reads; a JSON string
+# cannot hold a real line break. Only "Recommended" becomes something `apply
+# --caution` offers. "Advanced", "Expert" and "Unsafe" are kept as notes.
+# Nothing in it is trusted: names are checked like any other package name and
+# control characters are dropped before a description is ever printed.
+community_rows() {
+  tr -d '\r' | tr '\000-\010\013-\037\177' ' ' | awk -v OFS='\t' '
+    function value(line) {
+      sub(/^[ \t]*"[A-Za-z]+"[ \t]*:[ \t]*"/, "", line)
+      sub(/",?[ \t]*$/, "", line)
+      return line
+    }
+    function plain(text,    cut) {
+      gsub(/\\[nrt]/, " ", text)
+      gsub(/\\"/, "\"", text)
+      gsub(/\\\\/, "\\", text)
+      gsub(/[ \t]+/, " ", text)
+      sub(/^ /, "", text)
+      sub(/ $/, "", text)
+      if (length(text) > 150) {
+        text = substr(text, 1, 150)
+        cut = match(text, / [^ ]*$/)
+        if (cut > 60) text = substr(text, 1, cut - 1)
+        text = text " ..."
+      }
+      return text
+    }
+    /^[ \t]*"[^"]+"[ \t]*:[ \t]*\{[ \t]*$/ {
+      pkg = $0
+      sub(/^[ \t]*"/, "", pkg)
+      sub(/".*$/, "", pkg)
+      what = ""
+      removal = ""
+      next
+    }
+    /^[ \t]*"description"[ \t]*:[ \t]*"/ { what = plain(value($0)); next }
+    /^[ \t]*"removal"[ \t]*:[ \t]*"/ { removal = value($0); next }
+    /^[ \t]*\},?[ \t]*$/ {
+      if (pkg ~ /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/) {
+        if (what == "") what = "no description"
+        if (removal == "Recommended") print pkg, "caution", "community list: " what
+        else if (removal == "Advanced") print pkg, "note", "community list, advanced: " what
+        else if (removal == "Expert") print pkg, "note", "community list, expert: " what
+        else if (removal == "Unsafe") print pkg, "note", "community list, unsafe to remove: " what
+      }
+      pkg = ""
+    }
+  ' | sort -u
+}
+
+cmd_community() {
+  local total ask
+  case "$PKGS" in
+    "") ;;
+    " off")
+      if [ -f "$COMMUNITY" ]; then
+        rm -f "$COMMUNITY" || die "cannot delete $COMMUNITY"
+        say "The community list is no longer used. Its copy in $COMMUNITY is deleted."
+      else
+        say "The community list was not in use."
+      fi
+      exit 0
+      ;;
+    *) die "community takes no package names (see: debloat.sh --help)" ;;
+  esac
+  command -v curl >/dev/null 2>&1 || die "curl is needed to download the list, and it is not installed"
+  mkdir -p "$STATE_ROOT" || die "cannot create $STATE_ROOT"
+  TMP="$(mktemp -d "${TMPDIR:-/tmp}/debloat.XXXXXX")" || die "cannot create a temporary folder"
+  trap 'if [ -n "$TMP" ]; then rm -rf "$TMP"; fi' EXIT
+  curl -fsSL --max-time 120 -o "$TMP/list.json" -- "$COMMUNITY_URL" 2>/dev/null \
+    || die "could not download the community list from $COMMUNITY_URL. The copy in use, if any, is unchanged."
+  community_rows < "$TMP/list.json" > "$TMP/community"
+  total="$(count_lines "$TMP/community")"
+  [ "$total" -gt 0 ] \
+    || die "the community list is not in the form this tool reads. The copy in use, if any, is unchanged; please report this."
+  ask="$(awk -F'\t' '$2 == "caution" { n++ } END { print n + 0 }' "$TMP/community")"
+  if ! { cp "$TMP/community" "$COMMUNITY.new" && mv -f "$COMMUNITY.new" "$COMMUNITY"; }; then
+    die "cannot write $COMMUNITY"
+  fi
+  say "Saved the community list: $total packages, in $COMMUNITY"
+  say "  $ask it recommends removing. Those on your phone now show under ASK FIRST."
+  say "  $((total - ask)) it advises care with. Those show their note under NOT CLASSIFIED."
+  say "Your own rules and the built-in ones still come first."
+  say "It is the list of Universal Android Debloater Next Generation (GPL-3.0)."
+  say "Run this again to refresh it. To stop using it: debloat.sh community off"
+  exit 0
 }
 
 cmd_scan() {
@@ -1408,6 +1537,7 @@ case "$CMD" in
   mute) cmd_mute ;;
   restore) cmd_restore ;;
   restart) cmd_restart ;;
+  community) cmd_community ;;
   "") usage; exit 0 ;;
   *) die "unknown command: $CMD (see: debloat.sh --help)" ;;
 esac
