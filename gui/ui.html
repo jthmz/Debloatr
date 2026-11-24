@@ -217,6 +217,11 @@
     scroll-snap-type: y proximity;
   }
   .nav-item, .nav-label { scroll-snap-align: start; }
+  /* In a window too short for it the list ends with the room the lower
+     band takes. At the end of the list the band goes, and what it leaves
+     under the pointer is then nothing to press: one press too many on the
+     band opens no page. */
+  nav.long { padding-bottom: 40px; }
   /* A line that a band lies partly over is left out until it is clear of
      the band: nothing in the list is ever shown cut through. It can still
      be reached with the keyboard, which brings it into view. */
@@ -538,8 +543,16 @@
     pointer-events: none;
     transition: transform var(--ease), opacity var(--ease);
     z-index: 2;
+    /* As wide as what is in it, up to the room beside the sidebar. Left to
+       itself, a box placed by its left edge is given only what lies to the
+       right of that edge, which here is half the room, and it would stand
+       its halves one over the other with room to spare. */
+    width: max-content;
     max-width: calc(100% - 288px - 48px);
   }
+  /* Under the bar the page ends clear of it, however tall the bar is, so
+     that the last row can always be brought up into sight. */
+  body.has-bulk main { padding-bottom: calc(var(--bar, 64px) + 48px); }
   .bulk.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
   .bulk .n { font-weight: 600; white-space: nowrap; }
   .bulk-part { display: flex; align-items: center; gap: 12px; }
@@ -680,6 +693,13 @@
   .dialog-body, .wiz-body, .detail-body, .palette-list { scroll-snap-type: y proximity; }
   .dialog-body:has(.group-head), .wiz-body:has(.group-head) { scroll-padding-top: 56px; }
   .dialog-body .row, .wiz-body .row, .palette-item, .wiz-notes > li, .detail-body section, .way-step { scroll-snap-align: start; }
+  /* Its first line is a place to rest as well: without this a box opens
+     at the first of the lines above, with whatever comes before it (a
+     panel's chips, a list's heading) out of sight. */
+  .dialog-body > :first-child, .wiz-body > :first-child, .detail-body > :first-child, .palette-list > :first-child { scroll-snap-align: start; }
+  /* The palette's list has padding over its first line, which is part of
+     where it starts. */
+  .palette-list > :first-child { scroll-margin-top: 8px; }
   /* More below than shows: said, and one press away. */
   .below { flex: none; }
   .below[hidden] { display: none; }
@@ -1639,21 +1659,23 @@ window.DebloatWords = (() => {
   // must not land on whatever has just taken the first one's place: the
   // cleanup's own button where "Choose what goes" was, the tally's Remove
   // where a card's was, a "Put back" on the overview where Done was, a
-  // panel's Remove where the row that opened it is. Three rules see to it.
-  //   1. For a moment after one screen gives way to another, no press does
-  //      anything.
+  // panel's Remove where the row that opened it is, the next app's "Put
+  // back" where the last one's was. Three rules see to it.
+  //   1. For a moment after one screen gives way to another, or the phone's
+  //      answer moves what is on this one, no press does anything.
   //   2. A button that changes the phone, or answers a card, takes no press
-  //      for a second after the screen changed, and a press refused anywhere
-  //      starts that second again: a hand that goes on pressing is never
-  //      let through, only one that has been still. Such a button is dimmed
-  //      for as long as it will not take a press, so that it can be seen
-  //      when it will.
+  //      for a second after that, and a press refused anywhere starts that
+  //      second again: a hand that goes on pressing is never let through,
+  //      only one that has been still. Such a button is dimmed for as long
+  //      as it will not take a press, so that it can be seen when it will,
+  //      and shakes its head at a press it does not take.
   //   3. For a second after any press, another on the same spot does
   //      nothing if what is under it now is a different thing to press, and
   //      that second, too, starts again with every press refused.
   // Presses are timed by when they were made, not by when a busy page got
   // round to hearing of them.
   let swapped = 0;      // when one screen last gave way to another
+  let shifted = 0;      // when the list of pages last moved by itself
   let armed = 0;        // when buttons that change the phone take a press again
   let arming = 0;
   let pressed = { at: 0, x: 0, y: 0, what: '' };
@@ -1666,6 +1688,12 @@ window.DebloatWords = (() => {
   const settle = () => {
     swapped = performance.now();
     wait(swapped + 1000);
+  };
+  // A press that was not taken is seen not to have been: left as it was,
+  // a dimmed button pressed over and over would only look broken.
+  const nope = node => {
+    if (!node || !node.animate || still()) return;
+    node.animate({ transform: ['translateX(0)', 'translateX(-4px)', 'translateX(4px)', 'translateX(0)'] }, { duration: 160, easing: 'ease-out' });
   };
   // What a press is on, as a person would name it: the thing and its words.
   const pressable = target => {
@@ -1686,12 +1714,14 @@ window.DebloatWords = (() => {
     // on purpose and can do no harm, so they are always let through. They
     // are remembered like any press: one press too many must not land on
     // what the strip was lying over.
-    const refused = !on('.below, .nav-cue') && (now - swapped < 600 || again || (on('.commits') && now < armed));
+    const refused = !on('.below, .nav-cue') && (now - swapped < 600 || again
+      || (on('#side nav') && now - shifted < 600) || (on('.commits') && now < armed));
     if (refused) {
       event.stopPropagation();
       event.preventDefault();
       if (byHand) pressed.at = now;
       wait(now + 1000);
+      nope(event.target.closest ? event.target.closest('.commits') : null);
       return;
     }
     if (byHand) pressed = { at: now, x: event.clientX, y: event.clientY, what };
@@ -1901,6 +1931,10 @@ window.DebloatWords = (() => {
     state.error = '';
     const here = new Set(rows().map(r => r.pkg));
     for (const pkg of [...state.selected]) if (!here.has(pkg)) state.selected.delete(pkg);
+    // The phone's answer moves what is on the page: a line gone, the next
+    // one up in its place, its button where the last one's was. A press on
+    // its way was meant for what was there before.
+    settle();
     render();
     return undefined;
   }
@@ -2541,6 +2575,7 @@ window.DebloatWords = (() => {
 
   let navWatch = null;
   let navRoom = 0;
+  let navAt = 0;        // how far down the list of pages was last seen to be
   function renderSide() {
     const meta = state.scan ? state.scan.meta : null;
     const connected = state.status === 'ready';
@@ -2615,6 +2650,10 @@ window.DebloatWords = (() => {
     // Within a few pixels of an end is at it: the box's own padding is not
     // more to see.
     const edges = () => {
+      // Whether the list is longer than its box, not counting the room it
+      // is given at its end for being so.
+      nav.classList.toggle('long', nav.scrollHeight - (nav.classList.contains('long') ? 36 : 0) > nav.clientHeight + 1);
+      navAt = nav.scrollTop;
       up.hidden = nav.scrollTop <= 8;
       down.hidden = nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 8;
       // A line a band lies partly over is not shown cut through.
@@ -2664,7 +2703,9 @@ window.DebloatWords = (() => {
           }, icon('wand')) : null)),
       phone,
       el('div', { class: 'nav-wrap' }, nav, up, down));
-    // Drawn again, it is where it was left.
+    // Drawn again, it is where it was left: as long as it was, first, or
+    // the end of it could not be gone back to.
+    if (before && before.classList.contains('long')) nav.classList.add('long');
     nav.scrollTop = at;
     edges();
     requestAnimationFrame(edges);
@@ -2678,6 +2719,9 @@ window.DebloatWords = (() => {
         if (nav.clientHeight !== navRoom) {
           navRoom = nav.clientHeight;
           inSight(nav.querySelector('[aria-current="page"]'));
+          // Lines that moved as the room changed are not where a press on
+          // its way to one of them was aimed.
+          if (nav.scrollTop !== navAt) shifted = performance.now();
         }
         edges();
       });
@@ -3939,6 +3983,10 @@ window.DebloatWords = (() => {
   }
   function closeDetail() {
     if (!state.detail) return;
+    // What the panel lay over is under the pointer again, and the bar for
+    // a selection comes back with it: a second press of whatever closed
+    // the panel must not land on either.
+    settle();
     state.detail = '';
     renderDetail();
     syncMagic();
@@ -4373,8 +4421,9 @@ window.DebloatWords = (() => {
     }
     // K and R answer, and Backspace goes back; the keys say so on the
     // buttons. The listener goes when the cards do.
-    // A key held down answers one card, not all of them, and the same key
-    // pressed twice in a moment does not answer the next card as well.
+    // A key held down answers one card, not all of them, and a key pressed
+    // again before the next card has been up for a second does not answer
+    // that card as well.
     let lastKey = '';
     let lastAt = 0;
     const typed = event => {
@@ -4388,9 +4437,15 @@ window.DebloatWords = (() => {
       if (key === lastKey && event.timeStamp - lastAt < 400) return;
       lastKey = key;
       lastAt = event.timeStamp;
-      if (key === 'k') answer('keep');
-      else if (key === 'r') answer('remove');
-      else if (key === 'backspace') back();
+      if (key === 'k' || key === 'r') {
+        // Like the buttons they stand for, the keys answer nothing in the
+        // second after a card comes up, and a key pressed in that second
+        // starts it again.
+        if (event.timeStamp < armed) {
+          wait(event.timeStamp + 1000);
+          nope(foot.querySelector(key === 'k' ? '.answer.keep' : '.answer:not(.keep)'));
+        } else answer(key === 'k' ? 'keep' : 'remove');
+      } else if (key === 'backspace') back();
       else return;
       event.preventDefault();
     };
@@ -4531,7 +4586,7 @@ window.DebloatWords = (() => {
     set(node,
       el('span', { class: 'said' }, text),
       el('button', { class: 'btn quiet small x', 'aria-label': 'Close', title: 'Close', onclick: close }, icon('x', 16)),
-      undo ? el('button', { class: 'btn small undo', onclick: () => { close(); undo(); } }, icon('undo', 16), 'Undo') : null);
+      undo ? el('button', { class: 'btn small undo commits', onclick: () => { close(); undo(); } }, icon('undo', 16), 'Undo') : null);
     toastTimer = setTimeout(close, undo ? 20000 : 8000);
   }
 
@@ -4635,6 +4690,15 @@ window.DebloatWords = (() => {
       paint();
     }
   });
+
+  // How tall the bar for a selection stands, for the page under it to end
+  // clear of it (see `--bar` in the styles).
+  if ('ResizeObserver' in window) {
+    const bar = document.getElementById('bulk');
+    new ResizeObserver(() => {
+      if (bar.offsetHeight) document.body.style.setProperty('--bar', `${bar.offsetHeight}px`);
+    }).observe(bar);
+  }
 
   // The wizard is out unless he was sent away last time.
   let wanted = true;

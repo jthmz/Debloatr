@@ -97,11 +97,12 @@ What you get:
   "…" because it asks first. Answer that you would rather keep them and they
   are unticked again, so the lime button is back and only does what can be
   undone. And a press cannot land on the wrong thing. For a moment after one
-  screen gives way to another no press does anything. A button that changes
-  the phone, or answers a card, waits a second longer, dimmed until it is
-  ready, and waits again if it is pressed too soon: a hand that goes on
-  pressing is never let through, only one that has been still. Unsteady
-  hands press twice.
+  screen gives way to another, or the phone's answer moves what is on this
+  one, no press does anything. A button that changes the phone, or answers
+  a card, waits a second longer, dimmed until it is ready. Pressed too soon
+  it shakes its head and waits again: a hand that goes on pressing is never
+  let through, only one that has been still. The cards' keys wait the same
+  way. Unsteady hands press twice.
 - **One at a time**. The apps under With a catch each have one. Instead of
   a list to puzzle over, they come one to a card: what it is, the catch,
   and two big buttons, Keep or Remove, at the foot of the window: in sight
