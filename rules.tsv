@@ -1,0 +1,72 @@
+# MAXAPACITY debloat rules
+#
+#   tier   pattern   reason
+#
+# One rule per line, separated by spaces or tabs. The first matching rule wins.
+#
+#   installer  removed by `debloat.sh apply`; apps it installed are what
+#              `debloat.sh sponsored` uninstalls. Only for services whose job
+#              is to push sponsored apps onto the phone
+#   safe       removed by `debloat.sh apply`
+#   caution    removed only by `debloat.sh apply --caution`; the reason says
+#              what you lose
+#   keep       never removed by apply, even with --caution
+#
+# A rule has to be true of every package it matches. A vendor prefix is fine
+# (everything under com.dti. is Digital Turbine's). For a single package,
+# confirm what it is on a real phone before adding it: `debloat.sh scan` lists
+# candidates under NOT CLASSIFIED.
+#
+# Patterns are plain extended regular expressions matched against the package
+# name: ^ $ . * + ? ( | ) [ ] and \. only. No \d \w \b and no {n,m}.
+#
+# Your own rules go in ~/.maxapacity-debloat/rules.local.tsv, same format;
+# they are read first, so they override this file.
+
+# --- Installers: the reason removed apps come back --------------------------
+installer  ^com\.dti\.                                    Digital Turbine: silently installs and reinstalls sponsored apps
+installer  ^com\.digitalturbine\.                         Digital Turbine app delivery service
+installer  ^com\.LogiaGroup\.LogiaDeck$                   Digital Turbine installer as shipped on Verizon phones
+installer  ^com\.logiagroup\.                             Digital Turbine (Logia) app delivery service
+installer  ^com\.aura\.oobe\.                             Aura (ironSource): pushes sponsored apps after setup and updates
+installer  ^com\.ironsrc\.aura\.                          Aura (ironSource) app installer
+installer  ^com\.ironsource\.                             ironSource app recommendation service
+safe       ^com\.facebook\.(system|appmanager|services)$  Facebook's preinstalled installer and updater stubs
+
+# --- Lock screen and feed content -------------------------------------------
+safe     ^com\.glance\.                                   Glance lock screen feed
+safe     ^com\.inmobi\.                                   InMobi (Glance's parent) content and ad service
+safe     ^com\.taboola\.                                  Taboola news feed
+safe     ^com\.mobileposse\.                              Mobile Posse carrier content feed
+
+# --- Motorola ---------------------------------------------------------------
+keep     ^com\.motorola\.omadm\.                          Carrier device-management service (OMA-DM); carriers provision the phone through it
+keep     ^com\.motorola\.(coresettingsext|carriersettingsext)$  Motorola's additions to the Settings app
+keep     ^com\.motorola\.vzw\.                            Motorola's Verizon network extensions (calling, settings, provisioning)
+keep     ^com\.qualcomm\.qti\.uim                         Qualcomm SIM card service
+safe     ^com\.motorola\.ccc\.notification$               Motorola's own promotional notifications
+safe     ^com\.motorola\.(help|genie)$                    Device Help app and its tips
+safe     ^com\.motorola\.demo(\.env)?$                    Store demo mode
+caution  ^com\.motorola\.gamemode$                        Moto Gametime: in-game toolbar and suggested-games hub
+caution  ^com\.motorola\.moto$                            Moto app: tips and promos; also where Moto gestures are set up
+
+# --- Verizon ----------------------------------------------------------------
+keep     ^com\.(vzw|verizon)\..*(apn|[Ss]im[Ll]ock|\.ims|omadm|[Pp]rovision|[Aa]ctivation|[Ee]ntitlement)   Verizon network plumbing, going by its name (APN, IMS, SIM unlock)
+safe     ^com\.vzw\.hss\.myverizon$                       My Verizon
+safe     ^com\.verizon\.messaging\.vzmsgs$                Verizon Message+
+safe     ^com\.vcast\.mediamanager$                       Verizon Cloud
+safe     ^com\.vzw\.ecid$                                 Verizon Call Filter
+safe     ^com\.verizon\.llkagent$                         Verizon store demo agent
+safe     ^com\.securityandprivacy\.android\.verizon\.vms$ Verizon Digital Secure
+safe     ^com\.asurion\.android\.verizon\.vms$            Verizon Tech Coach (Asurion)
+caution  ^com\.(vzw|verizon)\.                            Verizon component; may carry voicemail, Wi-Fi calling or activation
+
+# --- Tracfone (seen on a Moto G Stylus 2025, XT2517V) ------------------------
+keep     ^com\.motorola\.(extensions\.tracfone|tracfone\.rsu)$  Tracfone SIM-unlock service (TFUnlock, TFRsu); needed to carrier-unlock the phone
+caution  ^com\.swishme\.                                  Swish content feed, going by its name; confirm with inspect while it is on screen
+caution  ^com\.tracfone\.                                 Tracfone component; may carry activation or account features
+
+# --- Other carriers ---------------------------------------------------------
+caution  ^com\.att\.                                      AT&T component; may carry voicemail or Wi-Fi calling
+caution  ^com\.tmobile\.                                  T-Mobile component; may carry voicemail or Wi-Fi calling
+caution  ^com\.sprint\.                                   Sprint component; may carry voicemail or activation

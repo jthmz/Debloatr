@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stands in for adb on PATH during tests; see ../fake_adb.py.
+exec python3 "$(dirname "$0")/../fake_adb.py" "$@"

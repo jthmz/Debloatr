@@ -1,0 +1,110 @@
+name: Debloat tool
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a release for the version in debloat.sh, built from this branch
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint
+        run: |
+          command -v shellcheck >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q shellcheck; }
+          shellcheck -s bash debloat.sh test/run.sh install.sh uninstall.sh app/launcher.sh tools/package.sh
+      - name: Test
+        run: bash test/run.sh
+      - name: Test the window's server
+        run: node --test test/gui.test.mjs
+
+  package:
+    # The downloads: the Mac app, ready to open, and the tool for the Terminal.
+    # Every run attaches them to a draft release, which only collaborators can
+    # see; a workflow artifact would count against the Actions storage quota.
+    # A version that has no release yet gets one when it reaches main, or when
+    # this workflow is started by hand with "release" ticked.
+    name: package
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the downloads
+        run: |
+          bash tools/package.sh dist
+          ls -l dist
+          VERSION="$(sed -n 's/^VERSION="\(.*\)"$/\1/p' debloat.sh | sed -n '1p')"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Write the notes that go with them
+        run: |
+          sed "s/__VERSION__/$VERSION/g" > notes.md <<'EOF'
+          **MAXAPACITY-Debloat-__VERSION__-mac.zip** is the app. Unzip it (Safari does that by itself) and open **MAXAPACITY Debloat**.
+
+          The first time, macOS stops it, because the app is not signed with an Apple developer account:
+
+          - macOS 15 or newer: click **Done**, then open System Settings > Privacy & Security, scroll down to Security and click **Open Anyway**.
+          - Older versions: Control-click the app, choose **Open**, then **Open** again.
+
+          After that it opens with a double-click. Drag it to Applications to keep it.
+
+          If macOS does not offer that, or calls the app damaged, clear the mark it puts on downloads, in Terminal: `xattr -dr com.apple.quarantine ~/Downloads/"MAXAPACITY Debloat.app"`
+
+          The app needs Node.js 18 or newer and `adb` on the Mac: `brew install node android-platform-tools`.
+
+          **maxapacity-debloat-__VERSION__.zip** is the command-line tool, for the Terminal and for Linux. It can also build the app on your own Mac (`bash install.sh --open`), which skips the prompt above.
+          EOF
+          cat notes.md
+      - name: Attach them to the latest-build draft
+        env:
+          TITLE: Debloat (latest build)
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.draft and .name == \"$TITLE\") | .id" \
+            | while read -r id; do
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
+              done
+          gh release create latest-build dist/*.zip \
+            --repo "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" \
+            --title "$TITLE" --notes-file notes.md
+      - name: Publish the release for this version
+        if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.release)
+        run: |
+          TAG="v$VERSION"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "$TAG is already published. Raise VERSION in debloat.sh to publish another."
+            exit 0
+          fi
+          gh release create "$TAG" dist/*.zip \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "MAXAPACITY Debloat $VERSION" --notes-file notes.md
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url
+
+  bash-3-2:
+    # The bash that ships with macOS, on a different set of core tools
+    # (BusyBox) from the job above. Cheap cover for most portability slips;
+    # the macOS workflow is the real thing.
+    name: test under bash 3.2
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo bash:3.2 sh -c '
+            apk add --no-cache python3 > /dev/null &&
+            bash test/run.sh'
