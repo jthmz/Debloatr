@@ -80,9 +80,15 @@ jobs:
           python3 test/fake_adb.py ctl init
           LOG="$HOME/Library/Logs/maxapacity-debloat.log"
           : > "$LOG"
+          # With no window to hold it, the helper stops 15 seconds after it
+          # was last asked for anything. On a slow machine "open" can take
+          # longer than that to start the app a second time, and the second
+          # start then finds nothing running. What is tested here is that it
+          # finds the helper, not how soon the helper tires, so it is given
+          # longer.
           launch() {
             open --env "FAKE_ADB_STATE=$FAKE_ADB_STATE" --env "DEBLOAT_STATE_DIR=$DEBLOAT_STATE_DIR" \
-              --env DEBLOAT_GUI_PORT=18793 "$APP" --args --no-open
+              --env DEBLOAT_GUI_PORT=18793 --env DEBLOAT_GUI_IDLE_MS=120000 "$APP" --args --no-open
           }
           launch
           for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
