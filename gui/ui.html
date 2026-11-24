@@ -2619,10 +2619,21 @@ window.DebloatWords = (() => {
     // strip's press, below), in pixels.
     let slack = 0;
     scroller.style.paddingBottom = '';
+    // Where the box is on its way to while a line is being brought up, and
+    // since when. A strip pressed again before the box has arrived carries
+    // on from there, not from wherever the box has got to: pressed three
+    // times in a moment it otherwise stopped short of the third page, with
+    // more room given under the list than the list needed.
+    let aim = null;
+    let aimed = 0;
+    const going = () => (aim !== null && performance.now() - aimed < 1000 ? aim : scroller.scrollTop);
     const update = () => {
       if (!node.isConnected) return;
       // Back at its start, the box is as long as what it holds again.
-      if (slack && scroller.scrollTop <= 0) {
+      if (aim !== null && Math.abs(scroller.scrollTop - aim) < 2) aim = null;
+      // (Not while it is on its way from its start to a line it has just
+      // been given the room for.)
+      if (slack && scroller.scrollTop <= 0 && going() <= 0) {
         slack = 0;
         scroller.style.paddingBottom = '';
       }
@@ -2680,13 +2691,18 @@ window.DebloatWords = (() => {
     // it is short of instead, and the list ends with that room under it,
     // which is where a list is expected to end.
     const bring = (line, behavior) => {
-      const by = line.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0);
-      const short = Math.ceil(scroller.scrollTop + by - (scroller.scrollHeight - scroller.clientHeight));
+      // How far down what the box holds the line is: the same wherever the
+      // box has got to on its way somewhere.
+      const to = line.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+        - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0);
+      const short = Math.ceil(to - (scroller.scrollHeight - scroller.clientHeight));
       if (short > 0) {
         slack += short;
         scroller.style.paddingBottom = `${(parseFloat(getComputedStyle(scroller).paddingBottom) || 0) + short}px`;
       }
-      scroller.scrollBy({ top: by, behavior });
+      aim = behavior === 'smooth' ? to : null;
+      aimed = performance.now();
+      scroller.scrollTo({ top: to, behavior });
     };
     // Whether a line is one of those left out at an end of the box.
     const outOfSight = (line, box) => {
@@ -2701,14 +2717,21 @@ window.DebloatWords = (() => {
     button.addEventListener('click', () => {
       const box = scroller.getBoundingClientRect();
       const behavior = still() ? 'auto' : 'smooth';
-      const line = [...scroller.querySelectorAll(RESTS)].find(part => part.getBoundingClientRect().bottom > box.bottom + 1);
+      // How much further the box will have gone when it gets where it is
+      // going: everything in it is that much higher then.
+      const ahead = going() - scroller.scrollTop;
+      const line = [...scroller.querySelectorAll(RESTS)].find(part => part.getBoundingClientRect().bottom - ahead > box.bottom + 1);
       // A heading goes with the first line under it.
       const over = line && line.previousElementSibling;
       const first = over && over.matches('.palette-group') ? over : line;
       // A line longer than the box is gone through a boxful at a time.
-      if (first && first.getBoundingClientRect().top - box.top - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0) > 4) bring(first, behavior);
-      else scroller.scrollBy({ top: scroller.clientHeight * 0.8, behavior });
+      if (first && first.getBoundingClientRect().top - ahead - box.top - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0) > 4) bring(first, behavior);
+      // On its way already to where there is nothing more to bring up: it
+      // is left to get there.
+      else if (ahead <= 0) scroller.scrollBy({ top: scroller.clientHeight * 0.8, behavior });
     });
+    // Turned by hand on its way, the box is no longer going where it was.
+    scroller.addEventListener('wheel', () => { aim = null; }, { passive: true });
     // The keyboard only ever stands on a line that is there to be seen. One
     // it goes to that is left out at an end of the box is brought up as the
     // strip would bring it: left where it was, there would be no ring to
