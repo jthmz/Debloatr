@@ -123,8 +123,10 @@ What you get:
   about it; then what was changed lately, with a Put back beside each; and
   last the numbers, with how they moved since the scan before. **Review
   cleanup** is the cleanup without the wizard: everything it would do,
-  split into what can be undone and what cannot. Whichever way a cleanup is
-  started, what puts apps back is removed first.
+  split into what can be undone and what cannot. Where that list is longer
+  than its box, a strip under it says how many more there are and brings
+  them up, every one of them: nothing you are agreeing to is passed over.
+  Whichever way a cleanup is started, what puts apps back is removed first.
 - **The lists** from the scan, each with a filter, under plainer names than
   the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
   FIRST, **Unknown apps** is NOT CLASSIFIED. Tick apps and the actions for

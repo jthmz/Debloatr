@@ -61,6 +61,8 @@
     --warn: #fbbf24;
     --bad: #f87171;
     --scrim: rgb(0 0 0 / 0.6);
+    /* How strong a button is while it will not yet take a press. */
+    --wait: 0.5;
     /* The edge of anything to press or type in: three times as bright as
        whatever is behind it, a card, a bar or a bubble, so it can be found
        without reading its label. */
@@ -104,6 +106,8 @@
       --warn: #946200;
       --bad: #b91c1c;
       --scrim: rgb(20 20 20 / 0.5);
+      /* On white, half strength reads as switched off for good. */
+      --wait: 0.65;
       --edge: #808389;
       --hot: #17181a;
       --dot-ok: #16a34a;
@@ -343,7 +347,7 @@
   /* A button that changes the phone, or answers a card, takes no press for
      a second after the screen changes (see `settle` in the script), and is
      dimmed until it will. */
-  body.settling .commits { opacity: 0.5; cursor: default; }
+  body.settling .commits { opacity: var(--wait); cursor: default; }
   .btn.small { height: 36px; padding: 0 12px; border-radius: 8px; }
   .btn.big { height: 56px; padding: 0 24px; font-size: 20px; }
   a.btn { text-decoration: none; color: inherit; }
@@ -1582,6 +1586,7 @@ window.DebloatWords = (() => {
     link: { kind: 'ready' }, // what stands between this window and a phone
     detail: '',             // the app whose details are open, if any
     stuck: new Set(),       // apps this phone's maker has locked: see noteOutcomes()
+    listing: false,         // the community list is being fetched or dropped
   };
   const ui = {};
 
@@ -1672,6 +1677,10 @@ window.DebloatWords = (() => {
   //   3. For a second after any press, another on the same spot does
   //      nothing if what is under it now is a different thing to press, and
   //      that second, too, starts again with every press refused.
+  // The list of pages has a rule of its own: for a second after it has
+  // moved by itself (opened out by "More", brought to its top by the band
+  // over it, given more room or less by what is said at its foot) no page
+  // in it takes a press, and one that refuses shakes its head as well.
   // Presses are timed by when they were made, not by when a busy page got
   // round to hearing of them.
   let swapped = 0;      // when one screen last gave way to another
@@ -1715,13 +1724,15 @@ window.DebloatWords = (() => {
     // are remembered like any press: one press too many must not land on
     // what the strip was lying over.
     const refused = !on('.below, .nav-cue') && (now - swapped < 600 || again
-      || (on('#side nav') && now - shifted < 600) || (on('.commits') && now < armed));
+      || (on('#side nav') && now - shifted < 1000) || (on('.commits') && now < armed));
     if (refused) {
       event.stopPropagation();
       event.preventDefault();
       if (byHand) pressed.at = now;
       wait(now + 1000);
-      nope(event.target.closest ? event.target.closest('.commits') : null);
+      // In the list of pages, too, a hand that goes on pressing waits on.
+      if (on('#side nav')) shifted = now;
+      nope(event.target.closest ? event.target.closest('.commits, .nav-item') : null);
       return;
     }
     if (byHand) pressed = { at: now, x: event.clientX, y: event.clientY, what };
@@ -2054,6 +2065,8 @@ window.DebloatWords = (() => {
   } catch (e) { /* nothing remembered */ }
 
   async function copy(text, button) {
+    // Still saying "Copied": pressed again, it has nothing new to say.
+    if (button && button.dataset.said) return;
     try {
       await navigator.clipboard.writeText(text);
     } catch (e) {
@@ -2064,9 +2077,18 @@ window.DebloatWords = (() => {
       box.remove();
     }
     if (!button) return;
+    button.dataset.said = 'copied';
     const before = [...button.childNodes];
+    // "Copied" is the shorter word. The button keeps its width while it
+    // says so, and what stands beside it stays where it is: a second press
+    // must not find the link out to the web under it.
+    button.style.minWidth = `${button.offsetWidth}px`;
     set(button, icon('check', 16), 'Copied');
-    setTimeout(() => set(button, before), 1400);
+    setTimeout(() => {
+      set(button, before);
+      button.style.minWidth = '';
+      delete button.dataset.said;
+    }, 1400);
   }
 
   // The pictures for getting connected: line drawings in the colour of the
@@ -2486,13 +2508,25 @@ window.DebloatWords = (() => {
   const WHOLE = '.row, .group-head, .palette-item, .palette-group, .detail-body section > h3, .detail-body section > p, '
     + '.detail-body .facts > li, .detail-body .detail-links, .detail-body > .chips, .wiz-notes > li, .way-title, '
     + '.way-text > p, .way-text > .maker, .steps > li, .art, .more-help, .wiz-stat';
+  // The lines a scrolling box comes to rest on (see `scroll-snap-align` in
+  // the styles).
+  const RESTS = '.row, .palette-item, .wiz-notes > li, .detail-body section, .way-step';
   function cue(scroller) {
     const button = el('button', { class: 'btn small' });
     const node = el('div', { class: 'below', hidden: true }, button);
     let last = null;
+    // Room the box has been given past the end of what it holds (see the
+    // strip's press, below), in pixels.
+    let slack = 0;
+    scroller.style.paddingBottom = '';
     const update = () => {
       if (!node.isConnected) return;
-      const more = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 8;
+      // Back at its start, the box is as long as what it holds again.
+      if (slack && scroller.scrollTop <= 0) {
+        slack = 0;
+        scroller.style.paddingBottom = '';
+      }
+      const more = scroller.scrollHeight - slack - scroller.scrollTop - scroller.clientHeight > 8;
       const box = scroller.getBoundingClientRect();
       const edge = box.bottom;
       // Measured first and marked after, so that the page is laid out once.
@@ -2528,7 +2562,38 @@ window.DebloatWords = (() => {
         set(button, icon('more', 16), says);
       }
     };
-    button.addEventListener('click', () => scroller.scrollBy({ top: scroller.clientHeight * 0.8, behavior: still() ? 'auto' : 'smooth' }));
+    // What a press brings up starts with the first line that was not in
+    // sight in full, which comes to the upper end of the box, under the bar
+    // of a group where there is one. A step by a share of the box's height
+    // passed over lines: the one its lower end was hiding went straight
+    // under that bar, and in the list of what a cleanup would remove a
+    // ticked app was never shown at all.
+    button.addEventListener('click', () => {
+      const box = scroller.getBoundingClientRect();
+      const behavior = still() ? 'auto' : 'smooth';
+      const line = [...scroller.querySelectorAll(RESTS)].find(part => part.getBoundingClientRect().bottom > box.bottom + 1);
+      // A heading goes with the first line under it.
+      const over = line && line.previousElementSibling;
+      const first = over && over.matches('.palette-group') ? over : line;
+      let by = first ? first.getBoundingClientRect().top - box.top - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0) : 0;
+      if (by > 4) {
+        // The last lines of a list cannot come all the way up: there is
+        // nothing under them to scroll by. Stopped short, the line before
+        // them is cut through at the upper end and so left out, which
+        // shows as a hole under the bar of the group. The box is given the
+        // room it is short of instead, and the list ends with that room
+        // under it, which is where a list is expected to end.
+        const short = Math.ceil(scroller.scrollTop + by - (scroller.scrollHeight - scroller.clientHeight));
+        if (short > 0) {
+          slack += short;
+          scroller.style.paddingBottom = `${(parseFloat(getComputedStyle(scroller).paddingBottom) || 0) + short}px`;
+        }
+      } else by = scroller.clientHeight * 0.8; // A line longer than the box is gone through a boxful at a time.
+      scroller.scrollBy({ top: by, behavior });
+    });
+    // Pressed, it does not take the keyboard from where it was: from the
+    // field of Find anything, or from the safe answer of a question.
+    button.addEventListener('mousedown', event => event.preventDefault());
     scroller.addEventListener('scroll', update, { passive: true });
     if ('ResizeObserver' in window) new ResizeObserver(update).observe(scroller);
     new MutationObserver(update).observe(scroller, { childList: true, subtree: true });
@@ -2576,6 +2641,7 @@ window.DebloatWords = (() => {
   let navWatch = null;
   let navRoom = 0;
   let navAt = 0;        // how far down the list of pages was last seen to be
+  let cueAt = 0;        // when a band over an end of that list was last pressed
   function renderSide() {
     const meta = state.scan ? state.scan.meta : null;
     const connected = state.status === 'ready';
@@ -2619,13 +2685,18 @@ window.DebloatWords = (() => {
         el('button', {
           class: 'nav-item nav-fold', 'aria-expanded': String(!folded),
           onclick: () => {
+            const was = document.querySelector('#side nav').scrollTop;
             fold(!folded);
             renderSide();
             // The line pressed is a new one now: the keyboard stays on it,
             // and the pages it brought out are brought into sight.
             const again = document.querySelector('#side .nav-fold');
             if (again) again.focus({ preventScroll: true });
-            if (!folded) inSight(document.querySelector('#side nav').lastElementChild);
+            const list = document.querySelector('#side nav');
+            if (!folded) inSight(list.lastElementChild);
+            // Where the list had to move for that, the line pressed is no
+            // longer under the hand that pressed it, and another page is.
+            if (list.scrollTop !== was) shifted = performance.now();
           },
         }, icon('chevron'), el('span', {}, group.label), el('span', {})),
         folded ? null : group.items.map(item),
@@ -2633,12 +2704,42 @@ window.DebloatWords = (() => {
     }));
     // The list of pages scrolls where the window is too short for it. A
     // band lies over whichever end it runs off, and brings the rest up.
-    const cueFor = (side, by) => el('button', {
+    // How far a band moves the list. Downwards, the first page that was
+    // not in sight in full comes to rest just clear of the upper band, with
+    // its heading where it is the first under one. Upwards, the last page
+    // out of sight above comes just clear of the lower band, with as many
+    // of those before it as there is room for. Either way a line rests
+    // where the list would come to rest by itself. A step of a fixed
+    // length passed over pages wherever the room between the bands was
+    // shorter than the step.
+    const pageBy = downwards => {
+      const box = nav.getBoundingClientRect();
+      // How far down the list a line starts.
+      const from = node => node.getBoundingClientRect().top - box.top + nav.scrollTop;
+      const lines = [...nav.children].filter(node => node.matches('.nav-item, .nav-label'));
+      const pages = lines.filter(node => node.matches('.nav-item'));
+      if (downwards) {
+        const next = pages.find(node => node.getBoundingClientRect().bottom > box.bottom - 36 + 1);
+        if (!next) return 200;
+        const over = next.previousElementSibling;
+        const first = over && over.matches('.nav-label') ? over : next;
+        return Math.max(40, from(first) - 40 - nav.scrollTop);
+      }
+      const last = [...pages].reverse().find(node => node.getBoundingClientRect().top < box.top + 36 - 1);
+      if (!last) return -200;
+      const end = from(last) + last.offsetHeight;
+      const first = lines.find(node => end - from(node) <= nav.clientHeight - 40 - 36) || last;
+      return Math.min(-40, from(first) - 40 - nav.scrollTop);
+    };
+    const cueFor = side => el('button', {
       class: `nav-cue ${side}`, hidden: true,
-      onclick: () => nav.scrollBy({ top: by, behavior: still() ? 'auto' : 'smooth' }),
+      onclick: () => {
+        cueAt = performance.now();
+        nav.scrollBy({ top: pageBy(side === 'down'), behavior: still() ? 'auto' : 'smooth' });
+      },
     });
-    const up = cueFor('up', -200);
-    const down = cueFor('down', 200);
+    const up = cueFor('up');
+    const down = cueFor('down');
     // What a band says: how many pages it has under and beyond it.
     const tell = (band, iconName, n, where) => {
       const says = `${n} more ${where}`;
@@ -2654,6 +2755,9 @@ window.DebloatWords = (() => {
       // is given at its end for being so.
       nav.classList.toggle('long', nav.scrollHeight - (nav.classList.contains('long') ? 36 : 0) > nav.clientHeight + 1);
       navAt = nav.scrollTop;
+      // Pressed until the list is at its top, the upper band goes, and the
+      // first page is where it was: one press too many is for the band.
+      if (!up.hidden && nav.scrollTop <= 8 && performance.now() - cueAt < 2000) shifted = performance.now();
       up.hidden = nav.scrollTop <= 8;
       down.hidden = nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 8;
       // A line a band lies partly over is not shown cut through.
@@ -2926,7 +3030,7 @@ window.DebloatWords = (() => {
       el('span', { class: `check-mark ${tone}` }, icon({ ok: 'check', bad: 'alert', warn: 'alert', note: 'info' }[tone])),
       el('div', { class: 'check-text' }, el('div', {}, title), detail ? el('div', { class: 'check-detail' }, detail) : null),
       action || el('span', {}));
-    const button = (label, run, iconName) => el('button', { class: 'btn small', onclick: run, disabled: state.pending.size > 0 },
+    const button = (label, run, iconName) => el('button', { class: 'btn small', onclick: run, disabled: state.pending.size > 0 || state.listing },
       icon(iconName, 16), label);
     const out = [];
 
@@ -2973,10 +3077,18 @@ window.DebloatWords = (() => {
   // The community list: fetch it, or stop using it, and scan again either
   // way. It is one download, from the project that keeps the list.
   async function community(on) {
+    // Asked for again while it is on its way, it is still one download.
+    if (state.listing) return undefined;
+    state.listing = true;
+    render();
     toast(on ? 'Fetching the community list.' : 'Dropping the community list.');
     const result = await api('/api/community', { method: 'POST', body: { on } });
+    state.listing = false;
     log(on ? 'Get the community list' : 'Stop using the community list', result.output || result.error);
-    if (!result.ok) return toast(result.error, { tone: 'bad' });
+    if (!result.ok) {
+      render();
+      return toast(result.error, { tone: 'bad' });
+    }
     await scan({ quiet: true });
     const n = Number(state.scan && state.scan.meta.community) || 0;
     return toast(on ? `The community list is in use: ${n} apps described. What it recommends removing is under With a catch.`
@@ -4216,6 +4328,9 @@ window.DebloatWords = (() => {
         .map(entry => entry.item)
         .filter(item => item.group !== 'Apps' || (need.length > 0 && ++apps <= 12));
       at = 0;
+      // What is found starts at its first line, which is the one marked,
+      // wherever the last search was left.
+      list.scrollTop = 0;
       if (!shown.length) {
         set(list, el('div', { class: 'palette-empty' }, 'Nothing by that name. Part of a package name works too.'));
         return;
