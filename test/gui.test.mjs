@@ -100,15 +100,76 @@ test('the page and the drawing code parse, and agree on what the wizard can do',
   const page = fs.readFileSync(path.join(HERE, '..', 'gui', 'ui.html'), 'utf8');
   const code = fs.readFileSync(path.join(HERE, '..', 'gui', 'magic.js'), 'utf8');
   const inline = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(found => found[1]);
-  assert.equal(inline.length, 1);
-  assert.doesNotThrow(() => new vm.Script(inline[0], { filename: 'ui.html' }));
+  // Two blocks: the words, which need no page, and the page itself.
+  assert.equal(inline.length, 2);
+  for (const block of inline) assert.doesNotThrow(() => new vm.Script(block, { filename: 'ui.html' }));
   assert.doesNotThrow(() => new vm.Script(code, { filename: 'magic.js' }));
   assert.ok(page.includes('<script src="/magic.js"></script>'));
-  const asked = new Set([...inline[0].matchAll(/\b(?:magic|engine)\.([a-zA-Z]+)\(/g)].map(found => found[1]));
+  const asked = new Set([...inline[1].matchAll(/\b(?:magic|engine)\.([a-zA-Z]+)\(/g)].map(found => found[1]));
   assert.ok(asked.size >= 10, 'the page should be asking the wizard for things');
   for (const name of asked) {
     assert.match(code, new RegExp(`\\n      (?:async )?${name}\\(`), `magic.js has no ${name}()`);
   }
+});
+
+// What a person reads in place of a package name, and what each list says
+// about an app, are worked out by the page's first script block. It needs no
+// page, so it runs here as it stands.
+test('apps are named and described the way a person would say it', () => {
+  const page = fs.readFileSync(path.join(HERE, '..', 'gui', 'ui.html'), 'utf8');
+  const sandbox = { window: {} };
+  vm.runInNewContext(/<script>([\s\S]*?)<\/script>/.exec(page)[1], sandbox, { filename: 'ui.html' });
+  const words = sandbox.window.DebloatWords;
+
+  const names = {
+    'com.motorola.timeweatherwidget': 'Motorola time weather widget',
+    'com.vzw.hss.myverizon': 'My Verizon',
+    'com.dti.folderlauncher': 'Digital Turbine folder launcher',
+    'com.LogiaGroup.LogiaDeck': 'Digital Turbine Logia deck',
+    'com.facebook.appmanager': 'Facebook app manager',
+    'com.glance.lockscreen': 'Glance lock screen',
+    'com.instagram.android': 'Instagram',
+    'com.candy.game': 'Candy game',
+    'com.verizon.remoteSimlock': 'Verizon remote SIM lock',
+    // Nothing in it to read: the package name is at least true.
+    'x.y': 'Y',
+  };
+  for (const [pkg, name] of Object.entries(names)) assert.equal(words.readable(pkg), name, pkg);
+  assert.equal(words.initial('com.vzw.hss.myverizon'), 'V');
+  assert.equal(words.initial('com.candy.game'), 'C');
+
+  const known = words.reasons({ remove: [{ pkg: 'com.motorola.help', note: 'Device Help app and its tips' }], ask: [], keep: [] });
+  const say = (row, list) => JSON.parse(JSON.stringify(words.describe(row, list, known)));
+  assert.deepEqual(say({ pkg: 'com.candy.game', note: 'installed by com.dti.folderlauncher', app: true }, 'pushed'),
+    { title: 'Candy game', about: 'Put here by Digital Turbine', chips: [{ text: 'regular app' }] });
+  assert.deepEqual(say({ pkg: 'com.motorola.ccc.notification', note: '2 up; under REMOVE: Motorola\'s own promotional notifications' }, 'notifying'),
+    { title: 'Motorola notification', about: 'Motorola\'s own promotional notifications', chips: [{ text: '2 notifications up', tone: 'warn' }, { text: 'under Remove' }] });
+  assert.deepEqual(say({ pkg: 'com.motorola.timeweatherwidget', note: 'product/app/TimeWeather; community list, expert: Does a thing.' }, 'unknown'),
+    { title: 'Motorola time weather widget', about: 'Does a thing.', chips: [{ text: 'community list: expert', tone: 'bad' }] });
+  assert.deepEqual(say({ pkg: 'com.motorola.mystery', note: '(updated since the factory)' }, 'unknown'),
+    { title: 'Motorola mystery', about: 'Updated since the factory', chips: [] });
+  assert.deepEqual(say({ pkg: 'com.motorola.help', note: 'was removed' }, 'back'),
+    { title: 'Motorola help', about: 'Device Help app and its tips. It was removed, and it is back', chips: [] });
+  assert.deepEqual(say({ pkg: 'com.motorola.tracfone.rsu', note: 'removed, by this tool; the rules would keep it: Tracfone SIM-unlock service' }, 'off'),
+    { title: 'Motorola Tracfone', about: 'Tracfone SIM-unlock service', chips: [{ text: 'removed' }, { text: 'rules keep this', tone: 'warn' }] });
+  // A rule that only names the app adds nothing to the name.
+  assert.equal(say({ pkg: 'com.vzw.hss.myverizon', note: 'My Verizon' }, 'remove').about, '');
+  assert.deepEqual(say({ pkg: 'org.example.thing', note: 'community list: A thing.' }, 'ask').chips, [{ text: 'community list' }]);
+
+  // The tool's own result lines, read back for the apps that were asked about.
+  const how = words.outcomes([
+    'moto g stylus - 2025 (mona), Android 16',
+    '  skipped       com.motorola.launcher3      it is the home screen (--force overrides)',
+    '  FAILED        com.glance.lockscreen       Android refused every option',
+    '  switched off  com.dti.folderlauncher      Android would not remove it',
+    '  uninstalled   com.candy.game',
+    'Done: 1 removed, 1 skipped, 1 failed.',
+  ].join('\n'), ['com.glance.lockscreen', 'com.dti.folderlauncher', 'com.candy.game', 'com.not.mentioned']);
+  assert.deepEqual([...how.entries()].map(([pkg, o]) => [pkg, o.said, o.done]), [
+    ['com.glance.lockscreen', 'FAILED', false],
+    ['com.dti.folderlauncher', 'switched off', true],
+    ['com.candy.game', 'uninstalled', true],
+  ]);
 });
 
 // The drawing code, run for a while against a WebGL that does nothing. No
@@ -171,7 +232,7 @@ test('the drawing code runs every act, spell and stage without an error', async 
   };
 
   magic.phone('scan');
-  magic.tiles(Array.from({ length: 14 }, (_, i) => ({ id: `com.example.app${i}`, kind: ['remove', 'pushed', 'back'][i % 3] })));
+  magic.tiles(Array.from({ length: 14 }, (_, i) => ({ id: `com.example.app${i}`, kind: ['remove', 'pushed', 'back', 'installer', 'ask'][i % 5] })));
   listeners.pointermove({ clientX: 500, clientY: 300 });
   for (const act of ['idle', 'hello', 'scan', 'think', 'channel', 'zap', 'cheer', 'cool', 'shrug', 'search', 'no such act']) {
     magic.act(act);
@@ -181,12 +242,16 @@ test('the drawing code runs every act, spell and stage without an error', async 
   for (const kind of ['hero', 'side', 'none', 'full']) {
     stage = kind;
     for (const light of [false, true]) {
-      magic.set({ light });
-      magic.phone(light ? 'clean' : 'idle', 0.3);
-      run(0.3);
+      // Each look, and each thing the phone can be showing.
+      magic.set({ light, look: light ? 'violet' : 'graphite' });
+      for (const phone of ['none', 'ask', 'idle', 'scan', 'clean']) {
+        magic.phone(phone, 0.3);
+        run(0.1);
+      }
       assert.equal(magic.visible(), kind !== 'none');
     }
   }
+  magic.set({ look: 'no such look' });
   // He stands in the left half of his own screen, where the page put him:
   // that is the camera, the projection and the stage all agreeing.
   const orb = magic.orb();

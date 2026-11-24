@@ -20,11 +20,12 @@
     - every view has empty, loading, error and populated states
     - the sidebar is the only navigation; changes are undoable where they can be
 
-  The wizard has a palette of his own (night violet, and the same lime for
-  his magic) and keeps it inside his stages and his own screen. Everything he
-  adds can be switched off with the wand beside the name, and is off where
-  there is no WebGL: the page is then the plain one, and nothing is lost but
-  the show. With reduced motion asked for, he holds still.
+  The wizard keeps to them too: graphite, the one lime for his magic, and
+  red and amber only for what they mean (what puts junk back, the junk). His
+  stage is a plain dark panel, darker than any page, in a light window as
+  well, because lime needs the dark. Everything he adds can be switched off
+  with the wand beside the name, and is off where there is no WebGL: nothing
+  is lost then but the show. With reduced motion asked for, he holds still.
 
   Icons are from Lucide (https://lucide.dev), ISC License, copyright (c) Lucide
   Contributors 2022 and, for portions, Cole Bemis 2013-2022 (Feather, MIT).
@@ -54,12 +55,9 @@
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --ease: 160ms ease-out;
-    /* The wizard's night: the same in a light window as in a dark one. */
-    --night-0: #08070f;
-    --night-1: #150f3a;
-    --night-2: #2b1c74;
-    --night: radial-gradient(120% 100% at 50% 100%, var(--night-2) 0%, var(--night-1) 48%, var(--night-0) 100%);
-    --spring: cubic-bezier(0.2, 0.9, 0.3, 1.3);
+    /* The wizard's stage: the same in a light window as in a dark one. */
+    --stage: #0b0c0e;
+    --stage-line: #24262b;
   }
   @media (prefers-color-scheme: light) {
     :root {
@@ -337,27 +335,45 @@
 
   .row {
     display: grid;
-    grid-template-columns: 16px minmax(0, 6fr) minmax(0, 5fr) 208px;
+    grid-template-columns: 16px minmax(0, 5fr) minmax(0, 6fr) 184px 28px;
     gap: 16px;
     align-items: center;
-    min-height: 44px;
-    padding: 12px 16px;
+    min-height: 56px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--line);
     cursor: pointer;
     transition: background var(--ease), opacity var(--ease);
   }
   .row:last-child { border-bottom: 0; }
   .row:hover, .row.selected { background: var(--surface-2); }
-  .row.static { cursor: default; }
-  .row.static:hover { background: none; }
   .row.pending { opacity: 0.45; pointer-events: none; }
+  /* An app: a name to read, and under it what the phone calls it. */
+  .app { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: center; min-width: 0; }
+  .app-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text-2);
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .row:hover .app-mark, .row.selected .app-mark { background: var(--surface-3); }
+  .app-text { min-width: 0; }
+  .app-name { overflow-wrap: anywhere; }
   .pkg { overflow-wrap: anywhere; }
+  .app .pkg { font-size: 12px; color: var(--text-3); }
   .note { color: var(--text-2); overflow-wrap: anywhere; }
-  .row.plain .note { grid-column: 3 / -1; }
-  .row.plain .chips { display: none; }
-  .row.bare .pkg { grid-column: 2 / 4; }
-  .row.bare .note { display: none; }
   .chips { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  /* A list where no row has a chip gives the room to the words. */
+  .rows.bare .row { grid-template-columns: 16px minmax(0, 5fr) minmax(0, 6fr) 28px; }
+  .rows.bare .chips { display: none; }
+  .row .more { width: 28px; padding: 0; opacity: 0; }
+  .row:hover .more, .row .more:focus-visible, .row.open .more { opacity: 1; }
+  .row.open { background: var(--surface-2); }
   .chip {
     font-size: 12px;
     padding: 4px 8px;
@@ -367,6 +383,8 @@
     white-space: nowrap;
   }
   .chip.warn { color: var(--warn); border-color: currentColor; }
+  .chip.ok { color: var(--ok); border-color: currentColor; }
+  .chip.bad { color: var(--bad); border-color: currentColor; }
 
   /* The actions for a selection appear with it, and stay in reach while the
      list scrolls underneath. */
@@ -488,17 +506,16 @@
   }
   .group-head b { font-weight: 600; }
   .group-head span { color: var(--text-2); font-size: 12px; }
-  .dialog-body .row { grid-template-columns: 16px minmax(0, 6fr) minmax(0, 5fr); padding: 12px 24px; }
+  .dialog-body .row { grid-template-columns: 16px minmax(0, 5fr) minmax(0, 5fr); padding: 8px 24px; }
   .dialog-body .row .note { grid-column: 3; }
 
   /* ---- The wizard's world ---- */
   /* One canvas over the whole window draws the wizard, the phone and every
-     spark (gui/magic.js). A stage is where on the page that picture shows.
-     It is always night there, in a light window too: lime lightning needs a
-     dark sky. */
+     spark (gui/magic.js). A stage is where on the page that picture shows:
+     a plain dark panel, in a light window too. */
   #magic { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-  .stage { border-radius: 12px; background: var(--night); cursor: pointer; }
-  body.no-magic #magic, body.no-magic .stage, body.no-magic .pal { display: none; }
+  .stage { border-radius: 12px; background: var(--stage); border: 1px solid var(--stage-line); cursor: pointer; }
+  body.no-magic #magic, body.no-magic .stage, body.no-magic .pal, body.no-magic .tip { display: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
   /* Where there is no stage on the page, he waits in the corner. */
@@ -511,16 +528,16 @@
     height: 104px;
     padding: 0;
     border-radius: 999px;
-    border: 1px solid rgb(255 255 255 / 0.16);
-    background: var(--night);
+    border: 1px solid var(--stage-line);
+    background: var(--stage);
     box-shadow: var(--shadow-float);
     cursor: pointer;
-    transition: transform 200ms var(--spring), box-shadow var(--ease), bottom var(--ease);
+    transition: transform var(--ease), box-shadow var(--ease), bottom var(--ease);
   }
   .pal[hidden] { display: none; }
   /* Out of the way of the selection's buttons, as the toast is. */
   body.has-bulk .pal { bottom: 96px; }
-  .pal:hover { transform: scale(1.06); box-shadow: var(--shadow-float), 0 0 0 4px var(--glow); }
+  .pal:hover { transform: scale(1.04); box-shadow: var(--shadow-float), 0 0 0 4px var(--glow); }
   .pal:active { transform: scale(0.97); }
   .pal-tip {
     position: absolute;
@@ -540,27 +557,21 @@
     transition: opacity var(--ease), transform var(--ease);
   }
   .pal:hover .pal-tip, .pal:focus-visible .pal-tip { opacity: 1; transform: translate(0, -50%); }
-  body.has-pal .toast { right: 144px; }
 
-  /* His own screen: the night across the whole window, him and the phone on
-     the left, and what he has to say in a pane of glass on the right. The
-     pane sits above the canvas, the night below it. */
-  .wiz-back {
-    position: fixed;
-    inset: 0;
-    z-index: 4;
-    background: radial-gradient(90% 85% at 26% 100%, var(--night-2) 0%, var(--night-1) 46%, var(--night-0) 100%);
-    animation: fade 240ms ease-out;
-  }
+  /* His own screen: the stage across the whole window, him and the phone on
+     the left, and what he has to say in a card on the right. The card sits
+     above the canvas, the stage below it. It is dark in a light window too. */
+  .wiz-back { position: fixed; inset: 0; z-index: 4; background: var(--stage); animation: fade 160ms ease-out; }
   .wiz-back[hidden], .wiz[hidden] { display: none; }
   .wiz {
-    --surface: rgb(255 255 255 / 0.05);
-    --surface-2: rgb(255 255 255 / 0.09);
-    --surface-3: rgb(255 255 255 / 0.15);
-    --line: rgb(255 255 255 / 0.13);
-    --text: #f6f5ff;
-    --text-2: #cbc8e4;
-    --text-3: #a09dbf;
+    --bg: #0e0f11;
+    --surface: #16171a;
+    --surface-2: #1e2024;
+    --surface-3: #272a2f;
+    --line: #2b2d33;
+    --text: #f3f3ef;
+    --text-2: #b2b4bc;
+    --text-3: #8b8e97;
     --accent-edge: var(--accent);
     --focus: var(--accent);
     --ok: #4ade80;
@@ -574,17 +585,15 @@
     width: min(620px, 50%);
     display: flex;
     flex-direction: column;
-    border-radius: 24px;
+    border-radius: 16px;
     border: 1px solid var(--line);
-    background: rgb(20 15 52 / 0.74);
-    -webkit-backdrop-filter: blur(20px) saturate(1.3);
-    backdrop-filter: blur(20px) saturate(1.3);
-    box-shadow: 0 24px 80px rgb(0 0 0 / 0.5);
+    background: var(--surface);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 48px rgb(0 0 0 / 0.45);
     color: var(--text);
     color-scheme: dark;
-    animation: wiz-in 420ms var(--spring);
+    animation: wiz-in 200ms ease-out;
   }
-  /* The pane is what he is saying: it points at him. */
+  /* The card is what he is saying: it points at him. */
   .wiz::before {
     content: "";
     position: absolute;
@@ -595,17 +604,17 @@
     transform: rotate(45deg);
     border-left: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    background: rgb(27 21 66);
+    background: var(--surface);
   }
   @keyframes fade { from { opacity: 0; } }
-  @keyframes wiz-in { from { opacity: 0; transform: perspective(1400px) translate3d(48px, 0, -160px) rotateY(-12deg); } }
+  @keyframes wiz-in { from { opacity: 0; transform: translate3d(16px, 0, 0); } }
   .wiz-top { display: flex; align-items: center; gap: 16px; padding: 20px 20px 0 24px; }
   .wiz-steps { display: flex; flex: 1; gap: 16px; align-items: center; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
   .wiz-steps li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
   .wiz-steps li::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: var(--surface-3); transition: background var(--ease), box-shadow var(--ease); }
   .wiz-steps li.done::before { background: var(--text-3); }
   .wiz-steps li.now { color: var(--text); font-weight: 600; }
-  .wiz-steps li.now::before { background: var(--accent); box-shadow: 0 0 0 4px hsl(75 100% 50% / 0.2); }
+  .wiz-steps li.now::before { background: var(--accent); box-shadow: 0 0 0 4px var(--glow); }
   .wiz-say { padding: 24px 24px 20px; }
   .wiz-line { margin: 0; min-height: 60px; font-size: 24px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
   .wiz-sub { margin: 8px 0 0; color: var(--text-2); max-width: 60ch; }
@@ -613,68 +622,191 @@
   .wiz-body:empty { border-bottom: 0; }
   .wiz-foot { display: flex; align-items: center; gap: 12px; padding: 16px 24px 20px; flex-wrap: wrap; }
   .wiz-foot .grow { flex: 1 1 160px; color: var(--text-2); font-size: 12px; }
-  .wiz .row { grid-template-columns: 16px minmax(0, 6fr) minmax(0, 5fr); padding: 12px 24px; }
+  .wiz .row { grid-template-columns: 16px minmax(0, 5fr) minmax(0, 5fr); padding: 8px 24px; }
   .wiz .row.told { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
   .wiz .row.told:hover { background: none; }
-  .wiz .group-head { background: rgb(33 26 78); }
   .wiz-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 20px 24px; }
   .wiz-stat { display: grid; gap: 8px; padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
   .wiz-stat b { font: 600 24px/1 var(--mono); font-variant-numeric: tabular-nums; }
   .wiz-stat span { font-size: 12px; color: var(--text-2); }
-  .wiz-how { margin: 0; padding: 20px 24px 20px 44px; display: grid; gap: 8px; color: var(--text-2); }
-  .chip.ok { color: var(--ok); border-color: currentColor; }
-  .chip.bad { color: var(--bad); border-color: currentColor; }
+  .wiz-coach { display: grid; gap: 16px; padding: 20px 24px; }
+  .wiz-foot .grow { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 
-  /* ---- Things with some spring in them ---- */
-  /* Cards lean towards the pointer, a view arrives from a little way back,
-     and the button about to be pressed catches the light. All of it rides on
-     transforms, which the graphics card does, and all of it goes with the
-     wizard when he is switched off. */
+  /* ---- Getting connected ---- */
+  .coach .hero-main { gap: 16px; align-content: start; }
+  .hero.coach.staged { grid-template-columns: minmax(0, 1fr) 300px; }
+  .coach-body { display: grid; gap: 12px; max-width: 64ch; }
+  .coach-label { margin: 0; color: var(--text-2); font-size: 12px; }
+  .steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--text-2); }
+  .steps b, .more-help b { color: var(--text); font-weight: 600; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); width: fit-content; max-width: 100%; }
+  .tab { height: 28px; padding: 0 12px; border: 0; border-radius: 4px; background: none; color: var(--text-2); font-size: 12px; cursor: pointer; transition: background var(--ease), color var(--ease); }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { background: var(--surface-3); color: var(--text); font-weight: 600; }
+  .command { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); width: fit-content; max-width: 100%; }
+  .command code { overflow-wrap: anywhere; }
+  .more-help { color: var(--text-2); font-size: 12px; }
+  .more-help summary { cursor: pointer; color: var(--text-2); width: fit-content; border-radius: 4px; }
+  .more-help summary:hover { color: var(--text); }
+  .more-help ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+
+  /* ---- Checks ---- */
+  .check { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); min-height: 56px; }
+  .check-mark { display: grid; place-items: center; color: var(--text-3); }
+  .check-mark.ok { color: var(--ok); }
+  .check-mark.warn { color: var(--warn); }
+  .check-mark.bad { color: var(--bad); }
+  .check-detail { color: var(--text-2); font-size: 12px; }
+
+  /* ---- One app, in full ---- */
+  .detail {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    width: min(400px, calc(100% - 264px));
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: var(--shadow-float);
+    animation: slide 160ms ease-out;
+  }
+  .detail[hidden] { display: none; }
+  @keyframes slide { from { opacity: 0; transform: translate3d(16px, 0, 0); } }
+  body.has-detail main { padding-right: 448px; }
+  /* Beside an open app the list is names only: the rest is in the panel. */
+  body.has-detail .row, body.has-detail .rows.bare .row { grid-template-columns: 16px minmax(0, 1fr) 28px; }
+  body.has-detail .row .note, body.has-detail .row .chips { display: none; }
+  body.has-detail .search { flex-basis: 160px; }
+  body.has-detail .pal, body.has-detail .tip { display: none; }
+  body.has-detail .toast { right: 424px; }
+  body.has-detail .bulk { left: calc(264px + (100% - 264px - 400px) / 2); max-width: calc(100% - 264px - 400px - 48px); }
+  .detail-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 24px 16px 16px 24px; }
+  .detail-head .app-mark { width: 40px; height: 40px; font-size: 16px; }
+  .detail-head h2 { overflow-wrap: anywhere; }
+  .detail-head .pkg { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+  .detail-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 24px 24px; display: grid; gap: 24px; align-content: start; scrollbar-width: thin; }
+  .detail-body section { display: grid; gap: 8px; }
+  .detail-body h3 { margin: 0; font-size: 12px; font-weight: 400; color: var(--text-3); letter-spacing: 0.04em; }
+  .detail-body p { margin: 0; color: var(--text-2); }
+  .detail-body .chips { justify-content: flex-start; }
+  .facts { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--text-2); }
+  .detail-foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--line); }
+  .detail-foot:empty { display: none; }
+  .detail-links { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 -8px; }
+  a.btn { text-decoration: none; }
+
+  /* ---- Find anything ---- */
+  .finder { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 8px 0 12px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text-3); cursor: pointer; text-align: left; transition: border-color var(--ease), color var(--ease); }
+  .finder:hover { border-color: var(--text-3); color: var(--text-2); }
+  .finder span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  kbd { font: 400 12px/1 var(--mono); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-2); white-space: nowrap; }
+  dialog.palette { width: min(640px, calc(100% - 48px)); margin-top: 12vh; overflow: hidden; }
+  .palette-field { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 56px; border-bottom: 1px solid var(--line); color: var(--text-3); }
+  .palette-field input { flex: 1; height: 100%; border: 0; outline: 0; background: none; font-size: 16px; }
+  .palette-field input::placeholder { color: var(--text-3); }
+  .palette-list { max-height: min(56vh, 432px); overflow: auto; padding: 8px; scrollbar-width: thin; }
+  .palette-group { padding: 8px 8px 4px; font-size: 12px; color: var(--text-3); letter-spacing: 0.04em; }
+  .palette-item { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 36px; padding: 4px 8px; border-radius: 8px; color: var(--text-2); cursor: pointer; }
+  .palette-item .hint { color: var(--text-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 264px; }
+  .palette-item .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .palette-item.on { background: var(--surface-3); color: var(--text); }
+  .palette-empty { padding: 32px 16px; text-align: center; color: var(--text-2); }
+  .palette-foot { display: flex; gap: 16px; align-items: center; padding: 8px 16px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 12px; }
+  .palette-foot span { display: inline-flex; gap: 8px; align-items: center; }
+
+  /* ---- One at a time ---- */
+  .deck { display: grid; gap: 16px; padding: 24px; }
+  .wiz-body > div:has(> .deck) { min-height: 100%; display: grid; align-content: center; }
+  .deck-bar { height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+  .deck-bar i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transition: width var(--ease); }
+  .deck-count { display: flex; justify-content: space-between; color: var(--text-3); font-size: 12px; }
+  .deck-card { display: grid; gap: 16px; padding: 24px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface-2); animation: rise 160ms ease-out; }
+  .deck-card .app { grid-template-columns: 40px minmax(0, 1fr); }
+  .deck-card .app-mark { width: 40px; height: 40px; font-size: 16px; background: var(--surface-3); }
+  .deck-card .app-name { font-size: 16px; font-weight: 600; }
+  .deck-card p { margin: 0; color: var(--text); font-size: 16px; }
+  .deck-card .deck-sum p { color: var(--text-2); font-size: 14px; }
+  .deck-card h3 { margin: 0 0 4px; font-size: 12px; font-weight: 400; color: var(--text-3); letter-spacing: 0.04em; }
+  .deck-keys { display: flex; gap: 12px; align-items: center; }
+  .deck-keys .grow { flex: 1; color: var(--text-3); font-size: 12px; }
+  .deck-keys .btn { min-width: 120px; }
+  .deck-keys kbd { margin-left: 4px; }
+  .btn.primary kbd { background: rgb(0 0 0 / 0.1); border-color: rgb(0 0 0 / 0.2); color: var(--accent-ink); }
+  .deck-sum { display: grid; gap: 4px; }
+
+  /* ---- A word from the corner ---- */
+  .tip {
+    position: fixed;
+    right: 144px;
+    bottom: 40px;
+    z-index: 2;
+    max-width: 320px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 8px;
+    align-items: start;
+    padding: 12px 8px 12px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    box-shadow: var(--shadow-float);
+    animation: rise 160ms ease-out;
+    transition: bottom var(--ease);
+  }
+  .tip[hidden] { display: none; }
+  .tip::after { content: ""; position: absolute; right: -7px; bottom: 28px; width: 12px; height: 12px; transform: rotate(45deg); border-top: 1px solid var(--line); border-right: 1px solid var(--line); background: var(--surface-2); }
+  .tip p { margin: 0; }
+  .tip .btn.small { grid-column: 1; justify-self: start; margin-top: 4px; }
+  .tip .x { grid-column: 2; grid-row: 1; width: 28px; padding: 0; }
+  body.has-bulk .tip { bottom: 112px; }
+  body.has-pal .toast { right: 144px; }
+
+  /* ---- Movement ---- */
+  /* Short and eased out, as everywhere else. Cards lean a little towards
+     the pointer and a view arrives from a little way back; both ride on
+     transforms, which the graphics card does, and both go with the wizard
+     when he is switched off. */
   .btn { transition: background var(--ease), border-color var(--ease), color var(--ease), opacity var(--ease), transform 120ms ease-out; }
   body:not(.no-magic) .btn:active:not(:disabled) { transform: scale(0.97); }
-  body:not(.no-magic) .btn.primary { position: relative; overflow: hidden; }
-  body:not(.no-magic) .btn.primary::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.6) 50%, transparent 65%);
-    transform: translateX(-120%);
-    pointer-events: none;
-  }
-  body:not(.no-magic) .btn.primary:hover:not(:disabled)::after { transform: translateX(120%); transition: transform 620ms ease-out; }
   body:not(.no-magic) .tile {
-    transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-    transition: transform 200ms ease-out, box-shadow var(--ease), border-color var(--ease);
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform var(--ease), box-shadow var(--ease), border-color var(--ease);
   }
-  @keyframes rise { from { opacity: 0; transform: perspective(1200px) translate3d(0, 16px, -80px) rotateX(5deg); } }
-  body:not(.no-magic) main.enter .wrap > * { animation: rise 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-  body:not(.no-magic) main.enter .wrap > :nth-child(2) { animation-delay: 50ms; }
-  body:not(.no-magic) main.enter .wrap > :nth-child(3) { animation-delay: 100ms; }
-  body:not(.no-magic) main.enter .wrap > :nth-child(4) { animation-delay: 150ms; }
-  body:not(.no-magic) main.enter .row { animation: rise 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(min(var(--i, 0), 14) * 18ms + 90ms); }
+  @keyframes rise { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
+  body:not(.no-magic) main.enter .wrap > * { animation: rise 200ms ease-out both; }
+  body:not(.no-magic) main.enter .wrap > :nth-child(2) { animation-delay: 30ms; }
+  body:not(.no-magic) main.enter .wrap > :nth-child(3) { animation-delay: 60ms; }
+  body:not(.no-magic) main.enter .wrap > :nth-child(4) { animation-delay: 90ms; }
+  body:not(.no-magic) main.enter .row { animation: rise 180ms ease-out both; animation-delay: calc(min(var(--i, 0), 12) * 12ms + 60ms); }
 
   @media (max-width: 960px) {
     body { grid-template-columns: 232px minmax(0, 1fr); }
     .hero.staged { grid-template-columns: minmax(0, 1fr); }
     .hero .stage { margin: 0 -20px -20px; min-height: 216px; }
     .wiz { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; height: 58%; }
+    body.has-detail main { padding-right: 24px; }
+    .detail { width: min(400px, 100%); }
+    body.has-detail .bulk { left: calc(232px + (100% - 232px) / 2); max-width: calc(100% - 232px - 32px); }
     .wiz::before { display: none; }
     .wiz-line { min-height: 0; }
     main { padding: 24px 24px 96px; }
     .split { grid-template-columns: minmax(0, 1fr); }
-    .row { grid-template-columns: 16px minmax(0, 1fr) auto; }
-    .row .note, .row.plain .note { grid-column: 2 / -1; grid-row: 2; }
-    .row.bare .pkg { grid-column: 2; }
+    .row, .rows.bare .row { grid-template-columns: 16px minmax(0, 1fr) auto 28px; }
+    .row .note { grid-column: 2 / -1; grid-row: 2; padding-left: 40px; }
+    .row .note:empty { display: none; }
     .bulk { left: calc(232px + (100% - 232px) / 2); max-width: calc(100% - 232px - 32px); }
     .dialog-body .row { grid-template-columns: 16px minmax(0, 1fr); }
-    .dialog-body .row .note { grid-column: 2; }
+    .dialog-body .row .note { grid-column: 2; padding-left: 40px; }
   }
   @media (max-width: 760px) {
     .tiles { grid-template-columns: minmax(0, 1fr); }
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
-    .bone, .wiz, .wiz-back, main.enter .wrap > *, main.enter .row { animation: none !important; }
+    .bone, .wiz, .wiz-back, .detail, .tip, .deck-card, main.enter .wrap > *, main.enter .row { animation: none !important; }
     body .tile { transform: none; }
   }
 </style>
@@ -687,14 +819,230 @@
 <dialog id="dialog"></dialog>
 <canvas id="magic" aria-hidden="true"></canvas>
 <button class="pal" id="pal" data-stage="side" aria-label="Clean up with the wizard" hidden><span class="pal-tip" aria-hidden="true">Clean up with the wizard</span></button>
+<aside class="detail" id="detail" aria-label="About this app" hidden></aside>
+<div class="tip" id="tip" role="status" hidden></div>
+<dialog class="palette" id="palette" aria-label="Find anything"></dialog>
 <div class="wiz-back" id="wiz-back" hidden></div>
 <section class="wiz" id="wiz" role="dialog" aria-modal="true" aria-label="The wizard" hidden></section>
 
 <script src="/magic.js"></script>
 <script>
+// Words: what the scan knows about an app, put the way a person would say it.
+// The phone gives no app names over adb, only package names, so a name is
+// worked out from the package: who it is from, and what the rest of it says.
+// Nothing here touches the page, so test/gui.test.mjs runs it as it stands.
+window.DebloatWords = (() => {
+  'use strict';
+
+  // Who a package is from, by how its name starts.
+  const VENDORS = [
+    [/^com\.(dti|digitalturbine|logiagroup)\./i, 'Digital Turbine'],
+    [/^com\.(aura|ironsrc|ironsource)\./, 'Aura'],
+    [/^com\.(glance|inmobi)\./, 'Glance'],
+    [/^com\.(motorola|lenovo)\./, 'Motorola'],
+    [/^com\.(vzw|verizon|vcast)\./, 'Verizon'],
+    [/^com\.tracfone\./, 'Tracfone'],
+    [/^com\.att\./, 'AT&T'],
+    [/^com\.tmobile\./, 'T-Mobile'],
+    [/^com\.sprint\./, 'Sprint'],
+    [/^com\.(samsung|sec)\./, 'Samsung'],
+    [/^com\.(xiaomi|miui)\./, 'Xiaomi'],
+    [/^com\.(oneplus|oplus|coloros|heytap|oppo|realme)\./, 'OnePlus'],
+    [/^com\.google\./, 'Google'],
+    [/^com\.android\./, 'Android'],
+    [/^(com\.(qualcomm|qti)|vendor\.qti)\./, 'Qualcomm'],
+    [/^com\.mediatek\./, 'MediaTek'],
+    [/^com\.facebook\./, 'Facebook'],
+    [/^com\.instagram\./, 'Instagram'],
+    [/^com\.amazon\./, 'Amazon'],
+    [/^com\.microsoft\./, 'Microsoft'],
+    [/^com\.netflix\./, 'Netflix'],
+    [/^com\.spotify\./, 'Spotify'],
+    [/^com\.taboola\./, 'Taboola'],
+    [/^com\.mobileposse\./, 'Mobile Posse'],
+    [/^com\.swishme\./, 'Swish'],
+    [/^com\.asurion\./, 'Asurion'],
+  ];
+  // Words that turn up run together in package names, longest tried first.
+  const WORDS = ('account accounts activation agent analytics app apps assistant audio backup bluetooth browser calculator '
+    + 'calendar call camera carrier center chat clock cloud config contacts core deck demo device diagnostics dialer '
+    + 'display download downloads email extension extensions feed feedback file files filter folder gallery game games '
+    + 'gesture gestures health help home hub input install installer keyboard kids launcher live lock mail manager maps '
+    + 'media message messages messaging mode music my mystery news notes notification notifications pay phone photo '
+    + 'photos player print provider puzzle radio recorder remote screen search secure security service services '
+    + 'settings setup share sim sms sound store support sync system theme themes time tips tool tools tracker update '
+    + 'updater video voice wallet wallpaper weather web widget widgets wifi zone').split(' ');
+  // Names that are written their own way.
+  const NAMES = {
+    youtube: 'YouTube', gmail: 'Gmail', verizon: 'Verizon', moto: 'Moto', motorola: 'Motorola', facebook: 'Facebook',
+    instagram: 'Instagram', whatsapp: 'WhatsApp', netflix: 'Netflix', spotify: 'Spotify', tiktok: 'TikTok',
+    amazon: 'Amazon', google: 'Google', samsung: 'Samsung', glance: 'Glance', tracfone: 'Tracfone', logia: 'Logia',
+    tv: 'TV', fm: 'FM', wifi: 'Wi-Fi', sms: 'SMS', sim: 'SIM',
+  };
+  const DICT = [...WORDS, ...Object.keys(NAMES)].sort((a, b) => b.length - a.length);
+  // Parts of a package name that say nothing about what it is.
+  const EMPTY = new Set(['com', 'org', 'net', 'io', 'co', 'android', 'app', 'apps', 'mobile', 'client', 'main', 'base']);
+
+  function vendorOf(pkg) {
+    for (const [pattern, name] of VENDORS) if (pattern.test(pkg)) return name;
+    return '';
+  }
+
+  // "timeweatherwidget" -> ["time", "weather", "widget"]; null if it is not
+  // made of words this knows.
+  function words(token, from = 0) {
+    if (from === token.length) return [];
+    for (const word of DICT) {
+      if (!token.startsWith(word, from)) continue;
+      const rest = words(token, from + word.length);
+      if (rest) return [word, ...rest];
+    }
+    return null;
+  }
+
+  // A name to read, from a package name: "com.motorola.timeweatherwidget"
+  // is "Motorola time weather widget". It is a reading of the package name,
+  // not the name the app gives itself, which the phone does not tell.
+  function readable(pkg) {
+    const who = vendorOf(pkg);
+    const parts = pkg.split('.').slice(who ? 2 : 1);
+    const said = [];
+    for (const part of parts) {
+      // A part that is only "android" or "app" says nothing; mark it.
+      if (EMPTY.has(part.toLowerCase())) {
+        said.push(`?${part.toLowerCase()}`);
+        continue;
+      }
+      // "LogiaDeck" is two words already.
+      for (const piece of part.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(/[ _]+/)) {
+        const lower = piece.toLowerCase();
+        if (!lower) continue;
+        const found = words(lower);
+        if (found) said.push(...found);
+        else said.push(lower.length <= 3 ? `?${lower}` : lower);
+      }
+    }
+    // The marked parts, and short scraps nobody can read ("hss", "ccc"), go,
+    // unless they are all there is.
+    let kept = said.filter(word => !word.startsWith('?'));
+    if (!kept.length && !who) kept = said.map(word => word.replace(/^\?/, ''));
+    const spoken = kept.map(word => NAMES[word] || (word.length <= 3 && !WORDS.includes(word) ? word.toUpperCase() : word));
+    const mentionsWho = who && spoken.some(word => who.toLowerCase().includes(word.toLowerCase()) && word.length > 3);
+    const text = [mentionsWho ? '' : who, ...spoken].filter(Boolean).join(' ') || pkg;
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  // The letter on an app's tile: who it is from, or failing that its name.
+  const initial = pkg => (vendorOf(pkg) || readable(pkg)).charAt(0).toUpperCase();
+
+  // "community list, expert: text" -> { rating, text }
+  function community(note) {
+    const found = /^community list(?:, (advanced|expert|unsafe) ?(?:to remove)?)?: (.*)$/.exec(note || '');
+    return found ? { rating: found[1] || 'recommended', text: found[2] } : null;
+  }
+
+  // "removed, by this tool; the rules would keep it: reason" -> its parts.
+  function offParts(note) {
+    const [head, ...rest] = (note || '').split('; ');
+    const [state, ...who] = head.split(', ');
+    return { state, who: who.join(', '), keep: rest.join('; ').replace(/^the rules would keep it: /, '') };
+  }
+
+  // What each app is known as from the rules, for the lists that only say
+  // how an app got here: package -> reason.
+  function reasons(lists) {
+    const known = new Map();
+    for (const name of ['remove', 'ask', 'keep']) {
+      for (const row of lists[name] || []) {
+        const fromList = community(row.note);
+        known.set(row.pkg, fromList ? fromList.text : row.note);
+      }
+    }
+    return known;
+  }
+
+  // One row of a list, as { title, about, chips }: a name to read, what is
+  // known about it, and the small facts that go in chips.
+  function describe(row, list, known = new Map()) {
+    const title = readable(row.pkg);
+    const chips = [];
+    let about = row.note || '';
+    const fromList = community(about);
+    if (list === 'remove' || list === 'ask' || list === 'keep') {
+      if (fromList) {
+        about = fromList.text;
+        chips.push({ text: 'community list' });
+      }
+    } else if (list === 'pushed' || list === 'other') {
+      const found = /^installed by (\S+)(?: \((.*)\))?$/.exec(about);
+      if (found) about = `${list === 'pushed' ? 'Put here by' : 'Installed by'} ${vendorOf(found[1]) || readable(found[1])}${found[2] ? `: ${found[2]}` : ''}`;
+    } else if (list === 'back') {
+      about = [known.get(row.pkg), `It was ${about.replace(/^was /, '')}, and it is back`].filter(Boolean).join('. ');
+    } else if (list === 'notifying') {
+      const [count, ...rest] = about.split('; ');
+      const n = parseInt(count, 10) || 0;
+      chips.push({ text: `${n} ${n === 1 ? 'notification' : 'notifications'} up`, tone: 'warn' });
+      const why = rest.join('; ');
+      const under = /^(under REMOVE|under ASK FIRST|kept on purpose): (.*)$/.exec(why);
+      const put = /^put there by (\S+)$/.exec(why);
+      if (under) {
+        about = under[2];
+        chips.push({ text: { 'under REMOVE': 'under Remove', 'under ASK FIRST': 'under Ask first', 'kept on purpose': 'kept on purpose' }[under[1]] });
+      } else if (put) {
+        about = `Put here by ${vendorOf(put[1]) || readable(put[1])}`;
+        chips.push({ text: 'pushed app' });
+      } else {
+        about = why || known.get(row.pkg) || '';
+      }
+    } else if (list === 'unknown') {
+      const [where, ...rest] = about.split('; ');
+      const said = community(rest.join('; '));
+      const place = /^\(.*\)$/.test(where) ? where.slice(1, -1).replace(/^./, c => c.toUpperCase()) : (where ? `Lives in ${where}` : '');
+      if (said) {
+        about = said.text;
+        chips.push({ text: `community list: ${said.rating}`, tone: said.rating === 'advanced' ? 'warn' : 'bad' });
+      } else {
+        about = place;
+      }
+    } else if (list === 'off') {
+      const parts = offParts(about);
+      chips.push({ text: parts.state });
+      if (parts.keep) chips.push({ text: 'rules keep this', tone: 'warn' });
+      about = parts.keep || known.get(row.pkg) || parts.who;
+    }
+    if (list !== 'off') {
+      if (row.app) chips.push({ text: 'regular app' });
+      if (row.locked) chips.push({ text: 'protected' });
+    }
+    // A rule that only names the app adds nothing to the name.
+    if (about.toLowerCase() === title.toLowerCase()) about = '';
+    return { title, about, chips };
+  }
+
+  // "  removed       com.foo", for each package asked about: the word the
+  // tool used, and whether that means it is out of the way.
+  function outcomes(output, packages) {
+    const asked = new Set(packages);
+    const how = new Map();
+    for (const line of (output || '').split('\n')) {
+      if (!line.startsWith('  ')) continue;
+      const said = line.trim().split(/\s+/);
+      const at = said.findIndex(word => asked.has(word));
+      if (at < 1) continue;
+      const word = said.slice(0, at).join(' ');
+      how.set(said[at], { said: word, done: /^(removed|uninstalled|switched off|silenced)$/.test(word) });
+    }
+    return how;
+  }
+
+  return { vendorOf, readable, initial, community, offParts, reasons, describe, outcomes };
+})();
+</script>
+<script>
 (() => {
   'use strict';
 
+  const Words = window.DebloatWords;
   const TOKEN = document.querySelector('meta[name="debloat-token"]').content;
   // Filled in by the helper; left as it is when the page is opened as a file.
   const VERSION = document.querySelector('meta[name="debloat-version"]').content.replace(/^__.*__$/, '');
@@ -728,6 +1076,15 @@
     flat: '<path d="M5 12h14"/>',
     wand: '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/>',
     next: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+    chevron: '<path d="m9 18 6-6-6-6"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    command: '<path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>',
+    plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+    layers: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
   };
 
   // Every destination. "primary" and "secondary" name the action behind the
@@ -795,6 +1152,8 @@
     counted: false,
     needsRestart: false,
     helper: true,           // false once the helper behind this page has gone
+    link: { kind: 'ready' }, // what stands between this window and a phone
+    detail: '',             // the app whose details are open, if any
   };
   const ui = {};
 
@@ -919,21 +1278,24 @@
   // the page is in. While his own screen is open, that screen decides.
   function syncMagic() {
     const staged = Boolean(document.querySelector('main .stage'));
-    const showPal = Boolean(magic) && !staged && !wiz.open;
+    const showPal = Boolean(magic) && !staged && !wiz.open && !state.detail;
     document.getElementById('pal').hidden = !showPal;
     document.body.classList.toggle('has-pal', showPal);
+    renderTip();
     if (!magic || wiz.open) return;
     if (state.status === 'loading') {
       magic.phone(state.waiting ? 'none' : 'scan');
       magic.act(state.waiting ? 'search' : 'scan');
     } else if (state.status === 'error') {
-      magic.phone('none');
+      // The phone on the stage shows what the real one is waiting for.
+      const asking = state.link.kind === 'unauthorized';
+      magic.phone(asking ? 'ask' : 'none');
       magic.tiles([]);
       magic.shades(false);
-      magic.act('search');
+      magic.act(asking ? 'think' : 'search');
     } else {
       const items = cleanup();
-      magic.tiles(items.map(row => ({ id: row.pkg, kind: row.from })));
+      magic.tiles(items.map(tileOf));
       magic.phone(items.length ? 'idle' : 'clean', items.length / 24);
       // A clean phone is worth the shades.
       magic.shades(items.length === 0);
@@ -944,6 +1306,10 @@
       }
     }
   }
+
+  // What circles the phone for an app that can go: red for what puts junk
+  // back, amber for the junk.
+  const tileOf = row => ({ id: row.pkg, kind: reinstalls(row.pkg) ? 'installer' : row.from });
 
   // Lightning for what is about to go: to its rows where a list is showing,
   // and otherwise to what is circling the phone.
@@ -974,8 +1340,10 @@
   function helperIs(up) {
     if (state.helper === up) return;
     state.helper = up;
-    if (!up) fail(GONE);
-    else if (state.status === 'error') scan();
+    if (!up) {
+      state.link = { kind: 'nohelper' };
+      fail(GONE);
+    } else if (state.status === 'error') scan();
   }
 
   // One request that never finishes tells the helper this window is open, for
@@ -1037,9 +1405,12 @@
       state.waiting = '';
       render();
     }
+    clearTimeout(looking);
     const found = await api('/api/phones');
-    if (found.ok === false) return fail(found.error);
+    state.link = linkOf(found);
     state.phones = found.phones || [];
+    // No phone to scan: say what is in the way, not what the scan would say.
+    if (state.link.kind !== 'ready') return fail(state.link.error || LINK_SAYS[state.link.kind]);
     const ready = state.phones.filter(p => p.state === 'device');
     if (!ready.some(p => p.serial === state.serial)) state.serial = ready.length ? ready[0].serial : '';
 
@@ -1057,7 +1428,210 @@
   function fail(message) {
     state.status = 'error';
     state.error = message || 'Something went wrong talking to the phone.';
+    state.detail = '';
     render();
+    watchLink();
+  }
+
+  // ---- Getting to the phone ------------------------------------------------
+
+  // What stands between this window and a phone, going by what adb says.
+  function linkOf(found) {
+    if (!state.helper) return { kind: 'nohelper' };
+    if (found.ok === false) return { kind: found.missing === 'adb' ? 'noadb' : 'broken', error: found.error };
+    const phones = found.phones || [];
+    if (phones.some(p => p.state === 'device')) return { kind: 'ready' };
+    if (phones.some(p => p.state === 'unauthorized')) return { kind: 'unauthorized' };
+    if (phones.some(p => p.state === 'offline')) return { kind: 'offline' };
+    return { kind: 'nophone' };
+  }
+  const LINK_SAYS = {
+    noadb: 'adb is not installed on this computer yet.',
+    nophone: 'No phone is answering yet.',
+    unauthorized: 'The phone is plugged in and waiting for you to allow this computer.',
+    offline: 'The phone is plugged in but not answering.',
+    nohelper: GONE,
+  };
+
+  // While a phone is being waited for, keep looking, and carry on the moment
+  // one answers. A scan that failed with a phone attached is not retried
+  // this way: that would be the same failure, over and over.
+  let looking = 0;
+  function watchLink() {
+    clearTimeout(looking);
+    if (state.status !== 'error' || state.link.kind === 'ready') return;
+    looking = setTimeout(async () => {
+      const found = await api('/api/phones');
+      if (state.status !== 'error') return;
+      const link = linkOf(found);
+      if (link.kind === 'ready') {
+        if (wiz.open) wizScan();
+        else scan();
+        return;
+      }
+      if (link.kind !== state.link.kind) {
+        state.link = link;
+        state.error = link.error || LINK_SAYS[link.kind];
+        render();
+        if (wiz.open && wiz.step === 'connect') wizConnect();
+      }
+      watchLink();
+    }, 2500);
+  }
+
+  // Where USB debugging is, by who made the phone: how to make Developer
+  // options appear, then where the switch is. Checked against each maker's
+  // own pages where they have one; the paths move between versions, so each
+  // names the older place too.
+  const BRANDS = [['pixel', 'Pixel'], ['motorola', 'Motorola'], ['samsung', 'Samsung'], ['xiaomi', 'Xiaomi'], ['oneplus', 'OnePlus, Oppo'], ['other', 'Other']];
+  const DEBUGGING = {
+    pixel: ['Settings > About phone: tap Build number seven times, then enter your PIN.',
+      'Settings > System > Developer options: turn on USB debugging.'],
+    motorola: ['Settings > About phone: tap Build number seven times, then enter your PIN. On the newest models it is one level down, under Device identifiers.',
+      'Settings > System > Developer options: turn on USB debugging.'],
+    samsung: ['Settings > About phone > Software information: tap Build number seven times, then enter your PIN.',
+      'Settings > Developer options, at the very bottom: turn on USB debugging. If the switch is greyed out, turn off Auto Blocker first, under Settings > Security and privacy.'],
+    xiaomi: ['Settings > About phone: tap OS version seven times (MIUI version on older phones).',
+      'Settings > Additional settings > Developer options: turn on USB debugging, and USB debugging (Security settings) below it.'],
+    oneplus: ['Settings > About device > Version: tap Build number seven times, then enter your PIN. Realme is the same.',
+      'Settings > System & update > Developer options: turn on USB debugging. On older versions it is under Additional settings.'],
+    other: ['Open Settings and search for Build number, usually under About phone. Tap it seven times, then enter your PIN.',
+      'Search Settings for Developer options, and turn on USB debugging there.'],
+  };
+  // The maker, going by the name of the last phone scanned.
+  function brandOf(model) {
+    const name = (model || '').toLowerCase();
+    if (/pixel/.test(name)) return 'pixel';
+    if (/moto|xt\d/.test(name)) return 'motorola';
+    if (/^sm-|samsung|galaxy/.test(name)) return 'samsung';
+    if (/xiaomi|redmi|poco/.test(name)) return 'xiaomi';
+    if (/oneplus|oppo|realme|^cph|^rmx/.test(name)) return 'oneplus';
+    return '';
+  }
+  let brand = '';
+  try {
+    brand = localStorage.getItem('debloat-brand') || '';
+  } catch (e) { /* nothing remembered */ }
+
+  async function copy(text, button) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const box = el('textarea', { style: 'position:fixed;opacity:0' }, text);
+      document.body.append(box);
+      box.select();
+      document.execCommand('copy');
+      box.remove();
+    }
+    if (!button) return;
+    const before = [...button.childNodes];
+    set(button, icon('check', 12), 'Copied');
+    setTimeout(() => set(button, before), 1400);
+  }
+
+  // What to do about whatever is in the way, as a heading, a line and the
+  // steps. The overview and the wizard's own screen both show it.
+  function coach() {
+    const kind = state.link.kind;
+    const command = text => el('div', { class: 'command' }, el('code', { class: 'mono' }, text),
+      el('button', { class: 'btn small', onclick: event => copy(text, event.currentTarget) }, icon('copy', 12), 'Copy'));
+    const steps = (...items) => el('ol', { class: 'steps' }, items.map(item => el('li', {}, item)));
+    const more = (summary, items) => el('details', { class: 'more-help' }, el('summary', {}, summary),
+      el('ul', {}, items.map(item => el('li', {}, item))));
+    const b = text => el('b', {}, text);
+
+    if (kind === 'nohelper') {
+      return { title: 'This window has lost its helper', text: 'Open MAXAPACITY Debloat again. This window reconnects by itself.', body: [], done: -1 };
+    }
+    if (kind === 'noadb') {
+      const mac = /Mac/.test(navigator.platform);
+      return {
+        title: 'One thing to install first',
+        text: 'This window reaches the phone through adb, Android\'s own tool for the job, and it is not on this computer yet.',
+        body: [
+          el('p', { class: 'coach-label' }, mac ? 'In Terminal, with Homebrew:' : 'With your package manager. On Debian or Ubuntu:'),
+          command(mac ? 'brew install android-platform-tools' : 'sudo apt install adb'),
+          el('p', { class: 'coach-label' }, 'This window finds it by itself once it is there.'),
+        ],
+        done: -1,
+      };
+    }
+    if (kind === 'broken') {
+      return { title: 'adb is having trouble', text: state.link.error || state.error, body: [], done: -1 };
+    }
+    if (kind === 'unauthorized') {
+      return {
+        title: 'Say yes on the phone',
+        text: 'It is plugged in, and it is asking whether to trust this computer.',
+        body: [
+          steps('Unlock the phone.',
+            ['On ', b('Allow USB debugging?'), ' tick ', b('Always allow from this computer'), ', then tap ', b('Allow'), '.']),
+          more('No question on the screen?', [
+            'Unplug the phone and plug it back in.',
+            'Still nothing: in Developer options, tap Revoke USB debugging authorizations, then plug it in again.',
+          ]),
+        ],
+        done: 2,
+      };
+    }
+    if (kind === 'offline') {
+      return {
+        title: 'The phone is not answering',
+        text: 'It is plugged in, but adb cannot get a word out of it.',
+        body: [steps('Unlock the phone.', 'Unplug it and plug it back in.')],
+        done: 2,
+      };
+    }
+    const which = DEBUGGING[brand] ? brand : (brandOf(state.scan && state.scan.meta.phone) || 'other');
+    const pick = el('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Who made the phone' }, BRANDS.map(([id, label]) => el('button', {
+      class: 'tab', role: 'tab', 'aria-selected': String(id === which),
+      onclick: () => {
+        brand = id;
+        try {
+          localStorage.setItem('debloat-brand', id);
+        } catch (e) { /* not remembered, then */ }
+        render();
+        if (wiz.open && wiz.step === 'connect') wizConnect();
+      },
+    }, label)));
+    return {
+      title: 'Plug the phone in',
+      text: 'Three things, once. After that it is only the cable.',
+      body: [
+        pick,
+        steps('Plug the phone straight into this computer with a cable that carries data, and unlock it.',
+          DEBUGGING[which][0],
+          [DEBUGGING[which][1], ' Then say ', b('Allow'), ' when the phone asks about this computer.']),
+        more('Done all that, and still nothing?', [
+          'Try another cable. Many only charge.',
+          'Plug into the computer itself, not a hub, a dock or a monitor.',
+          'On a Mac laptop, say Allow if macOS asks whether the accessory may connect.',
+          'Pull down the USB notification on the phone and choose File transfer.',
+        ]),
+      ],
+      done: 0,
+    };
+  }
+
+  // The way to the phone, as far as it has got.
+  const coachPips = done => (done < 0 ? null : el('ol', { class: 'wiz-steps', 'aria-label': 'Getting connected' },
+    ['Cable', 'USB debugging', 'Allow this computer'].map((label, i) => el('li', { class: i < done ? 'done' : i === done ? 'now' : null }, label))));
+
+  function coachCard() {
+    const said = coach();
+    const staged = Boolean(magic) && state.view === 'overview';
+    return el('section', { class: `card hero coach${staged ? ' staged' : ''}`, role: 'status' },
+      el('div', { class: 'hero-main' },
+        el('div', {},
+          el('div', { class: 'hero-status' }, el('span', { class: 'dot bad' }), 'Not connected',
+            state.link.kind === 'nohelper' ? null : el('span', { class: 'hint' }, 'Looking again every few seconds')),
+          el('div', { class: 'hero-number' }, said.title),
+          el('p', {}, said.text)),
+        coachPips(said.done),
+        said.body.length ? el('div', { class: 'coach-body' }, said.body) : null,
+        state.link.kind === 'nohelper' ? null
+          : el('div', { class: 'hero-actions' }, el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Look now'))),
+      staged ? stage() : null);
   }
 
   // Optimistic: the rows dim at once, the phone's real answer follows, and the
@@ -1162,7 +1736,8 @@
   function visibleRows() {
     const needle = state.filter.trim().toLowerCase();
     if (!needle) return rows();
-    return rows().filter(r => r.pkg.toLowerCase().includes(needle) || r.note.toLowerCase().includes(needle));
+    return rows().filter(r => r.pkg.toLowerCase().includes(needle) || r.note.toLowerCase().includes(needle)
+      || Words.readable(r.pkg).toLowerCase().includes(needle));
   }
 
   // Everything worth cleaning up, once each: what an installer pushed, what
@@ -1181,15 +1756,21 @@
     return out;
   }
 
-  // "removed, by this tool; the rules would keep it: reason" -> its parts.
-  function offParts(note) {
-    const [head, ...rest] = note.split('; ');
-    const [stateWord, ...who] = head.split(', ');
-    const keep = rest.join('; ').replace(/^the rules would keep it: /, '');
-    return { stateWord, who: who.join(', '), keep };
-  }
-
   const selectable = row => state.view !== 'keep' && !(row.locked && state.view !== 'off');
+  // What the rules say each app is, for the lists that only say how it got
+  // here; worked out once for each scan.
+  const known = () => {
+    if (!state.scan.known) state.scan.known = Words.reasons(state.scan.lists);
+    return state.scan.known;
+  };
+  // Can this one still put apps on the phone?
+  const reinstalls = pkg => (state.scan.installers || []).some(item => item.pkg === pkg && item.active);
+  // An app as a person would name it, over what the phone calls it, beside
+  // a tile with the first letter of whoever it is from.
+  const appCell = (pkg, title) => el('div', { class: 'app' },
+    el('span', { class: 'app-mark', 'aria-hidden': 'true' }, Words.initial(pkg)),
+    el('div', { class: 'app-text' }, el('div', { class: 'app-name' }, title || Words.readable(pkg)), pkgNode(pkg)));
+  const chipNodes = chips => chips.map(chip => el('span', { class: `chip${chip.tone ? ` ${chip.tone}` : ''}` }, chip.text));
   // A package name that may break at its dots, never mid-word.
   const pkgNode = name => el('div', { class: 'pkg mono' },
     name.split('.').flatMap((part, i) => (i ? [el('wbr'), `.${part}`] : [part])));
@@ -1203,6 +1784,7 @@
     renderSide();
     renderMain();
     renderBulk();
+    renderDetail();
     if (state.scan && state.status === 'ready') state.counted = true;
     syncMagic();
   }
@@ -1250,7 +1832,11 @@
         }, icon('wand', 16)) : null),
       phone,
       nav,
-      el('div', { class: 'side-foot' }, 'Nothing changes until you choose it.'));
+      el('div', { class: 'side-foot' }, 'Nothing changes on the phone, and nothing leaves this computer, until you choose it.'));
+    // Under the name: one box that finds any app, page or action.
+    document.querySelector('#side .brand').after(el('button', {
+      class: 'finder', onclick: openPalette, 'aria-keyshortcuts': 'Meta+K Control+K',
+    }, icon('search'), el('span', {}, 'Find anything'), el('kbd', {}, /Mac/.test(navigator.platform) ? '\u2318K' : 'Ctrl K')));
   }
 
   function navItem(id, count) {
@@ -1269,6 +1855,7 @@
     state.view = id;
     state.selected.clear();
     state.filter = '';
+    state.detail = '';
     render();
     const main = document.querySelector('main');
     main.scrollTop = 0;
@@ -1334,14 +1921,15 @@
         items.length
           ? [magic ? el('button', { class: 'btn primary', 'data-wizard': true, onclick: openWizard }, icon('wand'), 'Clean up with the wizard') : null,
             el('button', { class: magic ? 'btn' : 'btn primary', onclick: review }, icon('review'), magic ? 'Review as a list' : 'Review cleanup')]
-          : el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again'),
+          : [lists.ask.length ? el('button', { class: 'btn primary', onclick: () => openDeck() }, icon('layers'), `Go through ${lists.ask.length} more`) : null,
+            el('button', { class: lists.ask.length ? 'btn' : 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again')],
         state.needsRestart
           ? [el('button', { class: 'btn', onclick: restart }, icon('power'), 'Restart phone'),
             el('span', { class: 'hint' }, 'so the lock and home screens catch up')]
           : null)),
       stage());
 
-    return [head, hero, tiles(), el('div', { class: 'split' }, planCard(apps, system), changesCard())];
+    return [head, hero, tiles(), el('div', { class: 'split' }, checksCard(), changesCard())];
   }
 
   // Three numbers, each with how it moved since the scan before and its trend.
@@ -1397,35 +1985,68 @@
     return svg;
   }
 
-  function planCard(apps, system) {
-    const names = list => {
-      const shown = list.slice(0, 3).map(r => r.pkg).join(', ');
-      return list.length > 3 ? `${shown} and ${list.length - 3} more` : shown;
-    };
-    const card = el('section', { class: 'card' },
-      el('div', { class: 'card-head' }, el('h2', {}, 'Cleanup plan')));
-    if (!apps.length && !system.length) {
-      card.append(el('div', { class: 'state compact' },
-        icon('done', 32),
-        el('strong', {}, 'Nothing is waiting to be cleaned up.'),
-        el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again')));
-      return card;
+  // The state of the phone as a short list: what is wrong, what is fine,
+  // and beside each thing that is wrong the one thing to do about it.
+  function checksCard() {
+    const lists = state.scan.lists;
+    const installers = state.scan.installers || [];
+    const active = installers.filter(item => item.active);
+    const listed = Number(state.scan.meta.community) || 0;
+    const names = [...new Set(active.map(item => Words.vendorOf(item.pkg) || Words.readable(item.pkg)))].join(', ');
+    const check = (tone, title, detail, action) => el('div', { class: 'check' },
+      el('span', { class: `check-mark ${tone}` }, icon({ ok: 'check', bad: 'alert', warn: 'alert', note: 'help' }[tone], 16)),
+      el('div', { class: 'check-text' }, el('div', {}, title), detail ? el('div', { class: 'check-detail' }, detail) : null),
+      action || el('span', {}));
+    const button = (label, run, iconName) => el('button', { class: 'btn small', onclick: run, disabled: state.pending.size > 0 },
+      iconName ? icon(iconName, 12) : null, label);
+    const out = [];
+
+    if (active.length) {
+      out.push(check('bad', `${plural(active.length, 'installer', 'installers')} can still put apps back`,
+        `${names}. Until ${active.length === 1 ? 'it goes' : 'they go'}, what you remove can return.`,
+        button('Clean up', magic ? openWizard : review)));
+    } else if (installers.length) {
+      out.push(check('ok', 'Nothing can put apps back',
+        `${plural(installers.length, 'sponsored-app installer was', 'sponsored-app installers were')} on this phone, and ${installers.length === 1 ? 'is' : 'are'} out of the way.`));
+    } else {
+      out.push(check('ok', 'No sponsored-app installer here', 'Nothing on this phone installs apps behind your back, as far as the rules know.'));
     }
-    if (apps.length) {
-      card.append(el('div', { class: 'plan-row' },
-        el('div', { class: 'what' }, 'Uninstall pushed apps'),
-        el('div', { class: 'n' }, apps.length),
-        el('div', { class: 'how' }, 'Regular apps. Their data goes too, and the only way back is the Play Store.'),
-        el('div', { class: 'names mono' }, names(apps))));
+    if (lists.back.length) {
+      out.push(check('bad', `${plural(lists.back.length, 'removed app is', 'removed apps are')} back`,
+        'An installer or a system update brought it back.', button('See', () => go('back'))));
+    } else if (state.scan.changes.length) {
+      out.push(check('ok', 'Nothing you removed has come back'));
     }
-    if (system.length) {
-      card.append(el('div', { class: 'plan-row' },
-        el('div', { class: 'what' }, 'Remove preinstalled junk'),
-        el('div', { class: 'n' }, system.length),
-        el('div', { class: 'how' }, 'Taken off for this user. Each one can be restored from Already off.'),
-        el('div', { class: 'names mono' }, names(system))));
+    if (state.needsRestart) {
+      out.push(check('warn', 'The phone wants a restart', 'So that its lock and home screens catch up.', button('Restart', restart, 'power')));
     }
-    return card;
+    if (lists.ask.length) {
+      out.push(check('note', `${plural(lists.ask.length, 'app needs', 'apps need')} a look first`,
+        'Each has a catch. Go through them one at a time.', button('One at a time', () => openDeck(), 'layers')));
+    }
+    if (lists.unknown.length) {
+      out.push(check('note', `${plural(lists.unknown.length, 'preinstalled app', 'preinstalled apps')} no rule covers`,
+        listed ? 'The community list is in use, and says what it can about them.' : 'The community list knows most apps on most phones.',
+        listed ? button('See', () => go('unknown')) : button('Get the list', () => community(true), 'users')));
+    }
+    if (lists.notifying.length) {
+      out.push(check('note', `${plural(lists.notifying.length, 'app has', 'apps have')} a notification up`,
+        'As of the last scan.', button('See', () => go('notifying'))));
+    }
+    return el('section', { class: 'card' }, el('div', { class: 'card-head' }, el('h2', {}, 'Checks')), out);
+  }
+
+  // The community list: fetch it, or stop using it, and scan again either
+  // way. It is one download, from the project that keeps the list.
+  async function community(on) {
+    toast(on ? 'Fetching the community list.' : 'Dropping the community list.');
+    const result = await api('/api/community', { method: 'POST', body: { on } });
+    log(on ? 'Get the community list' : 'Stop using the community list', result.output || result.error);
+    if (!result.ok) return toast(result.error, { tone: 'bad' });
+    await scan({ quiet: true });
+    const n = Number(state.scan && state.scan.meta.community) || 0;
+    return toast(on ? `The community list is in use: ${n} apps described. What it recommends removing is under Ask first.`
+      : 'The community list is no longer used.', { undo: on ? () => community(false) : null });
   }
 
   function changesCard() {
@@ -1437,7 +2058,8 @@
         icon('restore', 32),
         el('strong', {}, 'Whatever you remove or silence is listed here, with a way back.'),
         cleanup().length
-          ? el('button', { class: 'btn', onclick: review }, icon('review'), 'Review cleanup') : null));
+          ? el('button', { class: 'btn', onclick: magic ? () => openWizard() : review }, icon(magic ? 'wand' : 'review'), magic ? 'Clean up with the wizard' : 'Review cleanup')
+          : null));
       return card;
     }
     for (const change of changes) {
@@ -1483,34 +2105,24 @@
         el('div', { class: 'bone', style: 'width:16px;height:16px;border-radius:4px' }),
         el('div', { class: 'bone', style: 'width:264px;height:36px;border-radius:8px' }),
         el('div', { class: 'grow' }), el('div', { class: 'bone', style: 'width:64px' })),
-      widths.map(([a, b]) => el('div', { class: 'row plain' },
+      widths.map(([a, b]) => el('div', { class: 'row' },
         el('div', { class: 'bone', style: 'width:16px;height:16px;border-radius:4px' }),
-        el('div', { class: 'bone', style: `width:${a + 30}%` }),
+        el('div', { class: 'app' },
+          el('div', { class: 'bone', style: 'width:28px;height:28px;border-radius:8px' }),
+          el('div', { style: 'display:grid;gap:8px' }, el('div', { class: 'bone', style: `width:${a + 20}%` }), el('div', { class: 'bone', style: `width:${a + 36}%;height:8px` }))),
         el('div', { class: 'bone', style: `width:${b + 20}%` }),
         el('div', {}))));
   }
 
+  // No way to the phone is not an error to report but a thing to walk
+  // through. Anything else is said as it is.
   function errorCard() {
-    if (!state.helper) {
-      // Nothing on this page can fix it, so no button: it reconnects by
-      // itself when the app is opened again.
-      return el('section', { class: 'card' },
-        el('div', { class: 'state error', role: 'alert' },
-          icon('alert', 32),
-          el('strong', {}, 'This window has lost its helper'),
-          el('p', {}, 'Open MAXAPACITY Debloat again. This window reconnects by itself.')));
-    }
-    const noPhone = /no phone found|not allowed this computer|offline/i.test(state.error);
+    if (state.link.kind !== 'ready') return coachCard();
     return el('section', { class: 'card' },
       el('div', { class: 'state error', role: 'alert' },
         icon('alert', 32),
-        el('strong', {}, noPhone ? 'The phone is not reachable' : 'The scan did not finish'),
+        el('strong', {}, 'The scan did not finish'),
         el('p', {}, state.error),
-        noPhone ? el('ol', {},
-          el('li', {}, 'Plug the phone in with a data cable and unlock it.'),
-          el('li', {}, 'Settings > About phone: tap Build number seven times.'),
-          el('li', {}, 'Settings > System > Developer options: turn on USB debugging.'),
-          el('li', {}, 'Tap Allow on the prompt that appears on the phone.')) : null,
         el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Try again')));
   }
 
@@ -1529,7 +2141,7 @@
       'aria-label': 'Filter this list', 'aria-keyshortcuts': '/',
       oninput: e => { state.filter = e.target.value; paint(); },
     });
-    ui.rows = el('div', {});
+    ui.rows = el('div', { class: 'rows' });
     const card = el('section', { class: 'card' },
       el('div', { class: 'toolbar' },
         ui.all,
@@ -1566,22 +2178,15 @@
     } else {
       set(ui.rows, shown.map((row, i) => rowNode(row, view, i)));
     }
+    ui.rows.classList.toggle('bare', !ui.rows.querySelector('.chips > *'));
     return renderBulk();
   }
 
   function rowNode(row, view, index) {
     const can = selectable(row);
-    const chips = [];
-    let note = row.note;
-    if (view === VIEWS.off) {
-      const parts = offParts(row.note);
-      chips.push(el('span', { class: 'chip' }, parts.stateWord));
-      if (parts.keep) chips.push(el('span', { class: 'chip warn' }, 'rules keep this'));
-      note = parts.keep || parts.who;
-    } else {
-      if (row.app) chips.push(el('span', { class: 'chip' }, 'regular app'));
-      if (row.locked) chips.push(el('span', { class: 'chip' }, 'protected'));
-    }
+    const said = Words.describe(row, state.view, known());
+    const chips = chipNodes(said.chips);
+    if (state.view !== 'off' && reinstalls(row.pkg)) chips.unshift(el('span', { class: 'chip bad' }, 'puts apps back'));
     if (state.pending.has(row.pkg)) chips.push(el('span', { class: 'chip' }, 'working'));
 
     const toggle = () => {
@@ -1589,18 +2194,24 @@
       else state.selected.add(row.pkg);
       paint();
     };
+    // A click ticks the row; the arrow at its end opens everything known
+    // about the app. A row that cannot be ticked opens that straight away.
     return el('div', {
-      class: `row${can ? '' : ' static'}${chips.length ? '' : ' plain'}${note ? '' : ' bare'}${state.selected.has(row.pkg) ? ' selected' : ''}${state.pending.has(row.pkg) ? ' pending' : ''}`,
+      class: `row${state.selected.has(row.pkg) ? ' selected' : ''}${state.pending.has(row.pkg) ? ' pending' : ''}${state.detail === row.pkg ? ' open' : ''}`,
       'data-pkg': row.pkg, style: `--i:${index}`,
-      onclick: can ? toggle : null,
+      onclick: can ? toggle : () => openDetail(row.pkg),
     },
     can ? el('input', {
-      type: 'checkbox', checked: state.selected.has(row.pkg), 'aria-label': `Select ${row.pkg}`,
+      type: 'checkbox', checked: state.selected.has(row.pkg), 'aria-label': `Select ${said.title}`,
       onclick: e => e.stopPropagation(), onchange: toggle,
     }) : el('span', {}),
-    pkgNode(row.pkg),
-    el('div', { class: 'note' }, note),
-    el('div', { class: 'chips' }, chips));
+    appCell(row.pkg, said.title),
+    el('div', { class: 'note' }, said.about),
+    el('div', { class: 'chips' }, chips),
+    el('button', {
+      class: 'btn quiet small more', 'aria-label': `About ${said.title}`,
+      onclick: event => { event.stopPropagation(); openDetail(row.pkg); },
+    }, icon('chevron', 16)));
   }
 
   function toggleAll(event) {
@@ -1691,13 +2302,14 @@
               else picked.add(row.pkg);
               draw();
             };
+            const said = Words.describe(row, row.from, known());
             return el('div', { class: `row${picked.has(row.pkg) ? ' selected' : ''}`, onclick: flip },
               el('input', {
-                type: 'checkbox', checked: picked.has(row.pkg), 'aria-label': `Select ${row.pkg}`,
+                type: 'checkbox', checked: picked.has(row.pkg), 'aria-label': `Select ${said.title}`,
                 onclick: e => e.stopPropagation(), onchange: flip,
               }),
-              pkgNode(row.pkg),
-              el('div', { class: 'note' }, row.from === 'back' ? `came back; ${row.note}` : row.note));
+              appCell(row.pkg, said.title),
+              el('div', { class: 'note' }, said.about));
           }),
         ];
       }));
@@ -1797,12 +2409,16 @@
       : `0.04 0.03 0.96 ${((wizNode.offsetTop - 8) / innerHeight).toFixed(3)}`;
   }
 
-  function openWizard() {
+  function openWizard(options) {
     if (wiz.open || !magic) return;
     const dialog = document.getElementById('dialog');
     if (dialog.open) dialog.close();
     wiz.open = true;
     wiz.run += 1;
+    // Asked for the apps with a catch, he goes straight to those.
+    wiz.deck = Boolean(options && options.deck === true);
+    state.detail = '';
+    renderDetail();
     for (const id of BEHIND) document.getElementById(id).inert = true;
     document.querySelector('main').inert = true;
     wizBack.hidden = false;
@@ -1835,37 +2451,45 @@
     if (back && !back.hidden) back.focus({ preventScroll: true });
   }
 
-  // No phone: say how to get one seen, and keep looking. The moment one
-  // answers, carry on without being asked.
-  async function wizConnect() {
-    const run = wiz.run;
-    const gone = !state.helper;
+  // No way to the phone yet: the same walk-through as the overview gives,
+  // in his words, with the phone beside him showing what it is waiting
+  // for. The page keeps looking (watchLink) and brings him on when one
+  // answers.
+  function wizConnect() {
+    const kind = state.link.kind;
+    if (kind === 'ready') {
+      // A phone is there and the scan still failed: say what it said.
+      magic.act('idle');
+      magic.act('shrug');
+      return wizShow({
+        step: 'scan',
+        line: 'The scan did not finish.',
+        sub: state.error,
+        buttons: [el('button', { class: 'btn primary', onclick: wizScan }, icon('refresh'), 'Try again')],
+      });
+    }
+    const said = coach();
+    const asking = kind === 'unauthorized';
     magic.tiles([]);
-    magic.phone('none');
+    magic.phone(asking ? 'ask' : 'none');
     magic.shades(false);
-    magic.act('search');
+    magic.act(asking ? 'think' : 'search');
     wizShow({
       step: 'connect',
-      line: gone ? 'I have lost my helper.' : 'I cannot see a phone yet.',
-      sub: gone ? 'Open MAXAPACITY Debloat again and I will pick up from here.' : state.error,
-      body: gone ? null : el('ol', { class: 'wiz-how' },
-        el('li', {}, 'Plug the phone in with a data cable and unlock it.'),
-        el('li', {}, 'Settings > About phone: tap Build number seven times.'),
-        el('li', {}, 'Settings > System > Developer options: turn on USB debugging.'),
-        el('li', {}, 'Tap Allow on the prompt that appears on the phone.')),
-      note: 'I look again every few seconds.',
-      buttons: [el('button', { class: 'btn primary', onclick: wizScan }, icon('refresh'), 'Look now')],
+      line: {
+        nophone: 'I cannot see a phone yet.',
+        unauthorized: 'I can see it. It wants your say-so.',
+        offline: 'It is there, but it will not answer.',
+        noadb: 'I am missing a tool.',
+        broken: 'Something is wrong with adb.',
+        nohelper: 'I have lost my helper.',
+      }[kind],
+      sub: said.text,
+      body: said.body.length ? el('div', { class: 'wiz-coach' }, coachPips(said.done), el('div', { class: 'coach-body' }, said.body)) : null,
+      note: kind === 'nohelper' ? '' : 'I look again every few seconds.',
+      buttons: kind === 'nohelper' ? [] : [el('button', { class: 'btn primary', onclick: wizScan }, icon('refresh'), 'Look now')],
     });
-    while (run === wiz.run && wiz.step === 'connect') {
-      await sleep(2500);
-      if (run !== wiz.run || wiz.step !== 'connect') return;
-      const found = await api('/api/phones');
-      if (run !== wiz.run || wiz.step !== 'connect') return;
-      if (found.ok !== false && (found.phones || []).some(p => p.state === 'device')) {
-        wizScan();
-        return;
-      }
-    }
+    return watchLink();
   }
 
   async function wizScan() {
@@ -1885,7 +2509,39 @@
     if (state.status !== 'ready') return wizConnect();
     wiz.items = cleanup();
     wiz.picked = new Set(wiz.items.map(row => row.pkg));
+    if (wiz.deck) {
+      wiz.deck = false;
+      return wizDeck();
+    }
     return wizFound();
+  }
+
+  // The apps with a catch, on his screen, one to a card. The one being
+  // asked about lights up beside the phone; the ones kept drift off.
+  function wizDeck() {
+    const rows = state.scan.lists.ask.filter(row => !row.locked);
+    if (!rows.length) return wizFound();
+    const host = el('div', {});
+    magic.tiles(rows.map(row => ({ id: row.pkg, kind: 'ask' })));
+    magic.phone('idle', 0.1);
+    magic.shades(false);
+    magic.act('think');
+    wizShow({
+      step: 'choose',
+      line: plural(rows.length, 'app has a catch.', 'apps each have a catch.').replace(/^\d+ /, rows.length === 1 ? 'This ' : `These ${rows.length} `),
+      sub: 'One at a time: keep it, or remove it. Nothing changes until the end.',
+      body: host,
+    });
+    deck(rows, host, {
+      show: (row, choice) => {
+        for (const each of rows) {
+          magic.tile(each.pkg, row && each.pkg === row.pkg ? 'aim' : choice.get(each.pkg) === 'keep' ? 'keep' : 'orbit');
+        }
+      },
+      cancel: () => (cleanup().length ? wizFound() : closeWizard()),
+      done: going => wizCast(going, rows),
+    });
+    return undefined;
   }
 
   // What the scan found. Each thing that can go is now circling the phone.
@@ -1899,9 +2555,11 @@
       stat(items.length - apps, 'preinstalled junk'),
       stat(asks, 'to look at first'));
     const later = asks
-      ? ` ${plural(asks, 'more needs', 'more need')} a look first: ${asks === 1 ? 'it is' : 'they are'} under Ask first, with the reason beside each.`
+      ? ` ${plural(asks, 'more needs', 'more need')} a look first; we can go through ${asks === 1 ? 'it' : 'them'} afterwards.`
       : '';
-    magic.tiles(items.map(row => ({ id: row.pkg, kind: row.from, state: wiz.picked.has(row.pkg) ? 'orbit' : 'keep' })));
+    const putBack = items.filter(row => reinstalls(row.pkg)).length;
+    const installersSay = putBack ? ` The ${putBack === 1 ? 'red one is an installer' : `${putBack} red ones are installers`}: the kind that puts the rest back.` : '';
+    magic.tiles(items.map(row => ({ ...tileOf(row), state: wiz.picked.has(row.pkg) ? 'orbit' : 'keep' })));
     magic.phone(items.length ? 'idle' : 'clean', items.length / 24);
     magic.shades(items.length === 0);
     magic.act(items.length ? 'think' : 'cool');
@@ -1917,7 +2575,7 @@
     return wizShow({
       step: 'scan',
       line: `${plural(items.length, 'thing', 'things')} on this phone ${items.length === 1 ? 'does' : 'do'} not belong.`,
-      sub: `That is ${items.length === 1 ? 'it' : 'them'}, circling the phone.${later}`,
+      sub: `That is ${items.length === 1 ? 'it' : 'them'}, circling the phone.${installersSay}${later}`,
       body: stats,
       note: 'Nothing changes until you say so.',
       buttons: [el('button', { class: 'btn primary', onclick: wizChoose }, 'Choose what goes', icon('next'))],
@@ -1935,7 +2593,7 @@
     ].filter(group => group.rows.length);
     const body = el('div', {});
     const note = el('span', {});
-    const go = el('button', { class: 'btn primary', onclick: wizCast });
+    const go = el('button', { class: 'btn primary', onclick: () => wizCast() });
     const mark = row => magic.tile(row.pkg, picked.has(row.pkg) ? 'orbit' : 'keep');
 
     const draw = () => {
@@ -1971,11 +2629,11 @@
               onpointerleave: () => mark(row),
             },
             el('input', {
-              type: 'checkbox', checked: picked.has(row.pkg), 'aria-label': `Select ${row.pkg}`,
+              type: 'checkbox', checked: picked.has(row.pkg), 'aria-label': `Select ${Words.readable(row.pkg)}`,
               onclick: event => event.stopPropagation(), onchange: flip,
             }),
-            pkgNode(row.pkg),
-            el('div', { class: 'note' }, row.from === 'back' ? `came back; ${row.note}` : row.note));
+            appCell(row.pkg),
+            el('div', { class: 'note' }, Words.describe(row, row.from, known()).about));
           }),
         ];
       }));
@@ -2001,34 +2659,20 @@
     draw();
   }
 
-  // "  removed       com.foo", for each package asked about: the word the
-  // tool used, and whether that means it is out of the way.
-  function outcomes(output, packages) {
-    const asked = new Set(packages);
-    const how = new Map();
-    for (const line of (output || '').split('\n')) {
-      if (!line.startsWith('  ')) continue;
-      const words = line.trim().split(/\s+/);
-      const at = words.findIndex(word => asked.has(word));
-      if (at < 1) continue;
-      const said = words.slice(0, at).join(' ');
-      how.set(words[at], { said, done: /^(removed|uninstalled|switched off|silenced)$/.test(said) });
-    }
-    return how;
-  }
-
-  async function wizCast() {
-    const chosen = wiz.items.filter(row => wiz.picked.has(row.pkg));
+  // `chosen` is what goes, out of `all` that are circling the phone: the
+  // ticked ones from the cleanup, or the ones marked on the cards.
+  async function wizCast(chosen = wiz.items.filter(row => wiz.picked.has(row.pkg)), all = wiz.items) {
     if (!chosen.length || wiz.busy) return undefined;
     const packages = chosen.map(row => row.pkg);
+    const going = new Set(packages);
     wiz.busy = true;
-    for (const row of wiz.items) magic.tile(row.pkg, wiz.picked.has(row.pkg) ? 'aim' : 'keep');
+    for (const row of all) magic.tile(row.pkg, going.has(row.pkg) ? 'aim' : 'keep');
     magic.act('channel');
     wizShow({
       step: 'cast',
       line: 'Stand back.',
       sub: `Taking ${plural(packages.length, 'app', 'apps')} off the phone. Leave it plugged in until I am done.`,
-      body: el('div', {}, chosen.map(row => el('div', { class: 'row told pending' }, pkgNode(row.pkg),
+      body: el('div', {}, chosen.map(row => el('div', { class: 'row told pending' }, appCell(row.pkg),
         el('span', { class: 'chip' }, 'working')))),
     });
     for (const pkg of packages) state.pending.add(pkg);
@@ -2038,7 +2682,7 @@
     ]);
     for (const pkg of packages) state.pending.delete(pkg);
     log(`Clean up ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
-    const how = outcomes(result.output, packages);
+    const how = Words.outcomes(result.output, packages);
     const gone = packages.filter(pkg => how.has(pkg) && how.get(pkg).done);
     if (gone.length) state.needsRestart = true;
     // The phone has answered. Now the lightning, and only for what went.
@@ -2058,10 +2702,15 @@
     const told = el('div', {}, chosen.map(row => {
       const said = how.has(row.pkg) ? how.get(row.pkg).said : 'no answer';
       const tone = !done(row) ? ' bad' : /^(removed|uninstalled)$/.test(said) ? ' ok' : ' warn';
-      return el('div', { class: 'row told' }, pkgNode(row.pkg),
+      return el('div', { class: 'row told' }, appCell(row.pkg),
         el('span', { class: `chip${tone}` }, said === 'FAILED' ? 'locked by the maker' : said));
     }));
     const close = primary => el('button', { class: `btn${primary ? ' primary' : ''}`, onclick: closeWizard }, 'Close');
+    // Android would not remove some, and the tool fell back: say so, since
+    // "switched off" beside an app asked to be removed wants explaining.
+    const fellBack = gone.filter(row => /^(switched off|silenced)$/.test(how.get(row.pkg).said)).length;
+    const asks = state.status === 'ready' ? state.scan.lists.ask.filter(row => !row.locked).length : 0;
+    const report = `MAXAPACITY Debloat ${VERSION}\n${result.output || ''}`.trim();
 
     if (!gone.length) {
       magic.act('idle');
@@ -2082,13 +2731,18 @@
     return wizShow({
       step: 'done',
       line: `${plural(gone.length, 'app', 'apps')} gone.${stuck.length ? ` ${stuck.length} would not budge.` : ''}`,
-      sub: `Restart the phone so its lock and home screens catch up.${stuck.length
-        ? ' What would not budge is locked by the phone\'s maker; nothing about it was changed.' : ''}`,
+      sub: [
+        'Restart the phone so its lock and home screens catch up.',
+        fellBack ? ` Android would not remove ${fellBack === 1 ? 'one of them' : `${fellBack} of them`}, so ${fellBack === 1 ? 'it is' : 'they are'} switched off or silenced instead, which stops ${fellBack === 1 ? 'it' : 'them'} just the same.` : '',
+        stuck.length ? ' What would not budge is locked by the phone\'s maker; nothing about it was changed.' : '',
+      ].join(''),
       body: told,
-      note: undo.length ? `${plural(undo.length, 'removal', 'removals')} can be undone.` : '',
+      note: [
+        undo.length ? el('button', { class: 'btn quiet small', onclick: () => wizUndo(undo) }, icon('undo', 12), `Undo ${undo.length}`) : null,
+        el('button', { class: 'btn quiet small', onclick: event => copy(report, event.currentTarget) }, icon('copy', 12), 'Copy what was done'),
+      ],
       buttons: [
-        undo.length ? el('button', { class: 'btn quiet', onclick: () => wizUndo(undo) }, icon('undo'), 'Undo') : null,
-        close(false),
+        asks ? el('button', { class: 'btn', onclick: wizDeck }, icon('layers'), `Go through ${asks} more`) : close(false),
         el('button', { class: 'btn primary', onclick: wizRestart }, icon('power'), 'Restart phone'),
       ],
     });
@@ -2145,7 +2799,7 @@
     if (state.status !== 'ready') return wizConnect();
     const left = cleanup().length;
     magic.phone(left ? 'idle' : 'clean', left / 24);
-    magic.tiles(cleanup().map(row => ({ id: row.pkg, kind: row.from })));
+    magic.tiles(cleanup().map(tileOf));
     magic.shades(true);
     magic.act('cool');
     return wizShow({
@@ -2156,6 +2810,401 @@
         : 'Scan again after a system update: updates can switch back on what was removed.',
       buttons: [el('button', { class: 'btn primary', onclick: closeWizard }, 'Close')],
     });
+  }
+
+  // ---- One app, in full ----------------------------------------------------
+
+  // Which list says most about an app, when it is in several.
+  const ORDER = ['back', 'remove', 'ask', 'pushed', 'off', 'keep', 'unknown', 'other', 'notifying'];
+
+  function openDetail(pkg) {
+    state.detail = pkg;
+    renderDetail();
+    syncMagic();
+  }
+  function closeDetail() {
+    if (!state.detail) return;
+    state.detail = '';
+    renderDetail();
+    syncMagic();
+  }
+
+  // Everything the scan knows about one app, beside the list it came from:
+  // what it is, what taking it off means, how it got here, and the buttons
+  // to act on it alone.
+  function renderDetail() {
+    const panel = document.getElementById('detail');
+    const pkg = state.detail;
+    const lists = state.scan && state.status === 'ready' && !wiz.open ? state.scan.lists : null;
+    const where = lists && pkg ? ORDER.filter(name => lists[name].some(row => row.pkg === pkg)) : [];
+    for (const node of document.querySelectorAll('.row[data-pkg]')) node.classList.toggle('open', where.length > 0 && node.dataset.pkg === pkg);
+    document.body.classList.toggle('has-detail', where.length > 0);
+    if (!where.length) {
+      state.detail = '';
+      panel.hidden = true;
+      panel.replaceChildren();
+      return;
+    }
+    const find = name => lists[name].find(row => row.pkg === pkg);
+    const row = find(where[0]);
+    const said = Words.describe(row, where[0], known());
+    const off = where.includes('off');
+    const kept = where.includes('keep') || row.locked;
+    const ruled = ['remove', 'ask', 'keep'].find(name => where.includes(name));
+    const listed = ruled ? Words.community(find(ruled).note)
+      : where.includes('unknown') ? Words.community(find('unknown').note.split('; ').slice(1).join('; ')) : null;
+    const what = known().get(pkg) || (listed ? listed.text : '');
+    const busy = state.pending.size > 0;
+
+    const facts = [];
+    if (where.includes('back')) facts.push('Removed earlier, and back again.');
+    for (const name of ['pushed', 'other']) if (where.includes(name)) facts.push(`${Words.describe(find(name), name, known()).about}.`);
+    if (where.includes('notifying')) {
+      const up = parseInt(find('notifying').note, 10) || 0;
+      facts.push(`${plural(up, 'notification', 'notifications')} up at the last scan.`);
+    }
+    if (where.includes('unknown') && !listed) {
+      const place = Words.describe(find('unknown'), 'unknown', known()).about;
+      if (place) facts.push(`${place}.`);
+    }
+    const last = state.scan.changes.filter(change => change.pkg === pkg).pop();
+    if (last) facts.push(`${(DID[last.action] || last.action).replace(/^./, c => c.toUpperCase())} by this tool${ago(last.when) ? `, ${ago(last.when)}` : ''}.`);
+
+    const consequence = kept ? 'The phone needs this one to work. Nothing here will touch it.'
+      : off ? 'It is out of the way now. Restore puts it back as it was.'
+        : row.app ? 'It is a regular app, so it is uninstalled for good, with its data. The only way back is the Play Store.'
+          : 'It came with the phone, so it is taken off for this user only, and Already off brings it back whenever you like. Where Android will not remove it, it is switched off instead, which stops it just the same.';
+
+    const one = async (action, sure) => {
+      if (sure && !(await ask(sure))) return;
+      act(action, [pkg], action === 'uninstall' || action === 'restore' ? { undo: [] } : undefined);
+    };
+    const buttons = kept ? []
+      : off ? [el('button', { class: 'btn primary', disabled: busy, onclick: () => one('restore') }, icon('restore'), 'Restore')]
+        : row.app ? [el('button', {
+          class: 'btn primary', disabled: busy,
+          onclick: () => one('uninstall', { title: `Uninstall ${said.title}?`, text: 'Its data on the phone is deleted, and the only way back is to install it again from the Play Store.', yes: 'Uninstall' }),
+        }, icon('trash'), 'Uninstall')]
+          : [el('button', { class: 'btn primary', disabled: busy, onclick: () => one('remove') }, icon('trash'), 'Remove'),
+            el('button', { class: 'btn', disabled: busy, onclick: () => one('mute') }, icon('mute'), 'Silence')];
+
+    panel.hidden = false;
+    set(panel,
+      el('div', { class: 'detail-head' },
+        el('span', { class: 'app-mark', 'aria-hidden': 'true' }, Words.initial(pkg)),
+        el('div', {}, el('h2', {}, said.title), pkgNode(pkg)),
+        el('button', { class: 'btn quiet small', 'aria-label': 'Close', onclick: closeDetail }, icon('x', 12))),
+      el('div', { class: 'detail-body' },
+        el('div', { class: 'chips' },
+          where.map(name => el('span', { class: 'chip' }, VIEWS[name].label)),
+          reinstalls(pkg) ? el('span', { class: 'chip bad' }, 'puts apps back') : null,
+          row.app ? el('span', { class: 'chip' }, 'regular app') : null,
+          kept ? el('span', { class: 'chip' }, 'protected') : null),
+        el('section', {},
+          el('h3', {}, 'What it is'),
+          el('p', {}, what || 'No rule covers this app, and the phone does not say what it is. The name above is a reading of its package name.'),
+          what ? el('p', { class: 'check-detail' }, listed ? `From the community list, which rates removing it "${listed.rating}".` : 'From the built-in rules.') : null),
+        el('section', {},
+          el('h3', {}, off ? 'If you bring it back' : 'If you take it off'),
+          el('p', {}, consequence),
+          reinstalls(pkg) ? el('p', {}, 'It can put apps on the phone by itself. Take it off before the apps it installed, or they come back.') : null),
+        facts.length ? el('section', {}, el('h3', {}, 'On this phone'), el('ul', { class: 'facts' }, facts.map(fact => el('li', {}, fact)))) : null,
+        el('div', { class: 'detail-links' },
+          el('button', { class: 'btn quiet small', onclick: event => copy(pkg, event.currentTarget) }, icon('copy', 12), 'Copy package name'),
+          el('a', {
+            class: 'btn quiet small', target: '_blank', rel: 'noopener noreferrer',
+            href: `https://www.google.com/search?q=${encodeURIComponent(`"${pkg}" android`)}`,
+          }, icon('external', 12), 'Look it up on the web'))),
+      el('div', { class: 'detail-foot' }, buttons));
+  }
+
+  // ---- Find anything -------------------------------------------------------
+
+  // The wizard's robe: graphite by default, and the violet he first wore
+  // for those who miss it.
+  let robe = 'graphite';
+  try {
+    robe = localStorage.getItem('debloat-robe') === 'violet' ? 'violet' : 'graphite';
+  } catch (e) { /* graphite, then */ }
+  function setRobe(name) {
+    robe = name;
+    if (engine) engine.set({ look: name });
+    try {
+      localStorage.setItem('debloat-robe', name);
+    } catch (e) { /* not remembered, then */ }
+  }
+
+  // Everything there is to do, everywhere there is to go, and every app the
+  // last scan found.
+  function commands() {
+    const out = [];
+    const add = (group, label, hint, iconName, run) => out.push({
+      group, label, hint: hint || '', icon: iconName, run, search: `${label} ${hint || ''}`.toLowerCase(),
+    });
+    const ready = state.status === 'ready';
+    if (ready) {
+      const n = cleanup().length;
+      const asks = state.scan.lists.ask.filter(row => !row.locked).length;
+      if (n && magic) add('Do', 'Clean up with the wizard', `${n} can go`, 'wand', () => openWizard());
+      if (n) add('Do', 'Review the cleanup as a list', `${n} can go`, 'review', review);
+      if (asks) add('Do', 'Go through Ask first one at a time', plural(asks, 'app', 'apps'), 'layers', () => openDeck());
+    }
+    add('Do', 'Scan again', '', 'refresh', () => scan());
+    if (ready) {
+      const listed = Number(state.scan.meta.community) || 0;
+      add('Do', 'Restart the phone', '', 'power', restart);
+      add('Do', 'See what is on the phone\'s screen', '', 'eye', () => { go('activity'); inspect(); });
+      add('Do', state.watch ? 'Stop watching for installs' : 'Watch for installs', '', 'radio', () => { go('activity'); toggleWatch(); });
+      add('Do', listed ? 'Stop using the community list' : 'Get the community list',
+        listed ? `${listed} apps described` : 'says what most preinstalled apps are', 'users', () => community(!listed));
+    }
+    if (engine) {
+      add('Do', magic ? 'Send the wizard away' : 'Bring the wizard back', '', 'wand', () => { setMagic(!magic); render(); });
+      if (magic) add('Do', robe === 'violet' ? 'Dress the wizard in graphite' : 'Dress the wizard in his old violet', '', 'wand', () => setRobe(robe === 'violet' ? 'graphite' : 'violet'));
+    }
+    for (const group of NAV) {
+      for (const id of group.items) {
+        add('Go to', VIEWS[id].label, ready && state.scan.lists[id] ? String(state.scan.lists[id].length) : '', VIEWS[id].icon, () => go(id));
+      }
+    }
+    if (ready) {
+      const seen = new Set();
+      for (const name of ORDER) {
+        for (const row of state.scan.lists[name]) {
+          if (seen.has(row.pkg)) continue;
+          seen.add(row.pkg);
+          const title = Words.readable(row.pkg);
+          out.push({
+            group: 'Apps', label: title, hint: `${VIEWS[name].label} · ${row.pkg}`, pkg: row.pkg,
+            run: () => { go(name); openDetail(row.pkg); },
+            search: `${title} ${row.pkg} ${row.note} ${VIEWS[name].label}`.toLowerCase(),
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  // One box for all of it: Cmd-K, or the box under the name.
+  function openPalette() {
+    const dialog = document.getElementById('palette');
+    if (wiz.open || dialog.open || document.getElementById('dialog').open) return;
+    const all = commands();
+    const input = el('input', {
+      type: 'text', placeholder: 'Find an app, a page, or something to do', 'aria-label': 'Find anything',
+      autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palette-list',
+    });
+    const list = el('div', { class: 'palette-list', id: 'palette-list', role: 'listbox' });
+    let shown = [];
+    let at = 0;
+    const pick = i => {
+      const item = shown[i];
+      if (!item) return;
+      dialog.close();
+      item.run();
+    };
+    const mark = () => {
+      list.querySelectorAll('.palette-item').forEach((node, i) => {
+        node.classList.toggle('on', i === at);
+        node.setAttribute('aria-selected', String(i === at));
+        if (i === at) node.scrollIntoView({ block: 'nearest' });
+      });
+    };
+    const draw = () => {
+      const need = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      let apps = 0;
+      // Apps only once something is typed, and never a screenful of them.
+      // A name that matches comes before a note that happens to.
+      const near = item => (need.every(word => item.label.toLowerCase().includes(word)) ? 0 : 1);
+      shown = all.filter(item => need.every(word => item.search.includes(word)))
+        .map((item, i) => ({ item, i }))
+        .sort((a, b) => (a.item.group === b.item.group ? near(a.item) - near(b.item) || a.i - b.i : a.i - b.i))
+        .map(entry => entry.item)
+        .filter(item => item.group !== 'Apps' || (need.length > 0 && ++apps <= 12));
+      at = 0;
+      if (!shown.length) {
+        set(list, el('div', { class: 'palette-empty' }, 'Nothing by that name. Part of a package name works too.'));
+        return;
+      }
+      let group = '';
+      set(list, shown.map((item, i) => {
+        const head = item.group !== group ? el('div', { class: 'palette-group' }, item.group) : null;
+        group = item.group;
+        return [head, el('div', {
+          class: `palette-item${i === at ? ' on' : ''}`, role: 'option', 'aria-selected': String(i === at),
+          onclick: () => pick(i),
+          onpointermove: () => { if (at !== i) { at = i; mark(); } },
+        }, item.pkg ? icon('box') : icon(item.icon), el('span', { class: 'label' }, item.label), el('span', { class: 'hint' }, item.hint))];
+      }));
+    };
+    input.addEventListener('input', draw);
+    input.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (!shown.length) return;
+        at = (at + (event.key === 'ArrowDown' ? 1 : shown.length - 1)) % shown.length;
+        mark();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        pick(at);
+      }
+    });
+    set(dialog,
+      el('div', { class: 'palette-field' }, icon('search'), input, el('kbd', {}, 'esc')),
+      list,
+      el('div', { class: 'palette-foot' },
+        el('span', {}, el('kbd', {}, '↑'), el('kbd', {}, '↓'), 'to move'),
+        el('span', {}, el('kbd', {}, '↵'), 'to choose')));
+    draw();
+    dialog.showModal();
+    input.focus();
+  }
+
+  // ---- One at a time -------------------------------------------------------
+
+  // The apps with a catch, one to a card: what it is, what goes with it, and
+  // two keys, keep or remove. Nothing happens until the last card is past
+  // and the tally agreed. `host` is where the cards are drawn; `done` gets
+  // the ones marked for removal, `show` hears which card is up.
+  function deck(rows, host, { done, cancel, show = () => {} }) {
+    const choice = new Map();
+    let at = 0;
+    const count = what => [...choice.values()].filter(value => value === what).length;
+    const back = () => {
+      at -= 1;
+      draw();
+    };
+    const answer = what => {
+      if (at >= rows.length) return;
+      choice.set(rows[at].pkg, what);
+      at += 1;
+      draw();
+    };
+    const tally = () => {
+      const going = rows.filter(row => choice.get(row.pkg) === 'remove');
+      show(null, choice);
+      set(host, el('div', { class: 'deck' },
+        el('div', { class: 'deck-count' }, el('span', {}, 'All answered'), el('span', {}, `${going.length} to remove, ${rows.length - going.length} to keep`)),
+        el('div', { class: 'deck-bar' }, el('i', { style: 'width:100%' })),
+        el('div', { class: 'deck-card' }, el('div', { class: 'deck-sum' },
+          el('div', { class: 'app-name' }, going.length ? `Remove ${going.length} and keep ${rows.length - going.length}.` : 'Keep them all.'),
+          el('p', {}, going.length ? going.map(row => Words.readable(row.pkg)).join(', ') : 'Nothing on the phone changes.'))),
+        el('div', { class: 'deck-keys' },
+          el('button', { class: 'btn quiet', onclick: back }, icon('back'), 'Back'),
+          el('span', { class: 'grow' }),
+          el('button', { class: going.length ? 'btn' : 'btn primary', onclick: cancel }, going.length ? 'Cancel' : 'Close'),
+          going.length ? el('button', { class: 'btn primary', onclick: () => done(going) }, icon('zap'), `Remove ${going.length}`) : null)));
+      const first = host.querySelector('.btn.primary');
+      if (first) first.focus({ preventScroll: true });
+    };
+    function draw() {
+      if (at >= rows.length) return tally();
+      const row = rows[at];
+      const said = Words.describe(row, 'ask', known());
+      show(row, choice);
+      return set(host, el('div', { class: 'deck' },
+        el('div', { class: 'deck-count' }, el('span', {}, `${at + 1} of ${rows.length}`), el('span', {}, `${count('remove')} to remove, ${count('keep')} to keep`)),
+        el('div', { class: 'deck-bar' }, el('i', { style: `width:${(at / rows.length) * 100}%` })),
+        el('div', { class: 'deck-card' },
+          appCell(row.pkg, said.title),
+          el('div', {}, el('h3', {}, 'What it is, and the catch'), el('p', {}, said.about || 'The rules say to ask first, and no more than that.')),
+          el('div', {}, el('h3', {}, 'If you remove it'), el('p', {}, row.app
+            ? 'It is uninstalled for good, with its data. The Play Store is the only way back.'
+            : 'It is taken off for this user. Already off brings it back whenever you like.')),
+          said.chips.length ? el('div', { class: 'chips', style: 'justify-content:flex-start' }, chipNodes(said.chips)) : null),
+        el('div', { class: 'deck-keys' },
+          at > 0 ? el('button', { class: 'btn quiet', onclick: back }, icon('back'), 'Back') : null,
+          el('span', { class: 'grow' }, at === 0 ? 'Nothing changes until the end.' : ''),
+          el('button', { class: 'btn', onclick: () => answer('keep') }, 'Keep', el('kbd', {}, 'K')),
+          el('button', { class: 'btn', onclick: () => answer('remove') }, 'Remove', el('kbd', {}, 'R')))));
+    }
+    // K and R answer, the arrows too, and Backspace goes back. The listener
+    // goes when the cards do.
+    const keys = event => {
+      if (!host.isConnected) {
+        document.removeEventListener('keydown', keys);
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey || at >= rows.length) return;
+      const key = event.key.toLowerCase();
+      if (key === 'k' || key === 'arrowleft') answer('keep');
+      else if (key === 'r' || key === 'arrowright') answer('remove');
+      else if (key === 'backspace' && at > 0) back();
+      else return;
+      event.preventDefault();
+    };
+    document.addEventListener('keydown', keys);
+    draw();
+  }
+
+  // With the wizard out, the cards are on his screen. Without him, a dialog.
+  function openDeck() {
+    if (state.status !== 'ready') return;
+    const rows = state.scan.lists.ask.filter(row => !row.locked);
+    if (!rows.length) return;
+    if (magic) {
+      openWizard({ deck: true });
+      return;
+    }
+    const dialog = document.getElementById('dialog');
+    const host = el('div', {});
+    dialog.classList.add('wide');
+    set(dialog,
+      el('div', { class: 'dialog-head' },
+        el('h2', {}, 'One at a time'),
+        el('p', {}, 'Each of these has a catch. Keep it or remove it; nothing changes until the end.')),
+      host);
+    dialog.oncancel = null;
+    deck(rows, host, {
+      cancel: () => dialog.close(),
+      done: going => {
+        dialog.close();
+        act('remove', going.map(row => row.pkg), { undo: going.filter(row => !row.app).map(row => row.pkg) });
+      },
+    });
+    dialog.showModal();
+  }
+
+  // ---- A word from the corner ----------------------------------------------
+
+  // On each page the wizard has one thing to say, if there is one worth
+  // saying, and the button that does it. Said once: closing it is heard.
+  const told = new Set();
+  function tipFor(view) {
+    const lists = state.scan.lists;
+    const n = lists[view] ? lists[view].length : 0;
+    const active = (state.scan.installers || []).some(item => item.active);
+    if (!n && view !== 'notifying') return null;
+    if (view === 'remove') return { text: `Tick what should go, or let me take all ${n} with whatever else can go.`, label: 'Clean up with the wizard', run: () => openWizard() };
+    if (view === 'ask') return { text: 'Each of these has a catch. I can show you them one at a time.', label: 'One at a time', run: () => openDeck() };
+    if (view === 'pushed') {
+      return active ? { text: 'An installer put these here, and it is still on the phone. It goes first, or they come back.', label: 'Clean up with the wizard', run: () => openWizard() }
+        : { text: 'Regular apps that an installer put here. Uninstalling one deletes its data.' };
+    }
+    if (view === 'back') return { text: 'Back again. Whatever reinstalls them is still at work: look under Remove.', label: 'Go to Remove', run: () => go('remove') };
+    if (view === 'notifying') return { text: 'Wake the phone to the screen with the junk on it, then scan again. I will name the app behind it.', label: 'Scan again', run: () => scan() };
+    if (view === 'unknown') {
+      return Number(state.scan.meta.community) ? null
+        : { text: 'I do not know these. The community list knows most apps on most phones.', label: 'Get the list', run: () => community(true) };
+    }
+    if (view === 'off') return { text: 'Anything here can come back: tick it, then Restore.' };
+    if (view === 'keep') return { text: 'The phone needs these. I leave them be.' };
+    return null;
+  }
+  function renderTip() {
+    const node = document.getElementById('tip');
+    const shown = !document.getElementById('pal').hidden && state.status === 'ready' && !told.has(state.view);
+    const tip = shown ? tipFor(state.view) : null;
+    node.hidden = !tip;
+    if (!tip) return;
+    const heard = () => {
+      told.add(state.view);
+      renderTip();
+    };
+    set(node,
+      el('p', {}, tip.text),
+      el('button', { class: 'btn quiet small x', 'aria-label': 'Close', onclick: heard }, icon('x', 12)),
+      tip.label ? el('button', { class: 'btn small', onclick: () => { heard(); tip.run(); } }, tip.label) : null);
   }
 
   // ---- Activity ------------------------------------------------------------
@@ -2222,6 +3271,8 @@
     event.target.replaceChildren();
   });
 
+  document.getElementById('palette').addEventListener('close', event => event.target.replaceChildren());
+
   // "/" jumps to the filter; Escape drops the selection.
   document.addEventListener('keydown', event => {
     if (wiz.open) {
@@ -2229,7 +3280,33 @@
       if (event.key === 'Escape' && !document.getElementById('dialog').open) closeWizard();
       return;
     }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      openPalette();
+      return;
+    }
     const inField = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+    const modal = document.getElementById('dialog').open || document.getElementById('palette').open;
+    if (state.detail && !modal && !inField) {
+      // With an app's details open: Escape closes them, and the arrows
+      // move to the app above or below in the list.
+      if (event.key === 'Escape') {
+        closeDetail();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const shown = visibleRows();
+        const at = shown.findIndex(row => row.pkg === state.detail);
+        const next = shown[at + (event.key === 'ArrowDown' ? 1 : -1)];
+        if (next) {
+          event.preventDefault();
+          openDetail(next.pkg);
+          const node = document.querySelector('.row.open');
+          if (node) node.scrollIntoView({ block: 'nearest' });
+        }
+        return;
+      }
+    }
     if (event.key === '/' && !inField && ui.search && ui.search.isConnected) {
       event.preventDefault();
       ui.search.focus();
@@ -2245,6 +3322,7 @@
     wanted = localStorage.getItem('debloat-magic') !== 'off';
   } catch (e) { /* nothing remembered: he is out */ }
   setMagic(Boolean(engine) && wanted, false);
+  if (engine) engine.set({ look: robe });
   document.getElementById('pal').addEventListener('click', openWizard);
   wizBack.addEventListener('click', () => { if (magic) magic.poke(); });
   addEventListener('resize', aim);
@@ -2257,8 +3335,8 @@
     const card = event.target.closest ? event.target.closest('.tile') : null;
     if (!card || !magic || still()) return;
     const box = card.getBoundingClientRect();
-    card.style.setProperty('--ry', `${(((event.clientX - box.left) / box.width - 0.5) * 8).toFixed(2)}deg`);
-    card.style.setProperty('--rx', `${(((event.clientY - box.top) / box.height - 0.5) * -8).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(((event.clientX - box.left) / box.width - 0.5) * 5).toFixed(2)}deg`);
+    card.style.setProperty('--rx', `${(((event.clientY - box.top) / box.height - 0.5) * -5).toFixed(2)}deg`);
   });
   mainNode.addEventListener('pointerout', event => {
     const card = event.target.closest ? event.target.closest('.tile') : null;
