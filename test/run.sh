@@ -159,7 +159,7 @@ in_section "ADDED BY A SPONSORED" "com.block.puzzle"
 in_section "ADDED BY ANOTHER" "com.weird.app"
 # Updated by Facebook's stub: worth knowing, never bulk-removed.
 in_section "ADDED BY ANOTHER" "com.instagram.android"
-in_section "ADDED BY ANOTHER" "(Facebook's preinstalled installer and updater stubs)"
+in_section "ADDED BY ANOTHER" "(Facebook's preinstalled installer and updater)"
 not_in_section "ADDED BY A SPONSORED" com.instagram.android
 not_in_section "ADDED BY A SPONSORED" com.spotify.music
 not_in_section "ADDED BY A SPONSORED" com.maxapacity.ride

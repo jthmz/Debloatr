@@ -262,11 +262,15 @@
     left: 0;
     right: 0;
     height: 36px;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     border: 0;
     background: var(--bg);
     color: var(--text-2);
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
     transition: background var(--ease), color var(--ease);
   }
@@ -429,9 +433,11 @@
   .change-row.pending .app-name { color: var(--text-3); }
 
   /* ---- Lists ---- */
+  /* The page's own padding is above the bar: it sticks that far up, at the
+     very top of the window, so that no row shows through over it. */
   .toolbar {
     position: sticky;
-    top: 0;
+    top: -32px;
     z-index: 1;
     display: flex;
     align-items: center;
@@ -612,7 +618,9 @@
   dialog::backdrop { background: var(--scrim); }
   .dialog-head { padding: 24px 24px 16px; }
   .dialog-head p { margin: 8px 0 0; color: var(--text-2); }
-  .dialog-body { position: relative; max-height: min(56vh, 560px); overflow: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  /* As tall as the window has room for, with the dialog's head and foot
+     in it too. */
+  .dialog-body { position: relative; max-height: min(56vh, 560px, calc(100vh - 320px)); overflow: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .dialog-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 24px; flex-wrap: wrap; }
   /* What a footer says has a line to itself, over its buttons, and the way
      back keeps to the left: neither the words nor the buttons move when a
@@ -647,7 +655,13 @@
      so that a press meant to look closer cannot tick or untick. */
   .dialog-body .row, .wiz .row { grid-template-columns: 20px minmax(0, 240px) minmax(0, 1fr); padding: 12px 24px; cursor: default; }
   .dialog-body .row.selected, .wiz .row.selected { background: none; }
-  .dialog-body .row:hover, .wiz .row:hover { background: var(--surface-2); }
+  /* Nothing in such a row but its box can be pressed, so it does not
+     light up as if it could. */
+  .dialog-body .row:hover, .wiz .row:hover { background: none; }
+  .dialog-body .row:hover .app-mark, .wiz .row:hover .app-mark { background: var(--surface-2); }
+  /* In a box that scrolls, a line that the end of the box would cut
+     through is left out until there is room for all of it. */
+  .cut { opacity: 0; pointer-events: none; }
   /* More below than shows: said, and one press away. */
   .below { flex: none; }
   .below[hidden] { display: none; }
@@ -660,7 +674,8 @@
      spark (gui/magic.js). A stage is where on the page that picture shows:
      a plain dark panel, in a light window too. */
   #magic { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-  .stage { border-radius: 16px; background: var(--stage); border: 1px solid var(--stage-line); cursor: pointer; }
+  .stage { border-radius: 16px; background: var(--stage); border: 1px solid var(--stage-line); cursor: pointer; transition: border-color var(--ease); }
+  .stage:hover { border-color: var(--edge); }
   body.no-magic #magic, body.no-magic .stage, body.no-magic .pal, body.no-magic .tip { display: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
@@ -735,7 +750,7 @@
   .wiz-pal { display: none; flex: none; width: 72px; height: 72px; border-radius: 999px; border: 1px solid var(--stage-line); background: var(--stage); }
   @keyframes fade { from { opacity: 0; } }
   @keyframes wiz-in { from { opacity: 0; transform: translate3d(16px, 0, 0); } }
-  .wiz-top { display: flex; align-items: center; gap: 16px; padding: 16px 16px 0 24px; }
+  .wiz-top { display: flex; align-items: center; gap: 16px; padding: 16px 24px 0; }
   .wiz-steps { display: flex; flex: 1; gap: 16px; align-items: center; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
   .wiz-steps li { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-3); white-space: nowrap; }
   /* A step to come is a ring, one done is filled grey, this one is filled. */
@@ -816,9 +831,27 @@
   .command { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); width: fit-content; max-width: 100%; }
   .command code { overflow-wrap: anywhere; }
   .more-help { color: var(--text-2); }
-  .more-help summary { cursor: pointer; width: fit-content; padding: 8px 0; border-radius: 4px; }
-  .more-help summary:hover { color: var(--text); }
-  .more-help ul { margin: 8px 0 0; padding-left: 24px; display: grid; gap: 4px; }
+  /* More help opens from a button like any other, with an arrow that
+     turns as it opens. */
+  .more-help summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px 0 8px;
+    border: 1px solid var(--edge);
+    border-radius: 8px;
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    transition: background var(--ease), border-color var(--ease);
+  }
+  .more-help summary::-webkit-details-marker { display: none; }
+  .more-help summary:hover { background: var(--surface-2); border-color: var(--text-2); }
+  .more-help summary svg { transition: transform var(--ease); }
+  .more-help[open] summary svg { transform: rotate(90deg); }
+  .more-help ul { margin: 12px 0 0; padding-left: 24px; display: grid; gap: 4px; }
 
   /* ---- Checks ---- */
   .check { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 16px; align-items: start; padding: 12px 16px; border-top: 1px solid var(--line); min-height: 64px; }
@@ -890,7 +923,9 @@
   .deck { display: grid; gap: 16px; padding: 24px; }
   .deck-bar { height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
   .deck-bar i { display: block; height: 100%; border-radius: 999px; background: var(--text-2); transition: width var(--ease); }
-  .deck-count { display: flex; justify-content: space-between; gap: 16px; color: var(--text-2); font-size: 14px; }
+  /* How far along the cards are is said at the foot, with the answers,
+     where it is in sight in a window of any size. */
+  .deck-count { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-size: 14px; }
   .deck-card { display: grid; gap: 16px; padding: 24px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface-2); animation: rise 160ms ease-out; }
   .deck-card .app { grid-template-columns: 48px minmax(0, 1fr); }
   .deck-card .app-mark { width: 48px; height: 48px; background: var(--surface-3); }
@@ -908,7 +943,7 @@
   .wiz-foot.deck-foot, .dialog-foot.deck-foot { display: grid; gap: 8px; justify-content: stretch; }
   /* In a dialog the cards have a box of one height, whatever is on them:
      a dialog that grew and shrank with each card would move the answers. */
-  .dialog-body.deck-body { height: min(56vh, 432px); }
+  .dialog-body.deck-body { height: min(56vh, 432px, calc(100vh - 320px)); }
   .deck-hint { display: flex; align-items: center; gap: 12px; min-height: 36px; color: var(--text-2); }
   .deck-keys { display: grid; grid-template-columns: auto auto minmax(0, 1fr) 160px 160px; gap: 12px; align-items: center; }
   .deck-keys .btn { height: 56px; }
@@ -994,6 +1029,7 @@
     /* The words go under the name, clear of the picture beside it. */
     .row .note { grid-column: 2 / -1; grid-row: 2; padding-left: 56px; }
     .row .note:empty { display: none; }
+    .toolbar { top: -24px; }
     .bulk, body.has-detail .bulk { left: calc(248px + (100% - 248px) / 2); max-width: calc(100% - 248px - 32px); }
     /* The panel lies over the list here, and over the bar for what is
        ticked in it: the bar waits until the panel is closed. */
@@ -1017,7 +1053,6 @@
     .wiz-say { padding: 8px 24px 16px; }
     .deck { gap: 12px; padding: 16px 24px; }
     .deck-card { gap: 12px; padding: 16px; }
-    .deck-count { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
@@ -1579,6 +1614,44 @@ window.DebloatWords = (() => {
     requestAnimationFrame(step);
   }
 
+  // Unsteady hands press twice. The second press must not land on whatever
+  // has just taken the first one's place: the cleanup's own button where
+  // "Choose what goes" was, the tally's Remove where a card's was, a panel's
+  // button where the row that opened it is. Two rules see to it. For a
+  // moment after one screen gives way to another, no press does anything.
+  // And for a second after any press, another on the same spot does nothing
+  // if what is under it now is a different thing to press.
+  let swapped = 0;
+  let pressed = { at: 0, x: 0, y: 0, what: '' };
+  const settle = () => { swapped = performance.now(); };
+  // What a press is on, as a person would name it: the thing and its words.
+  const pressable = target => {
+    let node = target.closest ? target.closest('button, a, label, summary, select, input, .row, .palette-item, .stage') : null;
+    if (node && node.tagName === 'LABEL') node = node.querySelector('input, select') || node;
+    return node ? `${node.tagName} ${node.getAttribute('aria-label') || node.textContent.trim()}` : '';
+  };
+  document.addEventListener('click', event => {
+    // The strips that bring more of a list up are pressed again and again
+    // on purpose, and can do no harm.
+    if (event.target.closest && event.target.closest('.below, .nav-cue')) return;
+    // When it was pressed, not when this page got round to hearing of it: a
+    // busy page hears late, and the two are then further apart than the
+    // presses were.
+    const now = event.timeStamp;
+    const what = pressable(event.target);
+    // From the keyboard a press has no place: where the keyboard is put on
+    // each screen is what keeps a second Return from doing harm.
+    const byHand = event.detail > 0;
+    const again = byHand && what && what !== pressed.what && now - pressed.at < 1000
+      && Math.abs(event.clientX - pressed.x) < 24 && Math.abs(event.clientY - pressed.y) < 24;
+    if (now - swapped < 600 || again) {
+      event.stopPropagation();
+      event.preventDefault();
+      return;
+    }
+    if (byHand) pressed = { at: now, x: event.clientX, y: event.clientY, what };
+  }, true);
+
   const GONE = 'The helper behind this window has stopped. Open MAXAPACITY Debloat again.';
 
   async function api(path, options = {}) {
@@ -1952,7 +2025,7 @@ window.DebloatWords = (() => {
     const kind = state.link.kind;
     const command = text => el('div', { class: 'command' }, el('code', { class: 'mono' }, text),
       el('button', { class: 'btn small', onclick: event => copy(text, event.currentTarget) }, icon('copy', 16), 'Copy'));
-    const more = (summary, items) => el('details', { class: 'more-help' }, el('summary', {}, summary),
+    const more = (summary, items) => el('details', { class: 'more-help' }, el('summary', {}, icon('chevron', 16), summary),
       el('ul', {}, items.map(item => el('li', {}, item))));
     const b = text => el('b', {}, text);
     const p = (...words) => el('p', {}, words);
@@ -2242,7 +2315,10 @@ window.DebloatWords = (() => {
 
   // Only a list with something to do in it has boxes to tick, and an app
   // the phone needs has none.
-  const selectable = row => Boolean(VIEWS[state.view].primary) && !(row.locked && state.view !== 'off');
+  // Nor has one the phone's maker has locked: it is not offered again,
+  // here or in a cleanup. Its own panel has the way to try once more.
+  const selectable = row => Boolean(VIEWS[state.view].primary)
+    && (state.view === 'off' || !(row.locked || state.stuck.has(row.pkg)));
   // What the rules say each app is, for the lists that only say how it got
   // here; worked out once for each scan.
   const known = () => {
@@ -2303,6 +2379,13 @@ window.DebloatWords = (() => {
   // strip goes after the box, never over what is in it. Once it has been
   // needed it keeps its place when it has nothing to say, so that nothing
   // under it moves when the end of the list is reached.
+  // And nothing in such a box is shown cut through by its end: a row, a
+  // line or a picture that crosses it is left out until it fits, unless it
+  // is too tall ever to fit. It can still be reached with the keyboard,
+  // which brings it into view.
+  const WHOLE = '.row, .group-head, .palette-item, .palette-group, .detail-body section > h3, .detail-body section > p, '
+    + '.detail-body .facts > li, .detail-body .detail-links, .detail-body > .chips, .wiz-notes > li, .way-title, '
+    + '.way-text > p, .way-text > .maker, .steps > li, .art, .more-help, .wiz-stat';
   function cue(scroller) {
     const button = el('button', { class: 'btn small' });
     const node = el('div', { class: 'below', hidden: true }, button);
@@ -2311,7 +2394,20 @@ window.DebloatWords = (() => {
       if (!node.isConnected) return;
       const more = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 8;
       const edge = scroller.getBoundingClientRect().bottom;
-      const hidden = more ? [...scroller.querySelectorAll('.row')].filter(row => row.getBoundingClientRect().bottom > edge + 4).length : 0;
+      // Measured first and marked after, so that the page is laid out once.
+      const parts = [...scroller.querySelectorAll(WHOLE)];
+      const room = scroller.clientHeight * 0.75;
+      const crosses = parts.map(part => {
+        const at = part.getBoundingClientRect();
+        return more && at.top < edge && at.bottom > edge + 1 && at.height < room;
+      });
+      parts.forEach((part, i) => part.classList.toggle('cut', crosses[i]));
+      // A heading is not left standing over nothing.
+      for (const head of scroller.querySelectorAll('section > h3')) {
+        const next = head.nextElementSibling;
+        if (next && next.classList.contains('cut')) head.classList.add('cut');
+      }
+      const hidden = more ? [...scroller.querySelectorAll('.row, .palette-item')].filter(row => row.getBoundingClientRect().bottom > edge + 4).length : 0;
       const says = !more ? '' : hidden ? `${hidden} more below` : 'More below';
       if (says === last) return;
       last = says;
@@ -2362,11 +2458,12 @@ window.DebloatWords = (() => {
     const on = !magic;
     setMagic(on);
     render();
-    toast(on ? 'The wizard is back.' : 'The wizard is away. The wand beside the name brings him back.',
+    toast(on ? 'The wizard is back.' : 'The wizard is away.',
       { undo: () => { setMagic(!on); render(); } });
   }
 
   let navWatch = null;
+  let navRoom = 0;
   function renderSide() {
     const meta = state.scan ? state.scan.meta : null;
     const connected = state.status === 'ready';
@@ -2416,8 +2513,7 @@ window.DebloatWords = (() => {
             // and the pages it brought out are brought into sight.
             const again = document.querySelector('#side .nav-fold');
             if (again) again.focus({ preventScroll: true });
-            const last = document.querySelector('#side nav').lastElementChild;
-            if (!folded && last) last.scrollIntoView({ block: 'nearest' });
+            if (!folded) inSight(document.querySelector('#side nav').lastElementChild);
           },
         }, icon('chevron'), el('span', {}, group.label), el('span', {})),
         folded ? null : group.items.map(item),
@@ -2425,12 +2521,20 @@ window.DebloatWords = (() => {
     }));
     // The list of pages scrolls where the window is too short for it. A
     // band lies over whichever end it runs off, and brings the rest up.
-    const cueFor = (side, iconName, by, label) => el('button', {
-      class: `nav-cue ${side}`, hidden: true, 'aria-label': label, title: label,
+    const cueFor = (side, by) => el('button', {
+      class: `nav-cue ${side}`, hidden: true,
       onclick: () => nav.scrollBy({ top: by, behavior: still() ? 'auto' : 'smooth' }),
-    }, icon(iconName));
-    const up = cueFor('up', 'up-more', -200, 'More pages above');
-    const down = cueFor('down', 'more', 200, 'More pages below');
+    });
+    const up = cueFor('up', -200);
+    const down = cueFor('down', 200);
+    // What a band says: how many pages it has under and beyond it.
+    const tell = (band, iconName, n, where) => {
+      const says = `${n} more ${where}`;
+      if (band.dataset.says === says) return;
+      band.dataset.says = says;
+      band.title = `${plural(n, 'more page', 'more pages')} ${where}`;
+      set(band, icon(iconName, 16), says);
+    };
     // Within a few pixels of an end is at it: the box's own padding is not
     // more to see.
     const edges = () => {
@@ -2440,10 +2544,25 @@ window.DebloatWords = (() => {
       const box = nav.getBoundingClientRect();
       const top = box.top + (up.hidden ? 0 : 36);
       const bottom = box.bottom - (down.hidden ? 0 : 36);
-      for (const node of nav.children) {
-        const at = node.getBoundingClientRect();
+      let above = 0;
+      let below = 0;
+      // Measured first and marked after, so that the list is laid out once.
+      const lines = [...nav.children];
+      const places = lines.map(node => node.getBoundingClientRect());
+      lines.forEach((node, i) => {
+        const at = places[i];
         node.classList.toggle('under', at.top < top - 1 || at.bottom > bottom + 1);
+        if (!node.classList.contains('nav-item') || node.classList.contains('nav-fold')) return;
+        if (at.top < top - 1) above += 1;
+        else if (at.bottom > bottom + 1) below += 1;
+      });
+      // A heading with none of its pages in sight under it is left out too.
+      for (const label of nav.querySelectorAll('.nav-label')) {
+        const next = label.nextElementSibling;
+        if (next && next.classList.contains('under')) label.classList.add('under');
       }
+      tell(up, 'up-more', Math.max(1, above), 'above');
+      tell(down, 'more', Math.max(1, below), 'below');
     };
     nav.addEventListener('scroll', edges, { passive: true });
 
@@ -2476,9 +2595,28 @@ window.DebloatWords = (() => {
     // said at the foot of the sidebar.
     if (navWatch) navWatch.disconnect();
     if ('ResizeObserver' in window) {
-      navWatch = new ResizeObserver(edges);
+      navWatch = new ResizeObserver(() => {
+        // With less room than it had, or more, the list keeps the page
+        // being looked at in sight.
+        if (nav.clientHeight !== navRoom) {
+          navRoom = nav.clientHeight;
+          inSight(nav.querySelector('[aria-current="page"]'));
+        }
+        edges();
+      });
       navWatch.observe(nav);
     }
+  }
+
+  // Brings a line of the list of pages into sight, clear of the bands over
+  // its ends, by scrolling that list and nothing else.
+  function inSight(node) {
+    const nav = node && node.closest('nav');
+    if (!nav) return;
+    const top = node.offsetTop;
+    const bottom = top + node.offsetHeight;
+    if (top < nav.scrollTop + 40) nav.scrollTop = Math.max(0, top - 40);
+    else if (bottom > nav.scrollTop + nav.clientHeight - 40) nav.scrollTop = bottom - nav.clientHeight + 40;
   }
 
   function navItem(id, count) {
@@ -2507,7 +2645,7 @@ window.DebloatWords = (() => {
     render();
     // The page gone to is in sight in the list of pages, wherever that was left.
     const here = document.querySelector('#side nav [aria-current="page"]');
-    if (here) here.scrollIntoView({ block: 'nearest' });
+    inSight(here);
     if (here && fromNav) here.focus({ preventScroll: true });
     const main = document.querySelector('main');
     main.scrollTop = 0;
@@ -2697,7 +2835,7 @@ window.DebloatWords = (() => {
     }
     if (asks) {
       out.push(check('note', `${plural(asks, 'app comes', 'apps come')} with a catch`,
-        'Go through them one at a time, and keep what you use.', button('One at a time', () => openDeck(), 'layers')));
+        'Go through them one at a time, and keep what you use.', button(`Look at ${asks}`, () => openDeck(), 'layers')));
     }
     if (lists.unknown.length) {
       out.push(check('note', `Nothing is known about ${plural(lists.unknown.length, 'app', 'apps')}`,
@@ -2897,7 +3035,10 @@ window.DebloatWords = (() => {
     // A row that cannot be ticked has a lock where its box would be.
     can ? el('label', { class: 'pick', onclick: event => event.stopPropagation() },
       el('input', { type: 'checkbox', checked: state.selected.has(row.pkg), 'aria-label': `Select ${said.title}`, onchange: toggle }))
-      : el('span', { class: 'gutter', title: 'The phone needs this one: it cannot be ticked' }, icon('lock', 16)),
+      : el('span', {
+        class: 'gutter',
+        title: row.locked ? 'The phone needs this one: it cannot be ticked' : 'The phone\'s maker has locked this one: it cannot be ticked',
+      }, icon('lock', 16)),
     appCell(row.pkg, said.title, said.about),
     el('div', { class: 'note', title: said.about }, said.about),
     el('div', { class: 'chips' }, chipNodes(state.pending.has(row.pkg) ? [{ text: 'working' }] : firstChip(chips))),
@@ -3105,6 +3246,7 @@ window.DebloatWords = (() => {
       await act('cleanup', chosen.map(r => r.pkg));
     };
     dialog.showModal();
+    settle();
   }
 
   // ---- The wizard ----------------------------------------------------------
@@ -3134,14 +3276,15 @@ window.DebloatWords = (() => {
     const said = el('span', {});
     const rest = el('span', { style: 'visibility:hidden' }, text);
     set(node, said, rest);
-    let shown = 0;
-    // However long the line, it is all there in eight steps: 160ms, as
-    // long as anything else here takes to arrive.
-    const stride = Math.max(2, Math.ceil(text.length / 8));
+    // However long the line, and however slowly this machine draws, it is
+    // all there after 160ms, as long as anything else here takes to arrive:
+    // how much shows is a matter of the clock, not of how many steps there
+    // has been time for.
+    const began = performance.now();
     magic.talking(true);
     const more = () => {
       if (mine !== typing) return;
-      shown += stride;
+      const shown = Math.min(text.length, Math.ceil(text.length * (performance.now() - began) / 160));
       said.textContent = text.slice(0, shown);
       rest.textContent = text.slice(shown);
       if (shown < text.length) setTimeout(more, 20);
@@ -3158,6 +3301,7 @@ window.DebloatWords = (() => {
   // caller fills in itself, in place of a line and a row of buttons.
   function wizShow({ step, line, sub = '', notes = null, body = null, note = '', buttons = [], focus = 'main', foot: own = null }) {
     wiz.step = step;
+    settle();
     const at = STEPS.findIndex(([id]) => id === step);
     const lineNode = el('p', { class: 'wiz-line', 'aria-hidden': 'true' });
     const scroller = el('div', { class: `wiz-body${notes ? ' joined' : ''}` }, notes ? el('div', { class: 'wiz-told' }, notes) : null, body);
@@ -3233,6 +3377,7 @@ window.DebloatWords = (() => {
 
   function closeWizard() {
     if (!wiz.open || wiz.busy) return;
+    settle();
     wiz.open = false;
     wiz.run += 1;
     typing += 1;
@@ -3609,8 +3754,22 @@ window.DebloatWords = (() => {
     });
   }
 
+  // Asked about first, like the restart: what goes back may include what
+  // was putting apps on the phone.
   async function wizUndo(packages) {
     if (wiz.busy) return undefined;
+    const n = packages.length;
+    const pushers = packages.filter(pkg => (state.scan.installers || []).some(item => item.pkg === pkg)).length;
+    const sure = await ask({
+      title: n === 1 ? 'Put it back?' : `Put ${n} back?`,
+      text: [
+        `${n === 1 ? 'It goes' : 'They go'} back on the phone as ${n === 1 ? 'it was' : 'they were'}.`,
+        !pushers ? '' : n === 1 ? ' It is an installer, which can then put apps on the phone again.'
+          : ` ${pushers === 1 ? 'One of them is an installer' : `${pushers} of them are installers`}, which can then put apps on the phone again.`,
+      ],
+      yes: n === 1 ? 'Put it back' : `Put ${n} back`,
+    });
+    if (!sure || wiz.busy || !wiz.open) return undefined;
     wiz.busy = true;
     magic.shades(false);
     magic.act('channel');
@@ -3693,6 +3852,9 @@ window.DebloatWords = (() => {
   const ORDER = ['back', 'remove', 'ask', 'pushed', 'off', 'keep', 'unknown', 'other', 'notifying'];
 
   function openDetail(pkg) {
+    // The panel comes up over part of the list: a second press of the row
+    // that opened it must not land on the panel's buttons.
+    if (!state.detail) settle();
     state.detail = pkg;
     renderDetail();
     syncMagic();
@@ -3725,6 +3887,8 @@ window.DebloatWords = (() => {
     const said = describe(row, where[0]);
     const off = where.includes('off');
     const kept = where.includes('keep') || row.locked;
+    // Asked to go, and Android refused every way of doing it.
+    const stuck = !kept && !off && state.stuck.has(pkg);
     const ruled = ['remove', 'ask', 'keep'].find(name => where.includes(name));
     const listed = ruled ? Words.community(find(ruled).note)
       : where.includes('unknown') ? Words.community(find('unknown').note.split('; ').slice(1).join('; ')) : null;
@@ -3760,6 +3924,7 @@ window.DebloatWords = (() => {
     facts.push(`Listed under ${listOf(where.map(name => VIEWS[name].label))}.`);
 
     const consequence = kept ? 'The phone needs this one to work. Nothing here will touch it.'
+      : stuck ? 'The phone\'s maker has locked this one: Android would not remove it, switch it off or silence it, so it stays. A cleanup no longer offers it.'
       : off ? 'It is out of the way now. It can be put back, as it was.'
         : row.app ? 'It was added to the phone after it was made, so removing it deletes it for good, along with whatever is saved in it. The Play Store is the only way back.'
           : 'It came with the phone, so removing it can be undone: it can be put back from Already off whenever you like. Where Android will not remove it, it is switched off instead, which stops it just the same.';
@@ -3769,6 +3934,9 @@ window.DebloatWords = (() => {
       act(action, [pkg], action === 'restore' ? { undo: [] } : undefined);
     };
     const buttons = kept ? null
+      : stuck ? [el('div', { class: 'pair' },
+        el('button', { class: 'btn', disabled: busy, onclick: () => one(row.app ? 'uninstall' : 'remove', row.app) }, icon('refresh'), 'Try again')),
+      el('p', {}, 'A system update can lift a lock like this. Trying again does no harm.')]
       : off ? el('div', { class: 'pair' }, el('button', { class: 'btn primary', disabled: busy, onclick: () => one('restore') }, icon('restore'), 'Put back'))
         // Not lime: it cannot be undone. It asks first, and says so.
         : row.app ? el('div', { class: 'pair' }, el('button', { class: 'btn risky', disabled: busy, onclick: () => one('uninstall', true) }, icon('trash'), 'Delete for good…'))
@@ -3782,7 +3950,8 @@ window.DebloatWords = (() => {
         el('div', {}, el('h2', { class: sureOf(pkg) ? null : 'guess' }, said.title), pkgNode(pkg)),
         el('button', { class: 'btn quiet small', 'aria-label': 'Close', title: 'Close', onclick: closeDetail }, icon('x')));
     const body = el('div', { class: 'detail-body' },
-        reinstalls(pkg) || row.app || (kept && !off) ? el('div', { class: 'chips' },
+        reinstalls(pkg) || row.app || stuck || (kept && !off) ? el('div', { class: 'chips' },
+          stuck ? el('span', { class: 'chip bad' }, 'locked by the maker') : null,
           reinstalls(pkg) ? el('span', { class: 'chip bad' }, 'puts apps back') : null,
           row.app ? el('span', { class: 'chip' }, 'added later') : null,
           kept && !off ? el('span', { class: 'chip' }, 'phone needs it') : null) : null,
@@ -3792,8 +3961,8 @@ window.DebloatWords = (() => {
           reason.catch ? el('p', {}, reason.catch, '.') : null,
           what && listed ? el('p', { class: 'check-detail' }, `From the community list, which rates removing it "${listed.rating}".`) : null),
         el('section', {},
-          el('h3', {}, off ? 'If you put it back' : 'If you remove it'),
-          el('p', { class: row.app && !off && !kept ? 'final' : null }, consequence),
+          el('h3', {}, off ? 'If you put it back' : stuck ? 'Why it is still here' : 'If you remove it'),
+          el('p', { class: row.app && !off && !kept && !stuck ? 'final' : null }, consequence),
           reinstalls(pkg) ? el('p', {}, 'It can put apps on the phone by itself. Remove it before the apps it installed, or they come back.') : null),
         el('section', {}, el('h3', {}, 'On this phone'), el('ul', { class: 'facts' }, facts.map(fact => el('li', {}, fact)))),
         el('section', {},
@@ -3958,6 +4127,7 @@ window.DebloatWords = (() => {
     set(dialog,
       el('div', { class: 'palette-field' }, icon('search', 24), input, el('kbd', {}, 'esc')),
       list,
+      cue(list),
       el('div', { class: 'palette-foot' },
         el('span', {}, el('kbd', {}, '↑'), el('kbd', {}, '↓'), 'to move'),
         el('span', {}, el('kbd', {}, '↵'), 'to choose')));
@@ -4054,8 +4224,8 @@ window.DebloatWords = (() => {
       const does = [final ? `Delete ${final} for good` : '', system ? `${final ? 'remove' : 'Remove'} ${system}` : ''].filter(Boolean).join(' and ');
       show(null, choice);
       drawn = performance.now();
+      settle();
       set(host, el('div', { class: 'deck' },
-        el('div', { class: 'deck-count' }, el('span', {}, 'All answered'), el('span', {}, counted(going.length, 'to remove, '), counted(rows.length - going.length, 'to keep'))),
         el('div', { class: 'deck-bar' }, el('i', { style: 'width:100%' })),
         el('div', { class: 'deck-card' }, el('div', { class: 'deck-sum' },
           el('div', { class: 'app-name' }, going.length ? `${does}, keep ${rows.length - going.length}.` : 'Keep them all.'),
@@ -4070,7 +4240,8 @@ window.DebloatWords = (() => {
           })) : el('p', {}, 'Nothing on the phone changes.')))));
       set(foot,
         el('div', { class: 'deck-hint' }, spared ? `Kept ${spared}. ` : '',
-          system ? 'What is removed can be put back from Already off.' : ''),
+          system ? 'What is removed can be put back from Already off.' : '',
+          el('span', { class: 'deck-count' }, 'All answered: ', counted(going.length, 'to remove, '), counted(rows.length - going.length, 'to keep'))),
         // Lime only where everything it does can be undone. What deletes
         // for good is plain and red, and asks first.
         keys(null, going.length
@@ -4088,9 +4259,11 @@ window.DebloatWords = (() => {
       const said = describe(row, 'ask');
       const { what, catch: snag } = catchOf(row);
       show(row, choice);
+      settle();
       set(host, el('div', { class: 'deck' },
-        el('div', { class: 'deck-count' }, el('span', {}, counted(at + 1, `of ${rows.length}`)), el('span', {}, counted(count('remove'), 'to remove, '), counted(count('keep'), 'to keep'))),
-        el('div', { class: 'deck-bar' }, el('i', { style: `width:${(at / rows.length) * 100}%` })),
+        // This card counts towards how far along they are: the bar is
+        // never empty.
+        el('div', { class: 'deck-bar' }, el('i', { style: `width:${((at + 1) / rows.length) * 100}%` })),
         el('div', { class: 'deck-card' },
           appCell(row.pkg, said.title, said.about),
           el('div', {}, el('h3', {}, Words.community(row.note) ? 'What the community list says' : 'What it is'),
@@ -4101,7 +4274,8 @@ window.DebloatWords = (() => {
             : 'It can be put back from Already off whenever you like.')))));
       set(foot,
         el('div', { class: 'deck-hint' }, 'Not sure? Keep it.',
-          rows.length - at > 3 ? el('button', { class: 'btn small', onclick: rest }, 'Keep all the rest') : null),
+          rows.length - at > 3 ? el('button', { class: 'btn small', onclick: rest }, 'Keep all the rest') : null,
+          el('span', { class: 'deck-count' }, counted(at + 1, `of ${rows.length}: `), counted(count('remove'), 'to remove, '), counted(count('keep'), 'to keep'))),
         keys(
           el('button', { class: 'btn answer keep', onclick: () => answer('keep') }, icon('shield'), 'Keep', el('kbd', {}, 'K')),
           el('button', { class: 'btn answer', onclick: () => answer('remove') }, icon('trash'), 'Remove', el('kbd', {}, 'R'))));
@@ -4114,14 +4288,21 @@ window.DebloatWords = (() => {
     }
     // K and R answer, and Backspace goes back; the keys say so on the
     // buttons. The listener goes when the cards do.
+    // A key held down answers one card, not all of them, and the same key
+    // pressed twice in a moment does not answer the next card as well.
+    let lastKey = '';
+    let lastAt = 0;
     const typed = event => {
-      if (asking) return;
+      if (asking || event.repeat) return;
       if (!host.isConnected) {
         document.removeEventListener('keydown', typed);
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey || at >= rows.length) return;
       const key = event.key.toLowerCase();
+      if (key === lastKey && event.timeStamp - lastAt < 400) return;
+      lastKey = key;
+      lastAt = event.timeStamp;
       if (key === 'k') answer('keep');
       else if (key === 'r') answer('remove');
       else if (key === 'backspace') back();
@@ -4148,8 +4329,8 @@ window.DebloatWords = (() => {
     dialog.classList.add('wide');
     set(dialog,
       el('div', { class: 'dialog-head' },
-        el('h2', {}, 'One at a time'),
-        el('p', {}, 'Each of these comes with a catch. Keep it or remove it; nothing changes until the end.')),
+        el('h2', {}, rows.length === 1 ? 'This one comes with a catch' : `These ${rows.length} each come with a catch`),
+        el('p', {}, 'One at a time: keep it, or remove it. Nothing changes until the end.')),
       body,
       cue(body),
       foot);
@@ -4182,7 +4363,7 @@ window.DebloatWords = (() => {
     if (!n && view !== 'notifying') return null;
     if (view === 'remove') return { text: `I can clear ${n === 1 ? 'this' : `all ${n} of these`}, and the rest of the junk, in one go.`, label: 'Clean up with the wizard', run: () => openWizard() };
     if (view === 'ask') {
-      return catches().length ? { text: 'Each of these comes with a catch. I can show you them one at a time.', label: 'One at a time', run: () => openDeck() } : null;
+      return catches().length ? { text: 'Each of these comes with a catch. I can show you them one at a time.', label: `Look at ${catches().length}`, run: () => openDeck() } : null;
     }
     if (view === 'pushed') {
       return active ? { text: 'Whatever put these here is still on the phone. It goes first, or they come back.', label: 'Clean up with the wizard', run: () => openWizard() }
@@ -4281,8 +4462,10 @@ window.DebloatWords = (() => {
       ? { nodes: [...dialog.childNodes], wide: dialog.classList.contains('wide'), cancel: dialog.oncancel, focus: document.activeElement }
       : null;
     dialog.classList.remove('wide');
+    settle();
     return new Promise(resolve => {
       const done = answer => {
+        settle();
         if (held) {
           dialog.replaceChildren(...held.nodes);
           dialog.classList.toggle('wide', held.wide);
@@ -4313,13 +4496,17 @@ window.DebloatWords = (() => {
   // A closed dialog keeps nothing behind: no stale rows for a screen reader or
   // a search of the page to find.
   document.getElementById('dialog').addEventListener('close', event => {
+    settle();
     // Opened again before this was heard: what is in it now is wanted.
     if (event.target.open) return;
     event.target.classList.remove('wide');
     event.target.replaceChildren();
   });
 
-  document.getElementById('palette').addEventListener('close', event => event.target.replaceChildren());
+  document.getElementById('palette').addEventListener('close', event => {
+    settle();
+    event.target.replaceChildren();
+  });
 
   // "/" jumps to the filter; Escape drops the selection.
   document.addEventListener('keydown', event => {

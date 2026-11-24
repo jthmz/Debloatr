@@ -78,10 +78,11 @@ What you get:
   what the phone says is gone, each app's line gets its answer as the
   lightning reaches it, and at the end he says how many were removed, which
   Android would only let him switch off, and which the phone's maker has
-  locked. Those he remembers, and does not offer again, and they are no
-  longer counted anywhere as something to do. He offers to put back what can
-  be put back, and to restart the phone, which he asks about first; he keeps
-  his shades on for as long as the phone is clean. On the other pages he
+  locked. Those he remembers, and does not offer again: they are no longer
+  counted anywhere as something to do, and cannot be ticked in a list,
+  though each one's own panel has a way to try once more. He offers to put
+  back what can be put back, and to restart the phone, and asks before he
+  does either; he keeps his shades on for as long as the phone is clean. On the other pages he
   sits at the head of the page with one useful thing to say, and strikes the
   rows you remove. Pressing him, wherever he is, brings him out. In a window
   too narrow for him to stand beside his card, the card takes the window and
@@ -95,7 +96,10 @@ What you get:
   deletes: a button that would is plain, with its words in red, and ends in
   "…" because it asks first. Answer that you would rather keep them and they
   are unticked again, so the lime button is back and only does what can be
-  undone.
+  undone. And a press cannot land on the wrong thing: for a moment after one
+  screen gives way to another no press does anything, and a second press on
+  the same spot does nothing if a different button has turned up under it.
+  Unsteady hands press twice.
 - **One at a time**. The apps under With a catch each have one. Instead of
   a list to puzzle over, they come one to a card: what it is, the catch,
   and two big buttons, Keep or Remove, at the foot of the window: in sight

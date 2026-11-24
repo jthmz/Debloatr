@@ -35,7 +35,7 @@ installer  ^com\.logiagroup\.                             Digital Turbine (Logia
 installer  ^com\.aura\.oobe\.                             Aura (ironSource): pushes sponsored apps after setup and updates
 installer  ^com\.ironsrc\.aura\.                          Aura (ironSource) app installer
 installer  ^com\.ironsource\.                             ironSource app recommendation service
-safe       ^com\.facebook\.(system|appmanager|services)$  Facebook's preinstalled installer and updater stubs
+safe       ^com\.facebook\.(system|appmanager|services)$  Facebook's preinstalled installer and updater
 
 # --- Lock screen and feed content -------------------------------------------
 safe     ^com\.glance\.                                   Glance lock screen feed
@@ -44,9 +44,9 @@ safe     ^com\.taboola\.                                  Taboola news feed
 safe     ^com\.mobileposse\.                              Mobile Posse carrier content feed
 
 # --- Motorola ---------------------------------------------------------------
-keep     ^com\.motorola\.omadm\.                          Carrier device-management service (OMA-DM); carriers provision the phone through it
+keep     ^com\.motorola\.omadm\.                          Carrier set-up service; the carrier uses it to set the phone up for its network
 keep     ^com\.motorola\.(coresettingsext|carriersettingsext)$  Motorola's additions to the Settings app
-keep     ^com\.motorola\.vzw\.                            Motorola's Verizon network extensions (calling, settings, provisioning)
+keep     ^com\.motorola\.vzw\.                            Motorola's additions for Verizon's network (calling, settings, set-up)
 keep     ^com\.qualcomm\.qti\.uim                         Qualcomm SIM card service
 safe     ^com\.motorola\.ccc\.notification$               Motorola's own promotional notifications
 safe     ^com\.motorola\.(help|genie)$                    Device Help app and its tips
@@ -55,7 +55,7 @@ caution  ^com\.motorola\.gamemode$                        Moto Gametime: in-game
 caution  ^com\.motorola\.moto$                            Moto app: tips and promos; also where Moto gestures are set up
 
 # --- Verizon ----------------------------------------------------------------
-keep     ^com\.(vzw|verizon)\..*(apn|[Ss]im[Ll]ock|\.ims|omadm|[Pp]rovision|[Aa]ctivation|[Ee]ntitlement)   Verizon network plumbing, going by its name (APN, IMS, SIM unlock)
+keep     ^com\.(vzw|verizon)\..*(apn|[Ss]im[Ll]ock|\.ims|omadm|[Pp]rovision|[Aa]ctivation|[Ee]ntitlement)   Verizon network service, going by its name, which the phone uses to connect or to be unlocked
 safe     ^com\.vzw\.hss\.myverizon$                       My Verizon: Verizon's account app, for bills, plan and data use
 safe     ^com\.verizon\.messaging\.vzmsgs$                Verizon Message+: Verizon's own texting app
 safe     ^com\.vcast\.mediamanager$                       Verizon Cloud: Verizon's backup and storage service
@@ -66,7 +66,7 @@ safe     ^com\.asurion\.android\.verizon\.vms$            Verizon Tech Coach (As
 caution  ^com\.(vzw|verizon)\.                            Verizon component; may carry voicemail, Wi-Fi calling or activation
 
 # --- Tracfone (seen on a Moto G Stylus 2025, XT2517V) ------------------------
-keep     ^com\.motorola\.(extensions\.tracfone|tracfone\.rsu)$  Tracfone SIM-unlock service (TFUnlock, TFRsu); needed to carrier-unlock the phone
+keep     ^com\.motorola\.(extensions\.tracfone|tracfone\.rsu)$  Tracfone SIM-unlock service; needed to unlock the phone from its carrier
 caution  ^com\.swishme\.                                  Swish content feed, going by its name; confirm with inspect while it is on screen
 caution  ^com\.tracfone\.                                 Tracfone component; may carry activation or account features
 
