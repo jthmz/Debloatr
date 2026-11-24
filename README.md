@@ -56,10 +56,18 @@ built.
 
 What you get:
 
-- **Overview**: what the last scan found, how that moved since the scan
-  before, and one button, **Review cleanup**. The review lists everything it
-  would do, ticked, split into what can be undone and what cannot. Untick what
-  you want to keep.
+- **The wizard**. He stands on the Overview beside the phone, with everything
+  that can go circling it. **Clean up with the wizard** gives him a screen of
+  his own, where he walks you through it: he scans the phone, shows what he
+  found, lets you untick what you want to keep, and takes the rest off. His
+  lightning falls only on what the phone says is gone, and he tells you what
+  would not budge. He offers to undo it and to restart the phone, and keeps
+  his shades on for as long as the phone is clean. On the other pages he
+  waits in the corner, and strikes the rows you remove.
+- **Overview**: what the last scan found and how that moved since the scan
+  before. **Review as a list** is the same cleanup without the wizard: it
+  lists everything it would do, ticked, split into what can be undone and
+  what cannot. Untick what you want to keep.
 - **The lists** from the scan, each with a filter. Tick apps and the actions
   for them appear: Remove, Silence, Uninstall or Restore.
 - **Undo** on every change that has one, and **Recent changes** with a Restore
@@ -75,6 +83,14 @@ appearance. The app runs for as long as its window is open, in front or not,
 and quits a few seconds after you close it. Opening the app while a window is
 open gives you a fresh window in place of the old one, and opening a newer
 version takes over from an older one that is still running.
+
+The wizard is drawn by the graphics card (WebGL), from `gui/magic.js`: no
+libraries, nothing downloaded, and every shape built there from a few numbers.
+He asks the helper for exactly what the list asks for. The wand beside the
+app's name sends him away and brings him back; without him the window is the
+plain one, with one button, **Review cleanup**. He holds still when the
+system asks for reduced motion, draws less often when the window is not the
+one in front, and is simply absent where there is no WebGL.
 
 The app is a front for `debloat.sh`: it cannot do anything the commands below
 cannot, and the same safety rules apply. It listens on this computer only, and
@@ -125,6 +141,7 @@ Answer `p` to go through the list one by one.
 | `mute <package>...` | Keeps an app but blocks its notifications and background activity |
 | `restore [<package>...]` | Undo. With no package, everything this tool changed |
 | `restart` | Restarts the phone, so its lock and home screens catch up |
+| `community` | Downloads the community list of preinstalled apps, for phones the built-in rules do not cover. `community off` stops using it |
 
 Options: `-n` shows what would happen without doing it, `-y` skips the
 questions, `-s <serial>` picks a phone when several are attached. `--help`
@@ -193,10 +210,46 @@ an app the built-in rules would remove:
 keep  ^com\.motorola\.help$  I use it
 ```
 
+## The community list
+
+The built-in rules are written for Motorola and Verizon phones. For any other
+phone, most preinstalled apps would land under NOT CLASSIFIED with nothing but
+a folder name. This fills that in:
+
+```bash
+./debloat.sh community
+```
+
+It downloads the package list that
+[Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)
+keeps, several thousand preinstalled apps across makers and carriers, each
+with a description and a rating. It needs `curl` and no phone, and the app
+uses the result too. From then on:
+
+- What the list rates **Recommended** shows under **ASK FIRST**, with the
+  list's description as the reason. `apply` leaves these alone; only `apply
+  --caution` offers them. The list calls an app safe to remove when most
+  people will not miss it, and that can include a browser or a gallery you
+  use, so read the reasons.
+- What it rates **Advanced**, **Expert** or **Unsafe** stays under **NOT
+  CLASSIFIED**, now with the list's description, so you know what a package
+  is before you `remove` it by name.
+
+Your own rules and the built-in ones are read first and always win, and the
+packages under "What it will not touch" stay protected whatever the list
+says. Run the command again to refresh the list; `./debloat.sh community off`
+stops using it.
+
+The list is not part of this tool or its downloads. It is fetched from that
+project, which publishes it under the GPL-3.0, and kept in
+`~/.maxapacity-debloat/community.tsv`.
+
 To add a rule for something under NOT CLASSIFIED, find out what it is on the
 phone first (`inspect` while it is on screen, or its folder hint in the scan).
 
 ## Files it keeps
+
+`~/.maxapacity-debloat/community.tsv` is the community list, once downloaded.
 
 Under `~/.maxapacity-debloat/<phone serial>/`:
 
@@ -214,7 +267,7 @@ test/run.sh
 ```
 
 Runs every command against a simulated phone (`test/fake_adb.py`): the
-fallbacks, a cable pulled mid-run, an attempt to pass a command through a
+fallbacks, the community list, a cable pulled mid-run, an attempt to pass a command through a
 package name, and the layout and prompts on a real terminal
 (`test/in_terminal.py`).
 
@@ -225,7 +278,10 @@ node --test test/gui.test.mjs
 Does the same for the app's helper: that it refuses requests without its
 token or for another host name, keeps going while a window is open however
 quiet that window is, stops by itself once the window has gone, and is reused
-rather than started twice.
+rather than started twice. It also covers the wizard as far as it can
+without a screen: that his drawing code is served and parses, that the page
+only asks it for things it has, and that every pose, spell and stage runs
+against a WebGL that draws nothing.
 
 `tools/package.sh` makes the two downloads: the app in a zip of its own, and
 the tool with what the app is built from. CI attaches both to a draft release
@@ -252,8 +308,8 @@ an empty alternative, like `(|a)`, is an error there.
 This tool is narrower. It is built around the installers that put apps back:
 it removes them, shows which app installed what, watches installs as they
 happen, and keeps a record so that `restore` and `reapply` know what was done.
-Its rules are written for Motorola and Verizon phones; on another maker's
-phone, one of the tools above will recognise more.
+Its own rules are written for Motorola and Verizon phones. For any other
+phone, `./debloat.sh community` brings in the same list those tools use.
 
 ## Limits
 
@@ -261,5 +317,5 @@ phone, one of the tools above will recognise more.
   cannot be removed this way.
 - App names are not available over `adb`, only package names and folders.
 - The built-in rules cover the common installers and feeds plus Motorola and
-  Verizon. Other makers and carriers mostly land under NOT CLASSIFIED until
-  rules are added.
+  Verizon. For other makers and carriers, `community` brings in a list that
+  covers them; without it they mostly land under NOT CLASSIFIED.

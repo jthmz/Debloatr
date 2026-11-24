@@ -34,7 +34,8 @@ if mkdir -p "$RUN/gui" 2>/dev/null \
   && place "$RES/debloat.sh" "$RUN/debloat.sh" \
   && place "$RES/rules.tsv" "$RUN/rules.tsv" \
   && place "$RES/gui/server.mjs" "$RUN/gui/server.mjs" \
-  && place "$RES/gui/ui.html" "$RUN/gui/ui.html"; then
+  && place "$RES/gui/ui.html" "$RUN/gui/ui.html" \
+  && place "$RES/gui/magic.js" "$RUN/gui/magic.js"; then
   # Copies of downloaded files keep the download mark; these are only read.
   if command -v xattr >/dev/null 2>&1; then
     xattr -dr com.apple.quarantine "$RUN" 2>/dev/null

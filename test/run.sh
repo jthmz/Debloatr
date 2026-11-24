@@ -111,7 +111,9 @@ printf 'debloat.sh tests, bash %s\n' "$BASH_VERSION"
 t "help, version and bad usage"
 run --help;            rc 0; has "Usage: debloat.sh"
 run;                   rc 0; has "Start with: debloat.sh scan"
-run --version;         rc 0; has "debloat.sh 1."
+# The version it prints is the one written in the script, whatever that is.
+run --version;         rc 0; has "debloat.sh $(sed -n 's/^VERSION="\(.*\)"$/\1/p' "$ROOT/debloat.sh" | sed -n '1p')"
+if grep -Eq '^debloat\.sh [0-9]+\.[0-9]+\.[0-9]+$' "$OUT"; then ok; else bad "the version should be three numbers"; fi
 run frobnicate;        rc 1; has "unknown command: frobnicate"
 run --frob scan;       rc 1; has "unknown option: --frob"
 run -s;                rc 1; has "needs a serial number"
@@ -578,7 +580,7 @@ has_app_files() {
   local f
   for f in Contents/Info.plist Contents/MacOS/debloat-app Contents/Resources/debloat.sh \
     Contents/Resources/rules.tsv Contents/Resources/gui/server.mjs Contents/Resources/gui/ui.html \
-    Contents/Resources/AppIcon.icns; do
+    Contents/Resources/gui/magic.js Contents/Resources/AppIcon.icns; do
     if [ -f "$1/$f" ]; then ok; else bad "the app should contain $f"; fi
   done
   if [ -x "$1/Contents/MacOS/debloat-app" ]; then ok; else bad "the launcher should be executable"; fi
@@ -704,7 +706,7 @@ if command -v node >/dev/null 2>&1; then
     *"name=\"debloat-version\" content=\"$WANT_VERSION\""*) ok ;;
     *) bad "the page should carry version $WANT_VERSION" ;;
   esac
-  if [ -f "$SUPPORT/app/debloat.sh" ] && [ -f "$SUPPORT/app/gui/server.mjs" ]; then ok; else bad "the app should run from a copy in its support folder"; fi
+  if [ -f "$SUPPORT/app/debloat.sh" ] && [ -f "$SUPPORT/app/gui/server.mjs" ] && [ -f "$SUPPORT/app/gui/magic.js" ]; then ok; else bad "the app should run from a copy in its support folder"; fi
   # macOS takes a downloaded app's temporary folder away once the app has
   # finished, which for this one is at once. The helper must not notice.
   rm -rf "${WORK:?}/bundle"
@@ -761,7 +763,7 @@ if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
   mkdir -p "$WORK/unzipped"
   unzip -q "$APP_ZIP" -d "$WORK/unzipped"
   has_app_files "$WORK/unzipped/$APPNAME.app"
-  for f in install.sh uninstall.sh debloat.sh rules.tsv gui/server.mjs gui/ui.html app/launcher.sh app/Info.plist app/AppIcon.icns; do
+  for f in install.sh uninstall.sh debloat.sh rules.tsv gui/server.mjs gui/ui.html gui/magic.js app/launcher.sh app/Info.plist app/AppIcon.icns; do
     if unzip -Z -1 "$SRC_ZIP" | grep -qx "$APPNAME/$f"; then ok; else bad "the tool zip should hold $f"; fi
   done
 else
@@ -775,6 +777,104 @@ rc 0; has "Removed $APP"; has "working copy"
 if [ -e "$APP" ] || [ -e "$SUPPORT" ]; then bad "the app and its working copy should be gone"; else ok; fi
 HOME="$FAKEHOME" DEBLOAT_APP_DIR="$WORK/Applications" "$SH" "$ROOT/uninstall.sh" > "$OUT" 2>&1; RC=$?
 rc 0; has "Nothing to remove"
+
+# ---------------------------------------------------------------------------
+# The community list, served from a file in place of the network.
+LIST="$WORK/uad_lists.json"
+export DEBLOAT_COMMUNITY_URL="file://$LIST"
+COMMUNITY="$DEBLOAT_STATE_DIR/community.tsv"
+TAB="$(printf '\t')"
+cat > "$LIST" <<'JSON'
+{
+  "com.motorola.timeweatherwidget": {
+    "list": "Oem",
+    "description": "Time and weather \"widget\".\nSafe to remove.",
+    "dependencies": [],
+    "neededBy": [],
+    "labels": [],
+    "removal": "Recommended"
+  },
+    "com.motorola.mystery": {
+    "list": "Oem",
+    "description": "Does something\tnobody is sure of.",
+    "removal": "Expert"
+  },
+  "com.motorola.help": {
+    "list": "Oem",
+    "description": "The list would remove what a built-in rule decides.",
+    "removal": "Recommended"
+  },
+  "com.motorola.launcher3": {
+    "list": "Oem",
+    "description": "The home screen.",
+    "removal": "Recommended"
+  },
+  "com.glance.lockscreen; reboot": {
+    "list": "Oem",
+    "description": "Not a package name.",
+    "removal": "Recommended"
+  },
+  "com.unrated.thing": {
+    "list": "Oem",
+    "description": "A rating this tool does not know.",
+    "removal": "Whenever"
+  }
+}
+JSON
+
+t "scan points to the community list while it is not in use"
+fresh
+run scan; rc 0; has "debloat.sh community"
+
+t "community needs no phone and saves what it understood"
+fresh
+ctl top 'devices=[]'
+run community; rc 0
+has "Saved the community list: 4 packages"
+has "3 it recommends removing"
+if [ "$(wc -l < "$COMMUNITY" | tr -d ' ')" -eq 4 ]; then ok; else bad "community.tsv should hold 4 rows"; fi
+if grep -q 'reboot' "$COMMUNITY" || grep -q 'unrated' "$COMMUNITY"; then
+  bad "a name that is not a package, or an unknown rating, must be left out"
+else ok; fi
+if grep -q "^com.motorola.mystery${TAB}note${TAB}community list, expert: Does something nobody is sure of.\$" "$COMMUNITY"; then
+  ok
+else bad "an Expert entry should be a note, in one line of plain text"; fi
+
+t "what the list recommends joins ASK FIRST; the rest explains NOT CLASSIFIED"
+fresh
+run community; rc 0
+run scan; rc 0
+in_section "ASK FIRST" "com.motorola.timeweatherwidget"
+in_section "ASK FIRST" 'community list: Time and weather "widget". Safe to remove.'
+not_in_section "REMOVE" "com.motorola.timeweatherwidget"
+has "== NOT CLASSIFIED (1)"
+in_section "NOT CLASSIFIED" "community list, expert: Does something nobody is sure of."
+hasnt "To learn what most of those are"
+
+t "the built-in rules and the core packages win over the community list"
+not_in_section "ASK FIRST" "com.motorola.help"
+in_section "REMOVE" "Device Help app and its tips"
+not_in_section "ASK FIRST" "com.motorola.launcher3"
+
+t "apply leaves the community list's picks alone without --caution"
+run -n -y apply; rc 0; hasnt "com.motorola.timeweatherwidget"
+run -n -y apply --caution; rc 0; has "com.motorola.timeweatherwidget"
+
+t "a list that cannot be read, or fetched, leaves the copy in use alone"
+cp "$COMMUNITY" "$WORK/before.tsv"
+printf '{"minified":{"removal":"Recommended"}}\n' > "$LIST"
+run community; rc 1; has "not in the form this tool reads"
+if cmp -s "$COMMUNITY" "$WORK/before.tsv"; then ok; else bad "community.tsv should be unchanged"; fi
+rm -f "$LIST"
+run community; rc 1; has "could not download the community list"
+if cmp -s "$COMMUNITY" "$WORK/before.tsv"; then ok; else bad "community.tsv should be unchanged"; fi
+
+t "community off stops using it"
+run community off; rc 0; has "no longer used"
+if [ -e "$COMMUNITY" ]; then bad "community.tsv should be gone"; else ok; fi
+run community off; rc 0; has "was not in use"
+run scan; rc 0; has "== NOT CLASSIFIED (2)"
+run community com.example.app; rc 1; has "takes no package names"
 
 # ---------------------------------------------------------------------------
 t "a phone with hundreds of apps is still quick"

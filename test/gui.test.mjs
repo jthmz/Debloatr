@@ -11,6 +11,7 @@ import net from 'node:net';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -35,7 +36,7 @@ function request(method, url, { headers = {}, body } = {}) {
       res.on('end', () => {
         let json = null;
         try { json = JSON.parse(text); } catch (e) { /* not JSON */ }
-        resolve({ status: res.statusCode, text, json });
+        resolve({ status: res.statusCode, headers: res.headers, text, json });
       });
     });
     req.on('error', reject);
@@ -76,6 +77,149 @@ test('the page is served with a token and the version, and without the placehold
   const tool = fs.readFileSync(path.join(HERE, '..', 'debloat.sh'), 'utf8');
   const version = /^VERSION="([^"]+)"$/m.exec(tool)[1];
   assert.ok(page.text.includes(`name="debloat-version" content="${version}"`));
+});
+
+// The page asks for one more file, and gets it without the token, which a
+// script tag cannot send. Nothing else is handed out by name.
+test("the wizard's drawing code is served, and nothing else by name", async () => {
+  const code = await request('GET', '/magic.js');
+  assert.equal(code.status, 200);
+  assert.match(code.headers['content-type'], /^text\/javascript/);
+  assert.equal(code.text, fs.readFileSync(path.join(HERE, '..', 'gui', 'magic.js'), 'utf8'));
+  assert.equal((await request('GET', '/magic.js', { headers: { host: 'evil.example' } })).status, 403);
+  for (const other of ['/ui.html', '/server.mjs', '/debloat.sh', '/magic.js.map', '/gui/magic.js']) {
+    assert.equal((await request('GET', other)).status, 404, other);
+  }
+});
+
+// Nothing else here runs either file, so at the least they must parse, and
+// the page must only ask the drawing code for things it has.
+test('the page and the drawing code parse, and agree on what the wizard can do', () => {
+  const page = fs.readFileSync(path.join(HERE, '..', 'gui', 'ui.html'), 'utf8');
+  const code = fs.readFileSync(path.join(HERE, '..', 'gui', 'magic.js'), 'utf8');
+  const inline = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(found => found[1]);
+  assert.equal(inline.length, 1);
+  assert.doesNotThrow(() => new vm.Script(inline[0], { filename: 'ui.html' }));
+  assert.doesNotThrow(() => new vm.Script(code, { filename: 'magic.js' }));
+  assert.ok(page.includes('<script src="/magic.js"></script>'));
+  const asked = new Set([...inline[0].matchAll(/\b(?:magic|engine)\.([a-zA-Z]+)\(/g)].map(found => found[1]));
+  assert.ok(asked.size >= 10, 'the page should be asking the wizard for things');
+  for (const name of asked) {
+    assert.match(code, new RegExp(`\\n      (?:async )?${name}\\(`), `magic.js has no ${name}()`);
+  }
+});
+
+// The drawing code, run for a while against a WebGL that does nothing. No
+// picture comes of it, but every path through the code is taken, and a
+// mistake in one of them would otherwise only show on somebody's screen.
+test('the drawing code runs every act, spell and stage without an error', async () => {
+  const code = fs.readFileSync(path.join(HERE, '..', 'gui', 'magic.js'), 'utf8');
+  let now = 0;
+  let frame = null;
+  let stage = 'hero';
+  const drawn = { drawElements: 0, drawArrays: 0 };
+  const listeners = {};
+  const gl = new Proxy({}, {
+    get(target, name) {
+      if (typeof name !== 'string') return undefined;
+      if (/^[A-Z0-9_]+$/.test(name)) return 1;
+      return () => {
+        if (name in drawn) drawn[name] += 1;
+        if (name === 'getShaderParameter' || name === 'getProgramParameter') return true;
+        if (name === 'getParameter') return [1, 64];
+        if (name === 'getContextAttributes') return { stencil: true };
+        if (/^create|^getUniformLocation$/.test(name)) return {};
+        return undefined;
+      };
+    },
+  });
+  const node = kind => ({
+    dataset: kind === 'full' ? { into: '0.02 0.14 0.5 0.95' } : {},
+    getBoundingClientRect: () => ({ left: 40, top: 40, right: 840, bottom: 640, width: 800, height: 600 }),
+  });
+  const sandbox = {
+    console,
+    setTimeout,
+    innerWidth: 1280,
+    innerHeight: 860,
+    devicePixelRatio: 2,
+    performance: { now: () => now },
+    requestAnimationFrame: fn => { frame = fn; return 1; },
+    cancelAnimationFrame() {},
+    addEventListener: (name, fn) => { listeners[name] = fn; },
+    getComputedStyle: () => ({ borderTopLeftRadius: '12px' }),
+    document: {
+      hidden: false,
+      hasFocus: () => true,
+      addEventListener() {},
+      querySelector: selector => (selector === `[data-stage="${stage}"]` ? node(stage) : null),
+    },
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(code, sandbox, { filename: 'magic.js' });
+  const canvas = { width: 0, height: 0, style: {}, getContext: () => gl, addEventListener() {} };
+  const magic = sandbox.DebloatMagic.create(canvas, {});
+  assert.ok(magic, 'create() should hand back the layer');
+  assert.equal(sandbox.DebloatMagic.create({ getContext: () => null }), null, 'without WebGL there is no layer, and no error');
+  const run = seconds => {
+    for (let i = 0; i < seconds * 60; i++) {
+      now += 1000 / 60;
+      frame(now);
+    }
+  };
+
+  magic.phone('scan');
+  magic.tiles(Array.from({ length: 14 }, (_, i) => ({ id: `com.example.app${i}`, kind: ['remove', 'pushed', 'back'][i % 3] })));
+  listeners.pointermove({ clientX: 500, clientY: 300 });
+  for (const act of ['idle', 'hello', 'scan', 'think', 'channel', 'zap', 'cheer', 'cool', 'shrug', 'search', 'no such act']) {
+    magic.act(act);
+    run(0.5);
+  }
+  // On every stage and on none, in a dark window and a light one.
+  for (const kind of ['hero', 'side', 'none', 'full']) {
+    stage = kind;
+    for (const light of [false, true]) {
+      magic.set({ light });
+      magic.phone(light ? 'clean' : 'idle', 0.3);
+      run(0.3);
+      assert.equal(magic.visible(), kind !== 'none');
+    }
+  }
+  // He stands in the left half of his own screen, where the page put him:
+  // that is the camera, the projection and the stage all agreeing.
+  const orb = magic.orb();
+  assert.ok(orb && orb.x > 40 && orb.x < 440 && orb.y > 40 && orb.y < 640, `the orb should be on the left of the stage, not at ${JSON.stringify(orb)}`);
+
+  magic.tile('com.example.app1', 'keep');
+  magic.tile('com.example.app2', 'aim');
+  magic.tile('com.example.app3', 'fail');
+  magic.tile('not there', 'aim');
+  magic.shades(true);
+  magic.talking(true);
+  magic.poke();
+  magic.celebrate();
+  magic.burst(100, 100, {});
+  const spells = Promise.all([
+    magic.zapTiles(['com.example.app0', 'com.example.app4', 'not there'], 1),
+    magic.zapRects([{ left: 300, top: 200, width: 400, height: 40 }], 1),
+  ]);
+  run(1);
+  await spells;
+  run(2);
+
+  // Asked to hold still, and then switched off, it must not trip either.
+  magic.set({ still: true });
+  magic.tiles([{ id: 'com.example.new', kind: 'remove', state: 'keep' }]);
+  magic.act('cheer');
+  for (let i = 0; i < 20; i++) {
+    now += 300;
+    frame(now);
+  }
+  const before = drawn.drawElements;
+  magic.set({ enabled: false });
+  run(0.5);
+  assert.equal(drawn.drawElements, before, 'switched off, it draws nothing');
+  assert.ok(before > 5000 && drawn.drawArrays > 500, 'it should have been drawing all along');
 });
 
 test('a request without the token is refused', async () => {
@@ -345,6 +489,9 @@ test('a helper from another version of the app is asked to stop, and this one ta
   await new Promise(resolve => older.stdout.on('data', chunk => { if (String(chunk).includes('is open at')) resolve(); }));
   const before = await getFrom(port, '/');
   assert.ok(before.text.includes('name="debloat-version" content="0.0.1"'));
+  // That copy has no wizard in it. The page is served all the same, and the
+  // request for him is turned down without a fuss.
+  assert.equal((await getFrom(port, '/magic.js')).status, 404);
   // Nobody but its own page may stop it.
   const refused = await new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port, path: '/api/quit', method: 'POST' }, res => {
