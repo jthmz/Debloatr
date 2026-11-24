@@ -578,8 +578,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
-    align-items: start;
-    padding: 16px 8px 16px 16px;
+    align-items: center;
+    padding: 12px 8px 12px 16px;
     border-radius: 16px;
     border: 1px solid var(--line);
     background: var(--float);
@@ -593,8 +593,8 @@
   .toast.warn { border-color: var(--warn); }
   .toast.bad { border-color: var(--bad); }
   .toast .said { overflow-wrap: anywhere; }
-  /* The cross is as tall as it is wide, and sits level with the first line. */
-  .toast .x { width: 36px; padding: 0; margin: -6px 0; }
+  /* The cross is as tall as it is wide, level with the words beside it. */
+  .toast .x { width: 36px; padding: 0; }
   .toast .undo { grid-column: 1 / -1; justify-self: start; }
 
   dialog {
@@ -1458,7 +1458,7 @@ window.DebloatWords = (() => {
       blurb: 'Apps put on the phone, or last updated, by something other than you or an app store. They are left alone unless you pick one. Deleting one also deletes whatever is saved in it.',
       empty: 'No app was added by another app.' },
     off: { label: 'Already off', icon: 'off', primary: 'restore',
-      blurb: 'Everything that has been removed or switched off, by this app or by anything else. Restore puts one back.',
+      blurb: 'Everything that has been removed or switched off, by this app or by anything else. Any of it can be put back.',
       empty: 'Nothing is switched off or removed.' },
     keep: { label: 'Kept on purpose', icon: 'shield',
       blurb: 'The phone needs these to stay on its network, or to be unlocked from its carrier. This app will not touch them.',
@@ -1476,7 +1476,7 @@ window.DebloatWords = (() => {
   const WORDS = {
     remove: { verb: 'Remove', icon: 'trash' },
     mute: { verb: 'Silence', icon: 'mute' },
-    restore: { verb: 'Restore', icon: 'restore' },
+    restore: { verb: 'Put back', icon: 'restore' },
     uninstall: { verb: 'Delete for good', icon: 'trash' },
     cleanup: { verb: 'Clean up', icon: 'trash' },
   };
@@ -2092,7 +2092,9 @@ window.DebloatWords = (() => {
     const done = lines.find(l => l.startsWith('Done:') || l.startsWith('Nothing was changed')) || 'Done.';
     const changed = done.startsWith('Done:');
     if (changed && real !== 'restore') state.needsRestart = true;
-    const said = done.replace(/^Done: /, '');
+    // In this window's words: the tool says "restored" for what is called
+    // putting back here.
+    const said = done.replace(/^Done: /, '').replace(/\brestored\b/g, 'put back');
     render();
     return toast(said.charAt(0).toUpperCase() + said.slice(1), {
       tone: result.partial ? 'warn' : '',
@@ -2744,9 +2746,9 @@ window.DebloatWords = (() => {
           : el('button', {
             class: 'btn small',
             disabled: state.pending.size > 0,
-            'aria-label': `Restore ${name}`,
+            'aria-label': `Put ${name} back`,
             onclick: () => act('restore', [change.pkg], { undo: [] }),
-          }, icon('restore', 16), 'Restore')));
+          }, icon('restore', 16), 'Put back')));
     }
     return card;
   }
@@ -2920,7 +2922,7 @@ window.DebloatWords = (() => {
     // What the main button would do, said in full: an app that was added
     // later is deleted for good, whatever the page's button is called.
     const final = view.primary === 'restore' ? 0 : [...state.selected].filter(isApp).length;
-    const says = { remove: cleanupLabel(final, n - final), uninstall: cleanupLabel(final, n - final), restore: `Restore ${n}` };
+    const says = { remove: cleanupLabel(final, n - final), uninstall: cleanupLabel(final, n - final), restore: `Put ${n} back` };
     // Lime is for what can be undone. What deletes for good is plain, red.
     const button = (action, primary) => el('button', {
       class: `btn${!primary ? '' : final ? ' risky' : ' primary'}`,
@@ -3614,7 +3616,7 @@ window.DebloatWords = (() => {
       body: el('div', {}, el('div', { class: 'working', role: 'progressbar', 'aria-label': 'Waiting for the phone' }, el('i'))),
     });
     const result = await api('/api/act', { method: 'POST', body: { action: 'restore', packages, serial: state.serial } });
-    log(`Restore ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
+    log(`Put back ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
     await scan({ quiet: true });
     wiz.busy = false;
     if (state.status !== 'ready') return wizConnect();
@@ -3753,7 +3755,7 @@ window.DebloatWords = (() => {
     facts.push(`Listed under ${listOf(where.map(name => VIEWS[name].label))}.`);
 
     const consequence = kept ? 'The phone needs this one to work. Nothing here will touch it.'
-      : off ? 'It is out of the way now. Restore puts it back as it was.'
+      : off ? 'It is out of the way now. It can be put back, as it was.'
         : row.app ? 'It was added to the phone after it was made, so removing it deletes it for good, along with whatever is saved in it. The Play Store is the only way back.'
           : 'It came with the phone, so removing it can be undone: it can be put back from Already off whenever you like. Where Android will not remove it, it is switched off instead, which stops it just the same.';
 
@@ -3762,7 +3764,7 @@ window.DebloatWords = (() => {
       act(action, [pkg], action === 'restore' ? { undo: [] } : undefined);
     };
     const buttons = kept ? null
-      : off ? el('div', { class: 'pair' }, el('button', { class: 'btn primary', disabled: busy, onclick: () => one('restore') }, icon('restore'), 'Restore'))
+      : off ? el('div', { class: 'pair' }, el('button', { class: 'btn primary', disabled: busy, onclick: () => one('restore') }, icon('restore'), 'Put back'))
         // Not lime: it cannot be undone. It asks first, and says so.
         : row.app ? el('div', { class: 'pair' }, el('button', { class: 'btn risky', disabled: busy, onclick: () => one('uninstall', true) }, icon('trash'), 'Delete for good…'))
           : [el('div', { class: 'pair' },
@@ -4187,7 +4189,7 @@ window.DebloatWords = (() => {
       return Number(state.scan.meta.community) ? null
         : { text: 'I do not know these. The community list describes most apps on most phones.', label: 'Get the list', run: () => community(true) };
     }
-    if (view === 'off') return { text: 'Anything here can be put back: tick it, then Restore.' };
+    if (view === 'off') return { text: 'Anything here can be put back: tick it, and the button for that comes up.' };
     if (view === 'keep') return { text: 'The phone needs these. I leave them be.' };
     return null;
   }

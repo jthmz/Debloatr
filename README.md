@@ -113,7 +113,7 @@ What you get:
 - **Overview**: what can go and the one button that deals with it; then
   **Checks**: whether an installer can still put apps back, whether anything
   has come back, and what else wants a look, each with the one thing to do
-  about it; then what was changed lately, with a Restore beside each; and
+  about it; then what was changed lately, with a Put back beside each; and
   last the numbers, with how they moved since the scan before. **Review
   cleanup** is the cleanup without the wizard: everything it would do, in
   the order it would do it (what puts apps back goes first), split into
@@ -121,7 +121,7 @@ What you get:
 - **The lists** from the scan, each with a filter, under plainer names than
   the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
   FIRST, **Unknown apps** is NOT CLASSIFIED. Tick apps and the actions for
-  them appear: Remove, Silence, Delete for good or Restore. The pages most
+  them appear: Remove, Silence, Delete for good or Put back. The pages most
   people never need (what is notifying, what nothing is known about, the
   log) fold away under **More**. Every page fits in the sidebar of a window
   of the size the app opens at; in a shorter one the list of pages scrolls,
@@ -131,7 +131,7 @@ What you get:
   community list.
 - **Undo** on every change that has one, said at the foot of the sidebar
   where it is never on top of something to press, and **Recent changes**
-  with a Restore beside each.
+  with a Put back beside each.
 - **Activity**: what is on the phone's screen right now, a live watch for
   installs, and the phone's own answer to everything the app asked.
 - **Restart phone**, offered after a cleanup, so the lock and home screens
