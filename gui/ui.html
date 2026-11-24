@@ -325,7 +325,8 @@
   .delta.bad { color: var(--bad); }
   .spark { color: var(--text-3); }
 
-  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+  /* What wants attention has more to say than what was done: it gets more room. */
+  .split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: stretch; }
   .plan-row, .change-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -3603,6 +3604,9 @@ window.DebloatWords = (() => {
         el('p', {}, 'Each of these comes with a catch. Keep it or remove it; nothing changes until the end.')),
       host);
     dialog.oncancel = null;
+    // Shown first: a dialog takes the keyboard as it opens, and the first
+    // card must be the one to have it afterwards.
+    dialog.showModal();
     deck(rows, host, {
       exit: true,
       cancel: () => dialog.close(),
@@ -3611,7 +3615,6 @@ window.DebloatWords = (() => {
         act('remove', going.map(row => row.pkg));
       },
     });
-    dialog.showModal();
   }
 
   // ---- A word from the wizard ----------------------------------------------
