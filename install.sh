@@ -48,7 +48,7 @@ APP="$DEST/$NAME.app"
 if [ "$MODE" = install ] && [ "$(uname -s)" != Darwin ]; then
   die "the app is for macOS. On Linux, run: node gui/server.mjs"
 fi
-for file in debloat.sh rules.tsv gui/server.mjs gui/ui.html app/Info.plist app/launcher.sh app/AppIcon.icns; do
+for file in debloat.sh rules.tsv gui/server.mjs gui/ui.html gui/magic.js app/Info.plist app/launcher.sh app/AppIcon.icns; do
   [ -f "$HERE/$file" ] || die "$file is missing; run this from the debloat folder"
 done
 
@@ -68,10 +68,11 @@ mkdir -p "$NEW/Contents/MacOS" "$NEW/Contents/Resources/gui" || die "cannot buil
 sed "s/__VERSION__/$VERSION/g" "$HERE/app/Info.plist" > "$NEW/Contents/Info.plist" || die "cannot write Info.plist"
 cp "$HERE/app/launcher.sh" "$NEW/Contents/MacOS/debloat-app" || die "cannot copy the launcher"
 cp "$HERE/debloat.sh" "$HERE/rules.tsv" "$HERE/app/AppIcon.icns" "$NEW/Contents/Resources/" || die "cannot copy the tool"
-cp "$HERE/gui/server.mjs" "$HERE/gui/ui.html" "$NEW/Contents/Resources/gui/" || die "cannot copy the window"
+cp "$HERE/gui/server.mjs" "$HERE/gui/ui.html" "$HERE/gui/magic.js" "$NEW/Contents/Resources/gui/" || die "cannot copy the window"
 chmod 755 "$NEW/Contents/MacOS/debloat-app" "$NEW/Contents/Resources/debloat.sh"
 chmod 644 "$NEW/Contents/Info.plist" "$NEW/Contents/Resources/rules.tsv" "$NEW/Contents/Resources/AppIcon.icns" \
-  "$NEW/Contents/Resources/gui/server.mjs" "$NEW/Contents/Resources/gui/ui.html"
+  "$NEW/Contents/Resources/gui/server.mjs" "$NEW/Contents/Resources/gui/ui.html" \
+  "$NEW/Contents/Resources/gui/magic.js"
 
 if [ "$MODE" = install ]; then
   # Apps do not get the Terminal's PATH. Note where node and adb are right

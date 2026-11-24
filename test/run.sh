@@ -111,7 +111,9 @@ printf 'debloat.sh tests, bash %s\n' "$BASH_VERSION"
 t "help, version and bad usage"
 run --help;            rc 0; has "Usage: debloat.sh"
 run;                   rc 0; has "Start with: debloat.sh scan"
-run --version;         rc 0; has "debloat.sh 1."
+# The version it prints is the one written in the script, whatever that is.
+run --version;         rc 0; has "debloat.sh $(sed -n 's/^VERSION="\(.*\)"$/\1/p' "$ROOT/debloat.sh" | sed -n '1p')"
+if grep -Eq '^debloat\.sh [0-9]+\.[0-9]+\.[0-9]+$' "$OUT"; then ok; else bad "the version should be three numbers"; fi
 run frobnicate;        rc 1; has "unknown command: frobnicate"
 run --frob scan;       rc 1; has "unknown option: --frob"
 run -s;                rc 1; has "needs a serial number"
@@ -578,7 +580,7 @@ has_app_files() {
   local f
   for f in Contents/Info.plist Contents/MacOS/debloat-app Contents/Resources/debloat.sh \
     Contents/Resources/rules.tsv Contents/Resources/gui/server.mjs Contents/Resources/gui/ui.html \
-    Contents/Resources/AppIcon.icns; do
+    Contents/Resources/gui/magic.js Contents/Resources/AppIcon.icns; do
     if [ -f "$1/$f" ]; then ok; else bad "the app should contain $f"; fi
   done
   if [ -x "$1/Contents/MacOS/debloat-app" ]; then ok; else bad "the launcher should be executable"; fi
@@ -704,7 +706,7 @@ if command -v node >/dev/null 2>&1; then
     *"name=\"debloat-version\" content=\"$WANT_VERSION\""*) ok ;;
     *) bad "the page should carry version $WANT_VERSION" ;;
   esac
-  if [ -f "$SUPPORT/app/debloat.sh" ] && [ -f "$SUPPORT/app/gui/server.mjs" ]; then ok; else bad "the app should run from a copy in its support folder"; fi
+  if [ -f "$SUPPORT/app/debloat.sh" ] && [ -f "$SUPPORT/app/gui/server.mjs" ] && [ -f "$SUPPORT/app/gui/magic.js" ]; then ok; else bad "the app should run from a copy in its support folder"; fi
   # macOS takes a downloaded app's temporary folder away once the app has
   # finished, which for this one is at once. The helper must not notice.
   rm -rf "${WORK:?}/bundle"
@@ -761,7 +763,7 @@ if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
   mkdir -p "$WORK/unzipped"
   unzip -q "$APP_ZIP" -d "$WORK/unzipped"
   has_app_files "$WORK/unzipped/$APPNAME.app"
-  for f in install.sh uninstall.sh debloat.sh rules.tsv gui/server.mjs gui/ui.html app/launcher.sh app/Info.plist app/AppIcon.icns; do
+  for f in install.sh uninstall.sh debloat.sh rules.tsv gui/server.mjs gui/ui.html gui/magic.js app/launcher.sh app/Info.plist app/AppIcon.icns; do
     if unzip -Z -1 "$SRC_ZIP" | grep -qx "$APPNAME/$f"; then ok; else bad "the tool zip should hold $f"; fi
   done
 else

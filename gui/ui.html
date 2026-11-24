@@ -9,7 +9,8 @@
 <title>MAXAPACITY Debloat</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5.5' fill='%2316171a'/%3E%3Cpath transform='translate(4.8 4.8) scale(.6)' fill='%23bfff00' d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/%3E%3C/svg%3E">
 <!--
-  The page for gui/server.mjs. One file, no external resources.
+  The page for gui/server.mjs. This file and gui/magic.js, which draws the
+  wizard; no external resources.
 
   Design rules it keeps to (the project's UI guardrails):
     - one accent, charged lime, only on the action about to be taken;
@@ -18,6 +19,12 @@
     - four type sizes (12 14 16 24) and two weights (400 600); numbers in mono
     - every view has empty, loading, error and populated states
     - the sidebar is the only navigation; changes are undoable where they can be
+
+  The wizard has a palette of his own (night violet, and the same lime for
+  his magic) and keeps it inside his stages and his own screen. Everything he
+  adds can be switched off with the wand beside the name, and is off where
+  there is no WebGL: the page is then the plain one, and nothing is lost but
+  the show. With reduced motion asked for, he holds still.
 
   Icons are from Lucide (https://lucide.dev), ISC License, copyright (c) Lucide
   Contributors 2022 and, for portions, Cole Bemis 2013-2022 (Feather, MIT).
@@ -47,6 +54,12 @@
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --ease: 160ms ease-out;
+    /* The wizard's night: the same in a light window as in a dark one. */
+    --night-0: #08070f;
+    --night-1: #150f3a;
+    --night-2: #2b1c74;
+    --night: radial-gradient(120% 100% at 50% 100%, var(--night-2) 0%, var(--night-1) 48%, var(--night-0) 100%);
+    --spring: cubic-bezier(0.2, 0.9, 0.3, 1.3);
   }
   @media (prefers-color-scheme: light) {
     :root {
@@ -110,6 +123,8 @@
   }
   .brand b { display: block; font-weight: 600; letter-spacing: 0.06em; line-height: 1.2; }
   .brand span { color: var(--text-3); font-size: 12px; }
+  .brand .wand { margin-left: auto; width: 28px; padding: 0; color: var(--text-3); }
+  .brand .wand[aria-pressed="true"] { color: var(--accent-edge); }
 
   .phone {
     border: 1px solid var(--line);
@@ -266,6 +281,9 @@
     /* The one glow on the page: it sits behind the next thing to do. */
     background: radial-gradient(480px 240px at 100% 0%, var(--glow), transparent 70%), var(--surface);
   }
+  .hero-main { display: grid; gap: 24px; align-content: space-between; min-width: 0; }
+  .hero.staged { grid-template-columns: minmax(0, 1fr) 372px; }
+  .hero .stage { margin: -20px -20px -20px 0; min-height: 252px; }
   .hero-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
   .hero-number { font-size: 24px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; max-width: 28ch; margin-top: 12px; }
   .hero p { margin: 8px 0 0; color: var(--text-2); max-width: 64ch; }
@@ -473,8 +491,173 @@
   .dialog-body .row { grid-template-columns: 16px minmax(0, 6fr) minmax(0, 5fr); padding: 12px 24px; }
   .dialog-body .row .note { grid-column: 3; }
 
+  /* ---- The wizard's world ---- */
+  /* One canvas over the whole window draws the wizard, the phone and every
+     spark (gui/magic.js). A stage is where on the page that picture shows.
+     It is always night there, in a light window too: lime lightning needs a
+     dark sky. */
+  #magic { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+  .stage { border-radius: 12px; background: var(--night); cursor: pointer; }
+  body.no-magic #magic, body.no-magic .stage, body.no-magic .pal { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* Where there is no stage on the page, he waits in the corner. */
+  .pal {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 2;
+    width: 104px;
+    height: 104px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid rgb(255 255 255 / 0.16);
+    background: var(--night);
+    box-shadow: var(--shadow-float);
+    cursor: pointer;
+    transition: transform 200ms var(--spring), box-shadow var(--ease);
+  }
+  .pal[hidden] { display: none; }
+  .pal:hover { transform: scale(1.06); box-shadow: var(--shadow-float), 0 0 0 4px var(--glow); }
+  .pal:active { transform: scale(0.97); }
+  .pal-tip {
+    position: absolute;
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translate(8px, -50%);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--ease), transform var(--ease);
+  }
+  .pal:hover .pal-tip, .pal:focus-visible .pal-tip { opacity: 1; transform: translate(0, -50%); }
+  body.has-pal .toast { right: 144px; }
+
+  /* His own screen: the night across the whole window, him and the phone on
+     the left, and what he has to say in a pane of glass on the right. The
+     pane sits above the canvas, the night below it. */
+  .wiz-back {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    background: radial-gradient(90% 85% at 26% 100%, var(--night-2) 0%, var(--night-1) 46%, var(--night-0) 100%);
+    animation: fade 240ms ease-out;
+  }
+  .wiz-back[hidden], .wiz[hidden] { display: none; }
+  .wiz {
+    --surface: rgb(255 255 255 / 0.05);
+    --surface-2: rgb(255 255 255 / 0.09);
+    --surface-3: rgb(255 255 255 / 0.15);
+    --line: rgb(255 255 255 / 0.13);
+    --text: #f6f5ff;
+    --text-2: #cbc8e4;
+    --text-3: #a09dbf;
+    --accent-edge: var(--accent);
+    --focus: var(--accent);
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    position: fixed;
+    z-index: 6;
+    top: 24px;
+    right: 24px;
+    bottom: 24px;
+    width: min(620px, 50%);
+    display: flex;
+    flex-direction: column;
+    border-radius: 24px;
+    border: 1px solid var(--line);
+    background: rgb(20 15 52 / 0.74);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    backdrop-filter: blur(20px) saturate(1.3);
+    box-shadow: 0 24px 80px rgb(0 0 0 / 0.5);
+    color: var(--text);
+    color-scheme: dark;
+    animation: wiz-in 420ms var(--spring);
+  }
+  /* The pane is what he is saying: it points at him. */
+  .wiz::before {
+    content: "";
+    position: absolute;
+    left: -9px;
+    top: 132px;
+    width: 16px;
+    height: 16px;
+    transform: rotate(45deg);
+    border-left: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: rgb(27 21 66);
+  }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes wiz-in { from { opacity: 0; transform: perspective(1400px) translate3d(48px, 0, -160px) rotateY(-12deg); } }
+  .wiz-top { display: flex; align-items: center; gap: 16px; padding: 20px 20px 0 24px; }
+  .wiz-steps { display: flex; flex: 1; gap: 16px; align-items: center; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
+  .wiz-steps li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+  .wiz-steps li::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: var(--surface-3); transition: background var(--ease), box-shadow var(--ease); }
+  .wiz-steps li.done::before { background: var(--text-3); }
+  .wiz-steps li.now { color: var(--text); font-weight: 600; }
+  .wiz-steps li.now::before { background: var(--accent); box-shadow: 0 0 0 4px hsl(75 100% 50% / 0.2); }
+  .wiz-say { padding: 24px 24px 20px; }
+  .wiz-line { margin: 0; min-height: 60px; font-size: 24px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+  .wiz-sub { margin: 8px 0 0; color: var(--text-2); max-width: 60ch; }
+  .wiz-body { flex: 1 1 auto; min-height: 0; overflow: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); scrollbar-width: thin; }
+  .wiz-body:empty { border-bottom: 0; }
+  .wiz-foot { display: flex; align-items: center; gap: 12px; padding: 16px 24px 20px; flex-wrap: wrap; }
+  .wiz-foot .grow { flex: 1 1 160px; color: var(--text-2); font-size: 12px; }
+  .wiz .row { grid-template-columns: 16px minmax(0, 6fr) minmax(0, 5fr); padding: 12px 24px; }
+  .wiz .row.told { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
+  .wiz .row.told:hover { background: none; }
+  .wiz .group-head { background: rgb(33 26 78); }
+  .wiz-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 20px 24px; }
+  .wiz-stat { display: grid; gap: 8px; padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+  .wiz-stat b { font: 600 24px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .wiz-stat span { font-size: 12px; color: var(--text-2); }
+  .wiz-how { margin: 0; padding: 20px 24px 20px 44px; display: grid; gap: 8px; color: var(--text-2); }
+  .chip.ok { color: var(--ok); border-color: currentColor; }
+  .chip.bad { color: var(--bad); border-color: currentColor; }
+
+  /* ---- Things with some spring in them ---- */
+  /* Cards lean towards the pointer, a view arrives from a little way back,
+     and the button about to be pressed catches the light. All of it rides on
+     transforms, which the graphics card does, and all of it goes with the
+     wizard when he is switched off. */
+  .btn { transition: background var(--ease), border-color var(--ease), color var(--ease), opacity var(--ease), transform 120ms ease-out; }
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+  body:not(.no-magic) .btn.primary { position: relative; overflow: hidden; }
+  body:not(.no-magic) .btn.primary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.6) 50%, transparent 65%);
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+  body:not(.no-magic) .btn.primary:hover:not(:disabled)::after { transform: translateX(120%); transition: transform 620ms ease-out; }
+  body:not(.no-magic) .tile {
+    transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform 200ms ease-out, box-shadow var(--ease), border-color var(--ease);
+  }
+  @keyframes rise { from { opacity: 0; transform: perspective(1200px) translate3d(0, 16px, -80px) rotateX(5deg); } }
+  body:not(.no-magic) main.enter .wrap > * { animation: rise 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  body:not(.no-magic) main.enter .wrap > :nth-child(2) { animation-delay: 50ms; }
+  body:not(.no-magic) main.enter .wrap > :nth-child(3) { animation-delay: 100ms; }
+  body:not(.no-magic) main.enter .wrap > :nth-child(4) { animation-delay: 150ms; }
+  body:not(.no-magic) main.enter .row { animation: rise 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(min(var(--i, 0), 14) * 18ms + 90ms); }
+
   @media (max-width: 960px) {
     body { grid-template-columns: 232px minmax(0, 1fr); }
+    .hero.staged { grid-template-columns: minmax(0, 1fr); }
+    .hero .stage { margin: 0 -20px -20px; min-height: 216px; }
+    .wiz { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; height: 58%; }
+    .wiz::before { display: none; }
+    .wiz-line { min-height: 0; }
     main { padding: 24px 24px 96px; }
     .split { grid-template-columns: minmax(0, 1fr); }
     .row { grid-template-columns: 16px minmax(0, 1fr) auto; }
@@ -489,7 +672,8 @@
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
-    .bone { animation: none; }
+    .bone, .wiz, .wiz-back, main.enter .wrap > *, main.enter .row { animation: none !important; }
+    body .tile { transform: none; }
   }
 </style>
 </head>
@@ -499,7 +683,12 @@
 <div class="bulk" id="bulk" role="region" aria-label="Selection"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <dialog id="dialog"></dialog>
+<canvas id="magic" aria-hidden="true"></canvas>
+<button class="pal" id="pal" data-stage="side" aria-label="Clean up with the wizard" hidden><span class="pal-tip" aria-hidden="true">Clean up with the wizard</span></button>
+<div class="wiz-back" id="wiz-back" hidden></div>
+<section class="wiz" id="wiz" role="dialog" aria-modal="true" aria-label="The wizard" hidden></section>
 
+<script src="/magic.js"></script>
 <script>
 (() => {
   'use strict';
@@ -535,6 +724,8 @@
     down: '<path d="m7 7 10 10"/><path d="M17 7v10H7"/>',
     up: '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
     flat: '<path d="M5 12h14"/>',
+    wand: '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/>',
+    next: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   };
 
   // Every destination. "primary" and "secondary" name the action behind the
@@ -693,6 +884,78 @@
     }
   }
 
+  // ---- The wizard's world --------------------------------------------------
+
+  // gui/magic.js draws; this page decides what there is to draw. Where there
+  // is no WebGL, or the wand beside the name is off, `magic` is null and the
+  // page is the plain one.
+  const engine = window.DebloatMagic
+    ? window.DebloatMagic.create(document.getElementById('magic'), {
+      light: matchMedia('(prefers-color-scheme: light)').matches,
+      still: still(),
+    }) : null;
+  let magic = null;
+  let greeted = false;
+
+  function setMagic(on, remember = true) {
+    magic = on ? engine : null;
+    if (engine) engine.set({ enabled: on });
+    document.body.classList.toggle('no-magic', !magic);
+    if (!remember) return;
+    try {
+      localStorage.setItem('debloat-magic', on ? 'on' : 'off');
+    } catch (e) { /* not remembered, then */ }
+  }
+
+  // A window onto the wizard and the phone. Clicking him is allowed.
+  const stage = () => (magic ? el('div', {
+    class: 'stage', 'data-stage': 'hero', role: 'img', 'aria-label': 'The wizard, with the phone and what can go circling it',
+    onclick: () => { if (magic) magic.poke(); },
+  }) : null);
+
+  // After every render: what the wizard's world should show for the state
+  // the page is in. While his own screen is open, that screen decides.
+  function syncMagic() {
+    const staged = Boolean(document.querySelector('main .stage'));
+    const showPal = Boolean(magic) && !staged && !wiz.open;
+    document.getElementById('pal').hidden = !showPal;
+    document.body.classList.toggle('has-pal', showPal);
+    if (!magic || wiz.open) return;
+    if (state.status === 'loading') {
+      magic.phone(state.waiting ? 'none' : 'scan');
+      magic.act(state.waiting ? 'search' : 'scan');
+    } else if (state.status === 'error') {
+      magic.phone('none');
+      magic.tiles([]);
+      magic.shades(false);
+      magic.act('search');
+    } else {
+      const items = cleanup();
+      magic.tiles(items.map(row => ({ id: row.pkg, kind: row.from })));
+      magic.phone(items.length ? 'idle' : 'clean', items.length / 24);
+      // A clean phone is worth the shades.
+      magic.shades(items.length === 0);
+      magic.act('idle');
+      if (!greeted) {
+        greeted = true;
+        magic.act('hello');
+      }
+    }
+  }
+
+  // Lightning for what is about to go: to its rows where a list is showing,
+  // and otherwise to what is circling the phone.
+  function spell(packages) {
+    if (!magic || !magic.visible()) return;
+    const asked = new Set(packages);
+    const rects = [...document.querySelectorAll('.row[data-pkg]')]
+      .filter(node => asked.has(node.dataset.pkg))
+      .map(node => node.getBoundingClientRect())
+      .filter(rect => rect.bottom > 0 && rect.top < innerHeight);
+    if (rects.length) magic.zapRects(rects);
+    else magic.zapTiles(packages);
+  }
+
   // ---- Staying in touch with the helper ------------------------------------
 
   // A helper that does not know this page's token is a newer one at the same
@@ -800,6 +1063,7 @@
   // Undo would restore; regular apps cannot be, so callers leave them out.
   async function act(action, packages, { undo = packages } = {}) {
     const real = action === 'uninstall' || action === 'cleanup' ? 'remove' : action;
+    if (real !== 'restore') spell(packages);
     for (const pkg of packages) state.pending.add(pkg);
     state.selected.clear();
     render();
@@ -808,7 +1072,10 @@
     log(`${WORDS[action].verb} ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
 
     await scan({ quiet: true });
-    if (!result.ok) return toast(result.error, { tone: 'bad' });
+    if (!result.ok) {
+      if (magic) magic.act('shrug');
+      return toast(result.error, { tone: 'bad' });
+    }
     const lines = (result.output || '').split('\n');
     const done = lines.find(l => l.startsWith('Done:') || l.startsWith('Nothing was changed')) || 'Done.';
     const changed = done.startsWith('Done:');
@@ -836,14 +1103,18 @@
     state.status = 'loading';
     state.waiting = 'Waiting for the phone to come back';
     render();
-    // Give it time to go down, then look for it until it answers again.
+    await comeBack();
+    return scan();
+  }
+
+  // Give the phone time to go down, then look for it until it answers again.
+  async function comeBack() {
     await sleep(8000);
     for (let i = 0; i < 40; i++) {
       const found = await api('/api/phones');
       if (found.ok !== false && (found.phones || []).some(p => p.state === 'device')) break;
       await sleep(4000);
     }
-    return scan();
   }
 
   async function inspect() {
@@ -924,10 +1195,14 @@
   // ---- Rendering -----------------------------------------------------------
 
   function render() {
+    // A view that was on its way in has arrived: drawing it again must not
+    // send it back to the start.
+    document.querySelector('main').classList.remove('enter');
     renderSide();
     renderMain();
     renderBulk();
     if (state.scan && state.status === 'ready') state.counted = true;
+    syncMagic();
   }
 
   function renderSide() {
@@ -965,7 +1240,12 @@
     set(document.getElementById('side'),
       el('div', { class: 'brand' },
         el('div', { class: 'brand-mark' }, icon('zap', 16)),
-        el('div', {}, el('b', {}, 'MAXAPACITY'), el('span', {}, VERSION ? `Debloat ${VERSION}` : 'Debloat'))),
+        el('div', {}, el('b', {}, 'MAXAPACITY'), el('span', {}, VERSION ? `Debloat ${VERSION}` : 'Debloat')),
+        engine ? el('button', {
+          class: 'btn quiet small wand', 'aria-pressed': String(Boolean(magic)), 'aria-label': 'The wizard',
+          title: magic ? 'Send the wizard away' : 'Bring the wizard back',
+          onclick: () => { setMagic(!magic); render(); },
+        }, icon('wand', 16)) : null),
       phone,
       nav,
       el('div', { class: 'side-foot' }, 'Nothing changes until you choose it.'));
@@ -987,7 +1267,11 @@
     state.selected.clear();
     state.filter = '';
     render();
-    document.querySelector('main').scrollTop = 0;
+    const main = document.querySelector('main');
+    main.scrollTop = 0;
+    // It arrives from a little way back; see "enter" in the styles.
+    void main.offsetWidth;
+    main.classList.add('enter');
   }
 
   function renderMain() {
@@ -1025,8 +1309,8 @@
       apps.length ? `${plural(apps.length, 'app', 'apps')} that an installer pushed onto it` : '',
       system.length ? `${plural(system.length, 'preinstalled app', 'preinstalled apps')} the rules mark safe to remove` : '',
     ].filter(Boolean).join(' and ');
-    const hero = el('section', { class: 'card hero' },
-      el('div', {},
+    const hero = el('section', { class: `card hero${magic ? ' staged' : ''}` },
+      el('div', { class: 'hero-main' }, el('div', {},
         el('div', { class: 'hero-status' },
           el('span', { class: `dot ${items.length ? 'warn' : 'ok'}` }),
           items.length ? 'Cleanup available' : 'Clean by the rules',
@@ -1041,12 +1325,14 @@
           lists.ask.length ? ` ${plural(lists.ask.length, 'more needs', 'more need')} a look first, under Ask first.` : '')),
       el('div', { class: 'hero-actions' },
         items.length
-          ? el('button', { class: 'btn primary', onclick: review }, icon('review'), 'Review cleanup')
+          ? [magic ? el('button', { class: 'btn primary', 'data-wizard': true, onclick: openWizard }, icon('wand'), 'Clean up with the wizard') : null,
+            el('button', { class: magic ? 'btn' : 'btn primary', onclick: review }, icon('review'), magic ? 'Review as a list' : 'Review cleanup')]
           : el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again'),
         state.needsRestart
           ? [el('button', { class: 'btn', onclick: restart }, icon('power'), 'Restart phone'),
             el('span', { class: 'hint' }, 'so the lock and home screens catch up')]
-          : null));
+          : null)),
+      stage());
 
     return [head, hero, tiles(), el('div', { class: 'split' }, planCard(apps, system), changesCard())];
   }
@@ -1168,9 +1454,11 @@
   function overviewSkeleton() {
     const bone = (w, h = 12) => el('div', { class: 'bone', style: `width:${w};max-width:100%;height:${h}px` });
     return [
-      el('section', { class: 'card hero', 'aria-busy': 'true', 'aria-label': state.waiting || 'Scanning the phone' },
-        el('div', { style: 'display:grid;gap:16px' }, bone('160px'), bone('420px', 24), bone('520px')),
-        el('div', { class: 'hero-actions' }, bone('152px', 36))),
+      el('section', { class: `card hero${magic ? ' staged' : ''}`, 'aria-busy': 'true', 'aria-label': state.waiting || 'Scanning the phone' },
+        el('div', { class: 'hero-main' },
+          el('div', { style: 'display:grid;gap:16px' }, bone('160px'), bone('420px', 24), bone('520px')),
+          el('div', { class: 'hero-actions' }, bone('152px', 36))),
+        stage()),
       el('div', { class: 'tiles' }, [0, 1, 2].map(() => el('section', { class: 'card tile' },
         bone('96px'), el('div', { class: 'tile-main' }, bone('56px', 24), bone('96px', 24)), bone('168px')))),
       el('div', { class: 'split' }, [0, 1].map(() => el('section', { class: 'card' },
@@ -1269,12 +1557,12 @@
         el('strong', {}, 'Nothing in this list matches that filter.'),
         el('button', { class: 'btn', onclick: () => { state.filter = ''; ui.search.value = ''; paint(); } }, 'Clear the filter')));
     } else {
-      set(ui.rows, shown.map(row => rowNode(row, view)));
+      set(ui.rows, shown.map((row, i) => rowNode(row, view, i)));
     }
     return renderBulk();
   }
 
-  function rowNode(row, view) {
+  function rowNode(row, view, index) {
     const can = selectable(row);
     const chips = [];
     let note = row.note;
@@ -1296,6 +1584,7 @@
     };
     return el('div', {
       class: `row${can ? '' : ' static'}${chips.length ? '' : ' plain'}${note ? '' : ' bare'}${state.selected.has(row.pkg) ? ' selected' : ''}${state.pending.has(row.pkg) ? ' pending' : ''}`,
+      'data-pkg': row.pkg, style: `--i:${index}`,
       onclick: can ? toggle : null,
     },
     can ? el('input', {
@@ -1433,6 +1722,435 @@
     dialog.showModal();
   }
 
+  // ---- The wizard ----------------------------------------------------------
+
+  // The same cleanup as "Review as a list", walked through a step at a time
+  // by the wizard on a screen of his own: find the phone, scan it, choose
+  // what goes, clean up, and see what happened. It asks the helper for
+  // exactly what the list asks for. The show is drawn from the answers: the
+  // lightning falls only on what the phone says is gone.
+  const STEPS = [['connect', 'Phone'], ['scan', 'Scan'], ['choose', 'Choose'], ['cast', 'Clean up'], ['done', 'Done']];
+  const wiz = { open: false, run: 0, step: '', busy: false, items: [], picked: new Set() };
+  const wizNode = document.getElementById('wiz');
+  const wizBack = document.getElementById('wiz-back');
+  const BEHIND = ['side', 'bulk', 'toast'];
+  let typing = 0;
+
+  // His line appears as he says it. A screen reader gets it whole.
+  function say(node, text) {
+    typing += 1;
+    const mine = typing;
+    if (still() || !magic) {
+      node.textContent = text;
+      return;
+    }
+    let shown = 0;
+    magic.talking(true);
+    const more = () => {
+      if (mine !== typing) return;
+      shown += 2;
+      node.textContent = text.slice(0, shown);
+      if (shown < text.length) setTimeout(more, 22);
+      else magic.talking(false);
+    };
+    more();
+  }
+
+  // One screen of his: where in the steps it is, what he says, what is under
+  // that, and the buttons.
+  function wizShow({ step, line, sub = '', body = null, note = '', buttons = [] }) {
+    wiz.step = step;
+    const at = STEPS.findIndex(([id]) => id === step);
+    const lineNode = el('p', { class: 'wiz-line', 'aria-hidden': 'true' });
+    set(wizNode,
+      el('div', { class: 'wiz-top' },
+        el('ol', { class: 'wiz-steps', 'aria-label': 'Steps' }, STEPS.map(([, label], i) => el('li', {
+          class: i < at ? 'done' : i === at ? 'now' : null, 'aria-current': i === at ? 'step' : null,
+        }, label))),
+        el('button', { class: 'btn quiet small', onclick: closeWizard, disabled: wiz.busy, 'aria-label': 'Leave the wizard' },
+          icon('x', 12), 'Close')),
+      el('div', { class: 'wiz-say' },
+        lineNode,
+        el('p', { class: 'sr', role: 'status' }, line),
+        sub ? el('p', { class: 'wiz-sub' }, sub) : null),
+      el('div', { class: 'wiz-body' }, body),
+      el('div', { class: 'wiz-foot' }, el('div', { class: 'grow' }, note), buttons));
+    say(lineNode, line);
+    const first = wizNode.querySelector('.wiz-foot .btn.primary:not(:disabled)') || wizNode.querySelector('.wiz-top .btn:not(:disabled)');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  // Where on his screen he and the phone stand: beside the pane, or above it
+  // when the window is too narrow for both.
+  function aim() {
+    if (!wiz.open) return;
+    const beside = wizNode.offsetLeft > innerWidth * 0.3;
+    wizBack.dataset.into = beside
+      ? `0.02 0.14 ${((wizNode.offsetLeft - 16) / innerWidth).toFixed(3)} 0.95`
+      : `0.04 0.03 0.96 ${((wizNode.offsetTop - 8) / innerHeight).toFixed(3)}`;
+  }
+
+  function openWizard() {
+    if (wiz.open || !magic) return;
+    const dialog = document.getElementById('dialog');
+    if (dialog.open) dialog.close();
+    wiz.open = true;
+    wiz.run += 1;
+    for (const id of BEHIND) document.getElementById(id).inert = true;
+    document.querySelector('main').inert = true;
+    wizBack.hidden = false;
+    wizBack.dataset.stage = 'full';
+    wizNode.hidden = false;
+    aim();
+    syncMagic();
+    magic.shades(false);
+    magic.act('hello');
+    // He comes out with a turn on the spot, once his own screen is up.
+    const run = wiz.run;
+    setTimeout(() => { if (magic && wiz.open && run === wiz.run) magic.poke(); }, 140);
+    wizScan();
+  }
+
+  function closeWizard() {
+    if (!wiz.open || wiz.busy) return;
+    wiz.open = false;
+    wiz.run += 1;
+    typing += 1;
+    if (magic) magic.talking(false);
+    wizBack.hidden = true;
+    delete wizBack.dataset.stage;
+    wizNode.hidden = true;
+    wizNode.replaceChildren();
+    for (const id of BEHIND) document.getElementById(id).inert = false;
+    document.querySelector('main').inert = false;
+    render();
+    const back = document.querySelector('[data-wizard]') || document.getElementById('pal');
+    if (back && !back.hidden) back.focus({ preventScroll: true });
+  }
+
+  // No phone: say how to get one seen, and keep looking. The moment one
+  // answers, carry on without being asked.
+  async function wizConnect() {
+    const run = wiz.run;
+    const gone = !state.helper;
+    magic.tiles([]);
+    magic.phone('none');
+    magic.shades(false);
+    magic.act('search');
+    wizShow({
+      step: 'connect',
+      line: gone ? 'I have lost my helper.' : 'I cannot see a phone yet.',
+      sub: gone ? 'Open MAXAPACITY Debloat again and I will pick up from here.' : state.error,
+      body: gone ? null : el('ol', { class: 'wiz-how' },
+        el('li', {}, 'Plug the phone in with a data cable and unlock it.'),
+        el('li', {}, 'Settings > About phone: tap Build number seven times.'),
+        el('li', {}, 'Settings > System > Developer options: turn on USB debugging.'),
+        el('li', {}, 'Tap Allow on the prompt that appears on the phone.')),
+      note: 'I look again every few seconds.',
+      buttons: [el('button', { class: 'btn primary', onclick: wizScan }, icon('refresh'), 'Look now')],
+    });
+    while (run === wiz.run && wiz.step === 'connect') {
+      await sleep(2500);
+      if (run !== wiz.run || wiz.step !== 'connect') return;
+      const found = await api('/api/phones');
+      if (run !== wiz.run || wiz.step !== 'connect') return;
+      if (found.ok !== false && (found.phones || []).some(p => p.state === 'device')) {
+        wizScan();
+        return;
+      }
+    }
+  }
+
+  async function wizScan() {
+    const run = wiz.run;
+    magic.tiles([]);
+    magic.phone('scan');
+    magic.shades(false);
+    magic.act('scan');
+    wizShow({
+      step: 'scan',
+      line: 'Hold still. I am looking inside.',
+      sub: 'Reading what is installed, what installed it, and what the rules say about each. Nothing changes yet.',
+    });
+    // Long enough to be seen looking, however quick the phone is.
+    await Promise.all([scan({ quiet: true }), sleep(still() ? 0 : 1900)]);
+    if (run !== wiz.run) return undefined;
+    if (state.status !== 'ready') return wizConnect();
+    wiz.items = cleanup();
+    wiz.picked = new Set(wiz.items.map(row => row.pkg));
+    return wizFound();
+  }
+
+  // What the scan found. Each thing that can go is now circling the phone.
+  function wizFound() {
+    const items = wiz.items;
+    const apps = items.filter(row => row.app).length;
+    const asks = state.scan.lists.ask.length;
+    const stat = (n, label) => el('div', { class: 'wiz-stat' }, el('b', {}, n), el('span', {}, label));
+    const stats = el('div', { class: 'wiz-stats' },
+      stat(apps, 'pushed on by an installer'),
+      stat(items.length - apps, 'preinstalled junk'),
+      stat(asks, 'to look at first'));
+    const later = asks
+      ? ` ${plural(asks, 'more needs', 'more need')} a look first: ${asks === 1 ? 'it is' : 'they are'} under Ask first, with the reason beside each.`
+      : '';
+    magic.tiles(items.map(row => ({ id: row.pkg, kind: row.from, state: wiz.picked.has(row.pkg) ? 'orbit' : 'keep' })));
+    magic.phone(items.length ? 'idle' : 'clean', items.length / 24);
+    magic.shades(items.length === 0);
+    magic.act(items.length ? 'think' : 'cool');
+    if (!items.length) {
+      return wizShow({
+        step: 'scan',
+        line: 'Spotless. Nothing here I would send away.',
+        sub: `The sponsored-app installers, lock screen feeds and promos the rules cover are gone, or were never here.${later}`,
+        body: stats,
+        buttons: [el('button', { class: 'btn primary', onclick: closeWizard }, 'Close')],
+      });
+    }
+    return wizShow({
+      step: 'scan',
+      line: `${plural(items.length, 'thing', 'things')} on this phone ${items.length === 1 ? 'does' : 'do'} not belong.`,
+      sub: `That is ${items.length === 1 ? 'it' : 'them'}, circling the phone.${later}`,
+      body: stats,
+      note: 'Nothing changes until you say so.',
+      buttons: [el('button', { class: 'btn primary', onclick: wizChoose }, 'Choose what goes', icon('next'))],
+    });
+  }
+
+  // Everything ticked, in two groups by whether it can be undone, as in the
+  // list. What is unticked drifts away from the phone and cools.
+  function wizChoose() {
+    const items = wiz.items;
+    const picked = wiz.picked;
+    const groups = [
+      { title: 'Uninstall', hint: 'regular apps, cannot be undone', rows: items.filter(row => row.app) },
+      { title: 'Remove', hint: 'preinstalled, can be undone from Already off', rows: items.filter(row => !row.app) },
+    ].filter(group => group.rows.length);
+    const body = el('div', {});
+    const note = el('span', {});
+    const go = el('button', { class: 'btn primary', onclick: wizCast });
+    const mark = row => magic.tile(row.pkg, picked.has(row.pkg) ? 'orbit' : 'keep');
+
+    const draw = () => {
+      set(body, groups.map(group => {
+        const mine = group.rows.filter(row => picked.has(row.pkg)).length;
+        const all = el('input', {
+          type: 'checkbox', 'aria-label': `Select all under ${group.title}`,
+          onchange: event => {
+            for (const row of group.rows) {
+              if (event.target.checked) picked.add(row.pkg);
+              else picked.delete(row.pkg);
+              mark(row);
+            }
+            draw();
+          },
+        });
+        all.checked = mine === group.rows.length;
+        all.indeterminate = mine > 0 && mine < group.rows.length;
+        return [
+          el('div', { class: 'group-head' }, all, el('b', {}, group.title),
+            el('span', {}, `${mine} of ${group.rows.length}, ${group.hint}`)),
+          group.rows.map(row => {
+            const flip = () => {
+              if (picked.has(row.pkg)) picked.delete(row.pkg);
+              else picked.add(row.pkg);
+              mark(row);
+              draw();
+            };
+            // Pointing at a row lights up the one it means.
+            return el('div', {
+              class: `row${picked.has(row.pkg) ? ' selected' : ''}`, onclick: flip,
+              onpointerenter: () => { if (picked.has(row.pkg)) magic.tile(row.pkg, 'aim'); },
+              onpointerleave: () => mark(row),
+            },
+            el('input', {
+              type: 'checkbox', checked: picked.has(row.pkg), 'aria-label': `Select ${row.pkg}`,
+              onclick: event => event.stopPropagation(), onchange: flip,
+            }),
+            pkgNode(row.pkg),
+            el('div', { class: 'note' }, row.from === 'back' ? `came back; ${row.note}` : row.note));
+          }),
+        ];
+      }));
+      const apps = items.filter(row => row.app && picked.has(row.pkg)).length;
+      const system = picked.size - apps;
+      note.textContent = [
+        apps ? `uninstalls ${apps} for good` : '',
+        system ? `removes ${system}, which can be undone` : '',
+      ].filter(Boolean).join(' and ').replace(/^./, c => c.toUpperCase()) || 'Nothing ticked';
+      set(go, icon('zap'), picked.size ? `Clean up ${picked.size}` : 'Clean up');
+      go.disabled = picked.size === 0;
+    };
+
+    magic.act('idle');
+    wizShow({
+      step: 'choose',
+      line: 'Untick anything you would rather keep.',
+      sub: 'What came with the phone can be brought back later. A regular app cannot: its data goes with it.',
+      body,
+      note,
+      buttons: [el('button', { class: 'btn', onclick: wizFound }, 'Back'), go],
+    });
+    draw();
+  }
+
+  // "  removed       com.foo", for each package asked about: the word the
+  // tool used, and whether that means it is out of the way.
+  function outcomes(output, packages) {
+    const asked = new Set(packages);
+    const how = new Map();
+    for (const line of (output || '').split('\n')) {
+      if (!line.startsWith('  ')) continue;
+      const words = line.trim().split(/\s+/);
+      const at = words.findIndex(word => asked.has(word));
+      if (at < 1) continue;
+      const said = words.slice(0, at).join(' ');
+      how.set(words[at], { said, done: /^(removed|uninstalled|switched off|silenced)$/.test(said) });
+    }
+    return how;
+  }
+
+  async function wizCast() {
+    const chosen = wiz.items.filter(row => wiz.picked.has(row.pkg));
+    if (!chosen.length || wiz.busy) return undefined;
+    const packages = chosen.map(row => row.pkg);
+    wiz.busy = true;
+    for (const row of wiz.items) magic.tile(row.pkg, wiz.picked.has(row.pkg) ? 'aim' : 'keep');
+    magic.act('channel');
+    wizShow({
+      step: 'cast',
+      line: 'Stand back.',
+      sub: `Taking ${plural(packages.length, 'app', 'apps')} off the phone. Leave it plugged in until I am done.`,
+      body: el('div', {}, chosen.map(row => el('div', { class: 'row told pending' }, pkgNode(row.pkg),
+        el('span', { class: 'chip' }, 'working')))),
+    });
+    for (const pkg of packages) state.pending.add(pkg);
+    const [result] = await Promise.all([
+      api('/api/act', { method: 'POST', body: { action: 'remove', packages, serial: state.serial } }),
+      sleep(still() ? 0 : 1700),
+    ]);
+    for (const pkg of packages) state.pending.delete(pkg);
+    log(`Clean up ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
+    const how = outcomes(result.output, packages);
+    const gone = packages.filter(pkg => how.has(pkg) && how.get(pkg).done);
+    if (gone.length) state.needsRestart = true;
+    // The phone has answered. Now the lightning, and only for what went.
+    await magic.zapTiles(gone, gone.length > 12 ? 90 : 170);
+    for (const pkg of packages) if (!gone.includes(pkg)) magic.tile(pkg, 'fail');
+    await scan({ quiet: true });
+    wiz.busy = false;
+    return wizDone(result, chosen, how);
+  }
+
+  function wizDone(result, chosen, how) {
+    const done = row => how.has(row.pkg) && how.get(row.pkg).done;
+    const gone = chosen.filter(done);
+    const stuck = chosen.filter(row => !done(row));
+    const undo = gone.filter(row => !row.app).map(row => row.pkg);
+    const left = state.status === 'ready' ? cleanup().length : 0;
+    const told = el('div', {}, chosen.map(row => {
+      const said = how.has(row.pkg) ? how.get(row.pkg).said : 'no answer';
+      const tone = !done(row) ? ' bad' : /^(removed|uninstalled)$/.test(said) ? ' ok' : ' warn';
+      return el('div', { class: 'row told' }, pkgNode(row.pkg),
+        el('span', { class: `chip${tone}` }, said === 'FAILED' ? 'locked by the maker' : said));
+    }));
+    const close = primary => el('button', { class: `btn${primary ? ' primary' : ''}`, onclick: closeWizard }, 'Close');
+
+    if (!gone.length) {
+      magic.act('idle');
+      magic.act('shrug');
+      return wizShow({
+        step: 'done',
+        line: result.ok ? 'They would not budge.' : 'That did not work.',
+        sub: result.ok ? 'The phone\'s maker has locked what is listed below. Nothing about it was changed.' : result.error,
+        body: result.ok ? told : null,
+        buttons: [el('button', { class: 'btn', onclick: wizScan }, icon('refresh'), 'Scan again'), close(true)],
+      });
+    }
+    magic.phone(left ? 'idle' : 'clean', left / 24);
+    magic.shades(true);
+    magic.act('cool');
+    magic.act('cheer');
+    magic.celebrate();
+    return wizShow({
+      step: 'done',
+      line: `${plural(gone.length, 'app', 'apps')} gone.${stuck.length ? ` ${stuck.length} would not budge.` : ''}`,
+      sub: `Restart the phone so its lock and home screens catch up.${stuck.length
+        ? ' What would not budge is locked by the phone\'s maker; nothing about it was changed.' : ''}`,
+      body: told,
+      note: undo.length ? `${plural(undo.length, 'removal', 'removals')} can be undone.` : '',
+      buttons: [
+        undo.length ? el('button', { class: 'btn quiet', onclick: () => wizUndo(undo) }, icon('undo'), 'Undo') : null,
+        close(false),
+        el('button', { class: 'btn primary', onclick: wizRestart }, icon('power'), 'Restart phone'),
+      ],
+    });
+  }
+
+  async function wizUndo(packages) {
+    if (wiz.busy) return undefined;
+    wiz.busy = true;
+    magic.shades(false);
+    magic.act('channel');
+    wizShow({
+      step: 'done',
+      line: 'Putting them back.',
+      sub: `Restoring ${plural(packages.length, 'app', 'apps')} to the phone.`,
+    });
+    const result = await api('/api/act', { method: 'POST', body: { action: 'restore', packages, serial: state.serial } });
+    log(`Restore ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
+    await scan({ quiet: true });
+    wiz.busy = false;
+    if (state.status !== 'ready') return wizConnect();
+    wiz.items = cleanup();
+    wiz.picked = new Set(wiz.items.map(row => row.pkg));
+    return wizFound();
+  }
+
+  async function wizRestart() {
+    if (wiz.busy) return undefined;
+    wiz.busy = true;
+    magic.tiles([]);
+    magic.phone('none');
+    magic.act('search');
+    wizShow({
+      step: 'done',
+      line: 'Restarting the phone.',
+      sub: 'It drops off USB for about a minute. I will know when it is back.',
+    });
+    const result = await api(`/api/restart${query()}`, { method: 'POST' });
+    log('Restart the phone', result.output || result.error);
+    if (!result.ok) {
+      wiz.busy = false;
+      magic.act('idle');
+      magic.act('shrug');
+      return wizShow({
+        step: 'done',
+        line: 'It would not restart.',
+        sub: result.error,
+        buttons: [el('button', { class: 'btn primary', onclick: closeWizard }, 'Close')],
+      });
+    }
+    state.needsRestart = false;
+    await comeBack();
+    await scan({ quiet: true });
+    wiz.busy = false;
+    if (state.status !== 'ready') return wizConnect();
+    const left = cleanup().length;
+    magic.phone(left ? 'idle' : 'clean', left / 24);
+    magic.tiles(cleanup().map(row => ({ id: row.pkg, kind: row.from })));
+    magic.shades(true);
+    magic.act('cool');
+    return wizShow({
+      step: 'done',
+      line: 'Back, and quieter than it was.',
+      sub: left
+        ? `${plural(left, 'thing is', 'things are')} still on it that could go. Scan again after a system update too: updates can bring things back.`
+        : 'Scan again after a system update: updates can switch back on what was removed.',
+      buttons: [el('button', { class: 'btn primary', onclick: closeWizard }, 'Close')],
+    });
+  }
+
   // ---- Activity ------------------------------------------------------------
 
   function activityView() {
@@ -1499,14 +2217,47 @@
 
   // "/" jumps to the filter; Escape drops the selection.
   document.addEventListener('keydown', event => {
-    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
-    if (event.key === '/' && !typing && ui.search && ui.search.isConnected) {
+    if (wiz.open) {
+      // His screen has the keys while it is up; Escape leaves it.
+      if (event.key === 'Escape' && !document.getElementById('dialog').open) closeWizard();
+      return;
+    }
+    const inField = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (event.key === '/' && !inField && ui.search && ui.search.isConnected) {
       event.preventDefault();
       ui.search.focus();
     } else if (event.key === 'Escape' && state.selected.size && !document.getElementById('dialog').open) {
       state.selected.clear();
       paint();
     }
+  });
+
+  // The wizard is out unless he was sent away last time.
+  let wanted = true;
+  try {
+    wanted = localStorage.getItem('debloat-magic') !== 'off';
+  } catch (e) { /* nothing remembered: he is out */ }
+  setMagic(Boolean(engine) && wanted, false);
+  document.getElementById('pal').addEventListener('click', openWizard);
+  wizBack.addEventListener('click', () => { if (magic) magic.poke(); });
+  addEventListener('resize', aim);
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', event => { if (engine) engine.set({ light: event.matches }); });
+  matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => { if (engine) engine.set({ still: event.matches }); });
+
+  // Cards on the overview lean towards the pointer.
+  const mainNode = document.querySelector('main');
+  mainNode.addEventListener('pointermove', event => {
+    const card = event.target.closest ? event.target.closest('.tile') : null;
+    if (!card || !magic || still()) return;
+    const box = card.getBoundingClientRect();
+    card.style.setProperty('--ry', `${(((event.clientX - box.left) / box.width - 0.5) * 8).toFixed(2)}deg`);
+    card.style.setProperty('--rx', `${(((event.clientY - box.top) / box.height - 0.5) * -8).toFixed(2)}deg`);
+  });
+  mainNode.addEventListener('pointerout', event => {
+    const card = event.target.closest ? event.target.closest('.tile') : null;
+    if (!card || card.contains(event.relatedTarget)) return;
+    card.style.removeProperty('--rx');
+    card.style.removeProperty('--ry');
   });
 
   render();

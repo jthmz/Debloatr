@@ -56,10 +56,18 @@ built.
 
 What you get:
 
-- **Overview**: what the last scan found, how that moved since the scan
-  before, and one button, **Review cleanup**. The review lists everything it
-  would do, ticked, split into what can be undone and what cannot. Untick what
-  you want to keep.
+- **The wizard**. He stands on the Overview beside the phone, with everything
+  that can go circling it. **Clean up with the wizard** gives him a screen of
+  his own, where he walks you through it: he scans the phone, shows what he
+  found, lets you untick what you want to keep, and takes the rest off. His
+  lightning falls only on what the phone says is gone, and he tells you what
+  would not budge. He offers to undo it and to restart the phone, and keeps
+  his shades on for as long as the phone is clean. On the other pages he
+  waits in the corner, and strikes the rows you remove.
+- **Overview**: what the last scan found and how that moved since the scan
+  before. **Review as a list** is the same cleanup without the wizard: it
+  lists everything it would do, ticked, split into what can be undone and
+  what cannot. Untick what you want to keep.
 - **The lists** from the scan, each with a filter. Tick apps and the actions
   for them appear: Remove, Silence, Uninstall or Restore.
 - **Undo** on every change that has one, and **Recent changes** with a Restore
@@ -75,6 +83,14 @@ appearance. The app runs for as long as its window is open, in front or not,
 and quits a few seconds after you close it. Opening the app while a window is
 open gives you a fresh window in place of the old one, and opening a newer
 version takes over from an older one that is still running.
+
+The wizard is drawn by the graphics card (WebGL), from `gui/magic.js`: no
+libraries, nothing downloaded, and every shape built there from a few numbers.
+He asks the helper for exactly what the list asks for. The wand beside the
+app's name sends him away and brings him back; without him the window is the
+plain one, with one button, **Review cleanup**. He holds still when the
+system asks for reduced motion, draws less often when the window is not the
+one in front, and is simply absent where there is no WebGL.
 
 The app is a front for `debloat.sh`: it cannot do anything the commands below
 cannot, and the same safety rules apply. It listens on this computer only, and
@@ -262,7 +278,10 @@ node --test test/gui.test.mjs
 Does the same for the app's helper: that it refuses requests without its
 token or for another host name, keeps going while a window is open however
 quiet that window is, stops by itself once the window has gone, and is reused
-rather than started twice.
+rather than started twice. It also covers the wizard as far as it can
+without a screen: that his drawing code is served and parses, that the page
+only asks it for things it has, and that every pose, spell and stage runs
+against a WebGL that draws nothing.
 
 `tools/package.sh` makes the two downloads: the app in a zip of its own, and
 the tool with what the app is built from. CI attaches both to a draft release

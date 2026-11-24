@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TOOL = path.join(HERE, '..', 'debloat.sh');
 const PAGE = path.join(HERE, 'ui.html');
+const MAGIC = path.join(HERE, 'magic.js');
 const BASH = fs.existsSync('/bin/bash') ? '/bin/bash' : 'bash';
 const TOKEN = crypto.randomBytes(24).toString('hex');
 // The tool's version, which is the app's: read from debloat.sh so that there
@@ -224,6 +225,17 @@ async function handle(req, res) {
       .replace('__DEBLOAT_TOKEN__', TOKEN)
       .replace('__DEBLOAT_VERSION__', VERSION);
     return send(res, 200, html, 'text/html');
+  }
+  // What draws the wizard. There is nothing secret in it, so it is served
+  // without the token, which a script tag could not send anyway. The page
+  // works without it: a copy of the app that lacks the file loses the
+  // wizard and nothing else.
+  if (req.method === 'GET' && url.pathname === '/magic.js') {
+    try {
+      return send(res, 200, fs.readFileSync(MAGIC, 'utf8'), 'text/javascript');
+    } catch (e) {
+      return send(res, 404, { error: 'not found' });
+    }
   }
   if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'not found' });
   if (!sameToken(req.headers['x-debloat-token'])) return send(res, 401, { error: 'token required' });
