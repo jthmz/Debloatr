@@ -906,6 +906,9 @@
      same place on every card and on the tally, so that none of them is
      ever where another was a moment ago. */
   .wiz-foot.deck-foot, .dialog-foot.deck-foot { display: grid; gap: 8px; justify-content: stretch; }
+  /* In a dialog the cards have a box of one height, whatever is on them:
+     a dialog that grew and shrank with each card would move the answers. */
+  .dialog-body.deck-body { height: min(56vh, 432px); }
   .deck-hint { display: flex; align-items: center; gap: 12px; min-height: 36px; color: var(--text-2); }
   .deck-keys { display: grid; grid-template-columns: auto auto minmax(0, 1fr) 160px 160px; gap: 12px; align-items: center; }
   .deck-keys .btn { height: 56px; }
@@ -4140,7 +4143,7 @@ window.DebloatWords = (() => {
     }
     const dialog = document.getElementById('dialog');
     const host = el('div', {});
-    const body = el('div', { class: 'dialog-body' }, host);
+    const body = el('div', { class: 'dialog-body deck-body' }, host);
     const foot = el('div', { class: 'dialog-foot deck-foot' });
     dialog.classList.add('wide');
     set(dialog,
