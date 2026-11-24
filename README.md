@@ -78,23 +78,30 @@ What you get:
   what the phone says is gone, each app's line gets its answer as the
   lightning reaches it, and at the end he says how many were removed, which
   Android would only let him switch off, and which the phone's maker has
-  locked. Those he remembers, and does not offer again. He offers to undo
-  it and to restart the phone, and keeps his shades on for as long as the
-  phone is clean. On the other pages he sits at the head of the page with
-  one useful thing to say, and strikes the rows you remove. In a window too
-  narrow for him to stand beside his card, the card takes the window and he
-  sits at its head.
+  locked. Those he remembers, and does not offer again, and they are no
+  longer counted anywhere as something to do. He offers to put back what can
+  be put back, and to restart the phone, which he asks about first; he keeps
+  his shades on for as long as the phone is clean. On the other pages he
+  sits at the head of the page with one useful thing to say, and strikes the
+  rows you remove. Pressing him, wherever he is, brings him out. In a window
+  too narrow for him to stand beside his card, the card takes the window and
+  he sits at its head.
 - **What cannot be undone is never done for you**. Removing an app that
   came with the phone can be undone, and a cleanup starts with those
   ticked. Deleting one that was added later cannot, so those are never
   ticked for you: you tick them, they are marked in red as deleted for
   good, and they are asked about once more, by name, with keeping them as
-  the answer under the keyboard.
+  the answer under the keyboard. The lime button is never the one that
+  deletes: a button that would is plain, with its words in red, and ends in
+  "…" because it asks first. Answer that you would rather keep them and they
+  are unticked again, so the lime button is back and only does what can be
+  undone.
 - **One at a time**. The apps under With a catch each have one. Instead of
   a list to puzzle over, they come one to a card: what it is, the catch,
-  and two big buttons, Keep or Remove, which stay where they are from the
-  first card to the last. Keep is the one under the keyboard. Nothing
-  changes until the last card, and the tally, are agreed.
+  and two big buttons, Keep or Remove, at the foot of the window: in sight
+  whatever its size, and in the same place from the first card to the last.
+  Keep is the one under the keyboard. Nothing changes until the last card,
+  and the tally, are agreed.
 - **Names you can read**. The phone only gives package names. An app the
   rules name is called that ("Moto Gametime" for `com.motorola.gamemode`), a
   few dozen apps that turn up on many phones go by their own names ("Candy
@@ -107,20 +114,24 @@ What you get:
   **Checks**: whether an installer can still put apps back, whether anything
   has come back, and what else wants a look, each with the one thing to do
   about it; then what was changed lately, with a Restore beside each; and
-  last the numbers, with how they moved since the scan before. **Review as
-  a list** is the cleanup without the wizard: everything it would do,
-  ticked, split into what can be undone and what cannot.
+  last the numbers, with how they moved since the scan before. **Review
+  cleanup** is the cleanup without the wizard: everything it would do, in
+  the order it would do it (what puts apps back goes first), split into
+  what can be undone and what cannot.
 - **The lists** from the scan, each with a filter, under plainer names than
   the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
   FIRST, **Unknown apps** is NOT CLASSIFIED. Tick apps and the actions for
   them appear: Remove, Silence, Delete for good or Restore. The pages most
   people never need (what is notifying, what nothing is known about, the
-  log) fold away under **More**.
+  log) fold away under **More**. Every page fits in the sidebar of a window
+  of the size the app opens at; in a shorter one the list of pages scrolls,
+  and says which way there is more.
 - **Find anything** (the magnifier beside the name, or Cmd-K): any app the
   scan found, any page, anything the app can do, including fetching the
   community list.
-- **Undo** on every change that has one, and **Recent changes** with a Restore
-  beside each.
+- **Undo** on every change that has one, said at the foot of the sidebar
+  where it is never on top of something to press, and **Recent changes**
+  with a Restore beside each.
 - **Activity**: what is on the phone's screen right now, a live watch for
   installs, and the phone's own answer to everything the app asked.
 - **Restart phone**, offered after a cleanup, so the lock and home screens

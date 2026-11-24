@@ -131,6 +131,11 @@ test('apps are named and described the way a person would say it', () => {
     'com.instagram.android': 'Instagram',
     'com.candy.game': 'Candy game',
     'com.verizon.remoteSimlock': 'Verizon remote SIM lock',
+    // Scraps that are there for the makers are left out, and an
+    // abbreviation that means something is said as what it means.
+    'com.vzw.apnlib': 'Verizon APN',
+    'com.verizon.mips.services': 'Verizon services',
+    'com.aura.oobe.motorola': 'Aura setup Motorola',
     // Nothing in it to read: the package name is at least true.
     'x.y': 'Y',
   };
