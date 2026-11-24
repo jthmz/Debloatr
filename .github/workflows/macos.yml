@@ -153,3 +153,12 @@ jobs:
       - name: What the app logged, if any of that failed
         if: failure()
         run: cat "$HOME/Library/Logs/maxapacity-debloat.log" "$RUNNER_TEMP/home/Library/Logs/maxapacity-debloat.log" || true
+      - name: Which adb and which PATH the app ended up with, if any of that failed
+        if: failure()
+        run: |
+          ps -axww -o pid,ppid,command | grep -E 'adb|server\.mjs' | grep -v grep || true
+          for pid in $(pgrep -f 'gui/server.mjs'); do
+            ps eww -p "$pid" | tr ' ' '\n' | grep -E '^(PATH|HOME|SHELL)=' || true
+          done
+          ls -l /opt/homebrew/bin/adb /usr/local/bin/adb 2>&1 || true
+          command -v adb || true
