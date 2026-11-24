@@ -680,7 +680,7 @@
   body.has-detail .row, body.has-detail .rows.bare .row { grid-template-columns: 16px minmax(0, 1fr) 28px; }
   body.has-detail .row .note, body.has-detail .row .chips { display: none; }
   body.has-detail .search { flex-basis: 160px; }
-  body.has-detail .pal, body.has-detail .tip { display: none; }
+  body.has-detail .pal, body.has-detail .tip, body.has-toast .tip { display: none; }
   body.has-detail .toast { right: 424px; }
   body.has-detail .bulk { left: calc(264px + (100% - 264px - 400px) / 2); max-width: calc(100% - 264px - 400px - 48px); }
   .detail-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 24px 16px 16px 24px; }
@@ -935,10 +935,18 @@ window.DebloatWords = (() => {
   // The letter on an app's tile: who it is from, or failing that its name.
   const initial = pkg => (vendorOf(pkg) || readable(pkg)).charAt(0).toUpperCase();
 
+  // What the community list says is written for a wiki: web addresses in
+  // brackets, and sometimes nothing else. Here it is the words alone.
+  function tidy(text) {
+    const words = (text || '').replace(/\(\s*https?:\/\/[^)]*\)/g, '').replace(/https?:\/\/\S+/g, '')
+      .replace(/\s+([.,;:])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+    return words.replace(/[\s:;,(]+$/, '');
+  }
+
   // "community list, expert: text" -> { rating, text }
   function community(note) {
     const found = /^community list(?:, (advanced|expert|unsafe) ?(?:to remove)?)?: (.*)$/.exec(note || '');
-    return found ? { rating: found[1] || 'recommended', text: found[2] } : null;
+    return found ? { rating: found[1] || 'recommended', text: tidy(found[2]) || 'The community list names it and says no more.' } : null;
   }
 
   // "removed, by this tool; the rules would keep it: reason" -> its parts.
@@ -1035,7 +1043,7 @@ window.DebloatWords = (() => {
     return how;
   }
 
-  return { vendorOf, readable, initial, community, offParts, reasons, describe, outcomes };
+  return { vendorOf, readable, initial, tidy, community, offParts, reasons, describe, outcomes };
 })();
 </script>
 <script>
@@ -3107,7 +3115,8 @@ window.DebloatWords = (() => {
         el('div', { class: 'deck-bar' }, el('i', { style: `width:${(at / rows.length) * 100}%` })),
         el('div', { class: 'deck-card' },
           appCell(row.pkg, said.title),
-          el('div', {}, el('h3', {}, 'What it is, and the catch'), el('p', {}, said.about || 'The rules say to ask first, and no more than that.')),
+          el('div', {}, el('h3', {}, Words.community(row.note) ? 'What the community list says' : 'What it is, and the catch'),
+            el('p', {}, said.about || 'The rules say to ask first, and no more than that.')),
           el('div', {}, el('h3', {}, 'If you remove it'), el('p', {}, row.app
             ? 'It is uninstalled for good, with its data. The Play Store is the only way back.'
             : 'It is taken off for this user. Already off brings it back whenever you like.')),
@@ -3241,8 +3250,12 @@ window.DebloatWords = (() => {
   function toast(text, { tone = '', undo = null } = {}) {
     const node = document.getElementById('toast');
     clearTimeout(toastTimer);
-    const close = () => node.classList.remove('show');
+    const close = () => {
+      node.classList.remove('show');
+      document.body.classList.remove('has-toast');
+    };
     node.className = `toast show ${tone}`;
+    document.body.classList.add('has-toast');
     set(node,
       el('span', {}, text),
       undo ? el('button', { class: 'btn small', onclick: () => { close(); undo(); } }, icon('undo', 12), 'Undo') : null);

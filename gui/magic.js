@@ -497,6 +497,8 @@
       phoneScreen: null,
       visible: false,
       stage: '',
+      swayX: 0,             // how far the eye has moved with the pointer
+      swayY: 0,
     };
     const wizard = {
       base: 'idle', baseSince: 0, once: null, onceSince: 0, shades: false, talk: 0,
@@ -680,9 +682,13 @@
       const t = Math.tan(fov / 2);
       const dist = Math.max(tall / (2 * t * fh), wide / (2 * t * aspect * fw));
       const lift = dist * 0.11;
-      eye[0] = cx; eye[1] = cy + lift; eye[2] = dist;
-      // Look at the centre from a little above.
-      let zx = 0, zy = lift, zz = dist;
+      // The eye moves a little against the pointer, which is what makes
+      // near things slide over far ones: the scene has depth to look into.
+      eye[0] = cx - scene.swayX * dist * 0.1;
+      eye[1] = cy + lift + scene.swayY * dist * 0.05;
+      eye[2] = dist;
+      // Look at the centre from there: a little above, as a rule.
+      let zx = eye[0] - cx, zy = eye[1] - cy, zz = dist;
       let l = Math.hypot(zx, zy, zz);
       zx /= l; zy /= l; zz /= l;
       let xx = zz, xz = -zx;
@@ -1218,6 +1224,14 @@
         gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
       }
 
+      // Where the pointer is, measured from the middle of the stage, moves
+      // the eye; when it has been still a while the eye drifts home.
+      const moving = !settings.still && pointer.x >= 0 && performance.now() - pointer.at < 4000;
+      const wantX = moving ? clamp((pointer.x - (rect.left + rect.width / 2)) / innerWidth, -0.5, 0.5) : 0;
+      const wantY = moving ? clamp((pointer.y - (rect.top + rect.height / 2)) / innerHeight, -0.5, 0.5) : 0;
+      const ease3 = settings.still ? 1 : 1 - Math.exp(-3 * dt);
+      scene.swayX += (wantX - scene.swayX) * ease3;
+      scene.swayY += (wantY - scene.swayY) * ease3;
       frame(rect, shot.box[0], shot.box[1], shot.box[2], shot.box[3], into);
       scene.phoneShown += ((kind === 'side' ? 0 : 1) - scene.phoneShown) * (settings.still ? 1 : 1 - Math.exp(-8 * dt));
       identity(STACK[0]);
