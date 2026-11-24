@@ -1785,11 +1785,15 @@ window.DebloatWords = (() => {
       wait(now + 1000);
       return;
     }
-    // Rule 3. The list of pages is left to its own rule.
-    const node = thing(event.target);
+    // Rule 3. The list of pages is left to its own rule. In a narrow
+    // window the page left beside an open panel is dimmed, and a press on
+    // it closes the panel: that is a thing to press as well, and was not
+    // there before the panel came.
+    const scrim = state.detail && event.target === mainNode && matchMedia('(max-width: 960px)').matches;
+    const node = scrim ? mainNode : thing(event.target);
     const near = byHand && node && !on('#side nav') && now - pressed.at < 1000 && Math.abs(x - pressed.x) < REACH && Math.abs(y - pressed.y) < REACH;
     const box = near ? node.getBoundingClientRect() : null;
-    const what = near ? called(node) : '';
+    const what = !near ? '' : scrim ? 'the dimmed page' : called(node);
     const again = near && !pressed.around.some(was => was.what === what && Math.abs(was.left - box.left) < 4 && Math.abs(was.top - box.top) < 4);
     // The strips that bring more of a list up are pressed again and again
     // on purpose and can do no harm, so they are always let through. They
@@ -1808,7 +1812,14 @@ window.DebloatWords = (() => {
     if (refused) {
       event.stopPropagation();
       event.preventDefault();
-      if (byHand) pressed.at = now;
+      // The second starts again from here, and so does the place: a hand
+      // that goes on pressing and wanders is followed. What was there to
+      // be pressed is still as it was at the last press that was taken.
+      if (byHand) {
+        pressed.at = now;
+        pressed.x = x;
+        pressed.y = y;
+      }
       wait(now + 1000);
       // In the list of pages, too, a hand that goes on pressing waits on.
       if (unsettled) shifted = now;
@@ -1817,6 +1828,11 @@ window.DebloatWords = (() => {
     }
     if (byHand) pressed = { at: now, x, y, around: around(x, y) };
   }, true);
+  // A list turned with the wheel between two presses has moved because it
+  // was meant to: what is under the pointer then is what is looked at, and
+  // the third rule has nothing to say about it. Ticking down a list a line
+  // at a time is done just so.
+  document.addEventListener('wheel', () => { pressed.at = 0; }, { passive: true, capture: true });
 
   const GONE = 'The helper behind this window has stopped. Open MAXAPACITY Debloat again.';
 
@@ -2709,22 +2725,37 @@ window.DebloatWords = (() => {
       const line = event.target.closest(RESTS);
       if (line && scroller.contains(line) && outOfSight(line, scroller.getBoundingClientRect())) bring(line, 'auto');
     });
-    // The box changes its size with a list at its end: the line that was at
-    // the upper end is no longer, and the one before it is cut through
-    // there. The first line in sight is brought back to the upper end.
+    // The box changes its size. Room it was given past the end of a list
+    // no longer fits it (too much, and there is a hole under the bar of the
+    // group again; too little, and the last lines are short of the upper
+    // end), so it is taken back. Then, with or without it, a line that the
+    // change has left cut through at the upper end is brought up to it
+    // whole, with whatever room that now takes. A window being pulled to a
+    // new size changes the box several times over, and this is done each
+    // time. (Only a change of size does it: the room given changes what
+    // the box holds, which some browsers also report here.)
+    let size = '';
     const fit = () => {
-      if (slack && node.isConnected) {
-        const box = scroller.getBoundingClientRect();
-        const upper = upperEnd(box);
+      const now = `${scroller.clientWidth}x${scroller.clientHeight}`;
+      if (node.isConnected && size && now !== size) {
+        if (slack) {
+          slack = 0;
+          scroller.style.paddingBottom = '';
+        }
+        const upper = upperEnd(scroller.getBoundingClientRect());
         const line = [...scroller.querySelectorAll(RESTS)].find(part => part.getBoundingClientRect().bottom > upper + 1);
-        if (line && outOfSight(line, box)) bring(line, 'auto');
+        const at = line ? line.getBoundingClientRect() : null;
+        if (at && at.top < upper - 1 && at.height < scroller.clientHeight * 0.75) bring(line, 'auto');
       }
+      size = now;
       update();
     };
     // Pressed, it does not take the keyboard from where it was: from the
     // field of Find anything, or from the safe answer of a question.
     button.addEventListener('mousedown', event => event.preventDefault());
     scroller.addEventListener('scroll', update, { passive: true });
+    // A card comes up into its place: it is measured again where it rests.
+    scroller.addEventListener('animationend', update);
     if ('ResizeObserver' in window) new ResizeObserver(fit).observe(scroller);
     new MutationObserver(update).observe(scroller, { childList: true, subtree: true });
     requestAnimationFrame(update);
@@ -3626,6 +3657,10 @@ window.DebloatWords = (() => {
       await act('cleanup', chosen.map(r => r.pkg));
     };
     dialog.showModal();
+    // The way out is where the keyboard starts, as in every question: left
+    // to itself it starts on the list as a whole, which shows as a ring
+    // round the box and answers to nothing.
+    cancel.focus({ preventScroll: true });
     settle();
   }
 
@@ -4233,8 +4268,13 @@ window.DebloatWords = (() => {
 
   function openDetail(pkg) {
     // The panel comes up over part of the list: a second press of the row
-    // that opened it must not land on the panel's buttons.
+    // that opened it must not land on the panel's buttons. Open already,
+    // and going over to another app, its buttons are that app's now, in
+    // the same places and with the same words on them: they wait their
+    // second like any that have just come, and each is named for its app,
+    // so that it is a different thing to press from the one before.
     if (!state.detail) settle();
+    else if (state.detail !== pkg) wait(performance.now() + 1000);
     state.detail = pkg;
     renderDetail();
     syncMagic();
@@ -4319,14 +4359,14 @@ window.DebloatWords = (() => {
     };
     const buttons = kept ? null
       : stuck ? [el('div', { class: 'pair' },
-        el('button', { class: 'btn commits', disabled: busy, onclick: () => one(row.app ? 'uninstall' : 'remove', row.app) }, icon('refresh'), 'Try again')),
+        el('button', { class: 'btn commits', 'aria-label': `Try again to remove ${said.title}`, disabled: busy, onclick: () => one(row.app ? 'uninstall' : 'remove', row.app) }, icon('refresh'), 'Try again')),
       el('p', {}, 'A system update can lift a lock like this. Trying again does no harm.')]
-      : off ? el('div', { class: 'pair' }, el('button', { class: 'btn primary commits', disabled: busy, onclick: () => one('restore') }, icon('restore'), 'Put back'))
+      : off ? el('div', { class: 'pair' }, el('button', { class: 'btn primary commits', 'aria-label': `Put ${said.title} back`, disabled: busy, onclick: () => one('restore') }, icon('restore'), 'Put back'))
         // Not lime: it cannot be undone. It asks first, and says so.
-        : row.app ? el('div', { class: 'pair' }, el('button', { class: 'btn risky commits', disabled: busy, onclick: () => one('uninstall', true) }, icon('trash'), 'Delete for good…'))
+        : row.app ? el('div', { class: 'pair' }, el('button', { class: 'btn risky commits', 'aria-label': `Delete ${said.title} for good…`, disabled: busy, onclick: () => one('uninstall', true) }, icon('trash'), 'Delete for good…'))
           : [el('div', { class: 'pair' },
-            el('button', { class: 'btn primary commits', disabled: busy, onclick: () => one('remove') }, icon('trash'), 'Remove'),
-            el('button', { class: 'btn commits', disabled: busy, onclick: () => one('mute') }, icon('mute'), 'Silence')),
+            el('button', { class: 'btn primary commits', 'aria-label': `Remove ${said.title}`, disabled: busy, onclick: () => one('remove') }, icon('trash'), 'Remove'),
+            el('button', { class: 'btn commits', 'aria-label': `Silence ${said.title}`, disabled: busy, onclick: () => one('mute') }, icon('mute'), 'Silence')),
           el('p', {}, 'Silence leaves the app where it is, and stops its notifications and anything it does in the background.')];
 
     const head = el('div', { class: 'detail-head' },
@@ -4355,9 +4395,11 @@ window.DebloatWords = (() => {
           el('p', {}, sureOf(pkg) ? 'The phone knows this app by its package name, shown under the name above.'
             : 'The phone only gives this app\'s package name, shown under the name above. The name is a reading of it, so the phone may call the app something else.'),
           el('div', { class: 'detail-links' },
-            el('button', { class: 'btn small', onclick: event => copy(pkg, event.currentTarget) }, icon('copy', 16), 'Copy package name'),
+            el('button', { class: 'btn small', 'aria-label': `Copy the package name of ${said.title}`, onclick: event => copy(pkg, event.currentTarget) }, icon('copy', 16), 'Copy package name'),
+            // It sends the package name off this computer: it waits like a
+            // button that changes the phone.
             el('a', {
-              class: 'btn small', target: '_blank', rel: 'noopener noreferrer',
+              class: 'btn small commits', target: '_blank', rel: 'noopener noreferrer', 'aria-label': `Look ${said.title} up on the web`,
               href: `https://www.google.com/search?q=${encodeURIComponent(`"${pkg}" android`)}`,
             }, icon('external', 16), 'Look it up on the web'))));
     panel.hidden = false;

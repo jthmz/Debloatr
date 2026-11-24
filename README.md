@@ -104,9 +104,10 @@ What you get:
   let through, only one that has been still. The cards' keys wait the same
   way. And for a second after any press, another one near it is taken only
   by what was already there: whatever has just come under the pointer, or
-  moved there, takes nothing. A press on a button that is switched off
-  while the phone is busy counts as a press too. Unsteady hands press
-  twice.
+  moved there, takes nothing. An app's panel that goes over to another app
+  has that app's buttons, which wait their second like any others that
+  have just come. A press on a button that is switched off while the phone
+  is busy counts as a press too. Unsteady hands press twice.
 - **One at a time**. The apps under With a catch each have one. Instead of
   a list to puzzle over, they come one to a card: what it is, the catch,
   and two big buttons, Keep or Remove, at the foot of the window: in sight
@@ -174,7 +175,8 @@ The app is a front for `debloat.sh`: it cannot do anything the commands below
 cannot, and the same safety rules apply. It listens on this computer only, and
 no other web page can talk to it. Nothing leaves this computer unless you ask:
 fetching the community list is one download, and **Look it up on the web**
-opens a search for a package name in your browser. It runs from a copy of
+opens a search for a package name in your browser. That link waits like a
+button that changes the phone, so that it is not pressed by mistake. It runs from a copy of
 its files in `~/Library/Application Support/MAXAPACITY Debloat`, so it keeps
 working if the app is moved or replaced while open. Its log is
 `~/Library/Logs/maxapacity-debloat.log`.
