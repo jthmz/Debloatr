@@ -1,0 +1,1521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="debloat-token" content="__DEBLOAT_TOKEN__">
+<meta name="debloat-version" content="__DEBLOAT_VERSION__">
+<title>MAXAPACITY Debloat</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5.5' fill='%2316171a'/%3E%3Cpath transform='translate(4.8 4.8) scale(.6)' fill='%23bfff00' d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/%3E%3C/svg%3E">
+<!--
+  The page for gui/server.mjs. One file, no external resources.
+
+  Design rules it keeps to (the project's UI guardrails):
+    - one accent, charged lime, only on the action about to be taken;
+      green / amber / red only for status and for change since the last scan
+    - spacing on 4 8 12 16 24 32 48 64; cards 16px radius, controls 8px, pills full
+    - four type sizes (12 14 16 24) and two weights (400 600); numbers in mono
+    - every view has empty, loading, error and populated states
+    - the sidebar is the only navigation; changes are undoable where they can be
+
+  Icons are from Lucide (https://lucide.dev), ISC License, copyright (c) Lucide
+  Contributors 2022 and, for portions, Cole Bemis 2013-2022 (Feather, MIT).
+-->
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #16171a;
+    --surface-2: #1e2024;
+    --surface-3: #272a2f;
+    --line: #2b2d33;
+    --text: #f3f3ef;
+    --text-2: #b2b4bc;
+    --text-3: #8b8e97;
+    --accent: hsl(75 100% 50%);
+    --accent-hover: hsl(75 100% 58%);
+    --accent-edge: hsl(75 100% 50%);
+    --accent-ink: #12160a;
+    --glow: hsl(75 100% 50% / 0.07);
+    --focus: hsl(75 100% 50%);
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --scrim: rgb(0 0 0 / 0.6);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.24);
+    --shadow-float: 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 48px rgb(0 0 0 / 0.45);
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --ease: 160ms ease-out;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f5f2;
+      --surface: #ffffff;
+      --surface-2: #f0f0ec;
+      --surface-3: #e6e6e1;
+      --line: #e0e0da;
+      --text: #17181a;
+      --text-2: #4f5157;
+      --text-3: #62656c;
+      --accent-edge: #6a8f00;
+      --glow: hsl(75 100% 45% / 0.14);
+      --focus: #4d6600;
+      --ok: #166534;
+      --warn: #92400e;
+      --bad: #b91c1c;
+      --scrim: rgb(20 20 20 / 0.35);
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px rgb(0 0 0 / 0.06);
+      --shadow-float: 0 2px 4px rgb(0 0 0 / 0.08), 0 16px 48px rgb(0 0 0 / 0.16);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 14px/1.45 var(--sans);
+    display: grid;
+    grid-template-columns: 264px minmax(0, 1fr);
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  svg { flex: none; }
+
+  /* ---- Sidebar: the only navigation ---- */
+  /* The brand, the phone and the footnote stay put; in a short window it is
+     the list of sections that scrolls. */
+  .side {
+    border-right: 1px solid var(--line);
+    padding: 24px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; }
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    display: grid;
+    place-items: center;
+  }
+  .brand b { display: block; font-weight: 600; letter-spacing: 0.06em; line-height: 1.2; }
+  .brand span { color: var(--text-3); font-size: 12px; }
+
+  .phone {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+  }
+  .phone-head { display: flex; gap: 12px; align-items: flex-start; }
+  .phone-head svg { color: var(--text-3); margin-top: 2px; }
+  .phone-name { font-weight: 600; overflow-wrap: anywhere; }
+  .phone-meta { color: var(--text-2); font-size: 12px; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
+  .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--text-3); flex: none; }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--warn); }
+  .dot.bad { background: var(--bad); }
+  .phone select { width: 100%; }
+
+  /* The negative margin and matching padding leave room for a focus ring
+     inside the scrolling box, which would otherwise clip it. */
+  nav {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    margin: -4px -8px;
+    padding: 4px 8px;
+  }
+  .nav-label {
+    padding: 12px 8px 4px;
+    font-size: 12px;
+    color: var(--text-3);
+    letter-spacing: 0.04em;
+  }
+  .nav-item {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--text-2);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--ease), color var(--ease);
+  }
+  .nav-item span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-item:hover { background: var(--surface-2); color: var(--text); }
+  .nav-item[aria-current="page"] { background: var(--surface-3); color: var(--text); font-weight: 600; }
+  .nav-count { font-size: 12px; color: var(--text-3); }
+  .nav-item[aria-current="page"] .nav-count { color: var(--text-2); }
+  .nav-count.warn { color: var(--warn); }
+  /* A hairline over the footnote, edge to edge, so a list that scrolls
+     visibly passes under it. In a short window the footnote makes way. */
+  .side-foot {
+    margin: 0 -16px;
+    padding: 12px 24px 0;
+    border-top: 1px solid var(--line);
+    color: var(--text-3);
+    font-size: 12px;
+  }
+  @media (max-height: 808px) {
+    .side-foot { display: none; }
+  }
+
+  /* ---- Main ---- */
+  main { overflow-y: auto; padding: 32px 48px 96px; }
+  .wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px; }
+  h1 { margin: 0; font-size: 24px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+  h1 .mono { color: var(--text-3); font-weight: 400; margin-left: 8px; }
+  h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .blurb { margin: 8px 0 0; color: var(--text-2); max-width: 72ch; }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: clip;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 16px 12px;
+  }
+
+  .btn, .field, select {
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: transparent;
+    padding: 0 12px;
+    transition: background var(--ease), border-color var(--ease), color var(--ease), opacity var(--ease);
+  }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--text-3); }
+  .btn:disabled { color: var(--text-3); cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent-edge); color: var(--accent-ink); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-edge); }
+  .btn.primary:disabled { background: var(--surface-2); border-color: var(--line); color: var(--text-3); }
+  .btn.wide { width: 100%; }
+  .btn.quiet { border-color: transparent; color: var(--text-2); }
+  .btn.quiet:hover:not(:disabled) { color: var(--text); border-color: transparent; }
+  .btn.small { height: 28px; padding: 0 8px; font-size: 12px; }
+
+  .search { position: relative; flex: 0 1 264px; min-width: 120px; }
+  .search svg { position: absolute; left: 12px; top: 10px; color: var(--text-3); pointer-events: none; }
+  .field { width: 100%; padding-left: 36px; }
+  .field::placeholder { color: var(--text-3); }
+  .field:hover, select:hover { border-color: var(--text-3); }
+  select { appearance: none; background: var(--surface); }
+
+  input[type="checkbox"] {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex: none;
+    border: 1px solid var(--text-3);
+    border-radius: 4px;
+    background: transparent center / 12px 12px no-repeat;
+    cursor: pointer;
+    transition: background-color var(--ease), border-color var(--ease);
+  }
+  input[type="checkbox"]:hover { border-color: var(--text-2); }
+  input[type="checkbox"]:checked, input[type="checkbox"]:indeterminate {
+    background-color: var(--accent);
+    border-color: var(--accent-edge);
+  }
+  input[type="checkbox"]:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2312160a' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:indeterminate {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2312160a' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:disabled { opacity: 0.4; cursor: default; }
+
+  /* ---- Overview ---- */
+  .hero {
+    position: relative;
+    padding: 32px;
+    display: grid;
+    gap: 24px;
+    /* The one glow on the page: it sits behind the next thing to do. */
+    background: radial-gradient(480px 240px at 100% 0%, var(--glow), transparent 70%), var(--surface);
+  }
+  .hero-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
+  .hero-number { font-size: 24px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; max-width: 28ch; margin-top: 12px; }
+  .hero p { margin: 8px 0 0; color: var(--text-2); max-width: 64ch; }
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .hero-actions .hint { color: var(--text-3); font-size: 12px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .tile { padding: 16px; display: grid; gap: 12px; transition: box-shadow var(--ease), border-color var(--ease); }
+  .tile:hover { border-color: var(--text-3); box-shadow: var(--shadow), 0 0 0 4px var(--glow); }
+  .tile-label { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12px; }
+  .tile-label svg { color: var(--text-3); }
+  .tile-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .tile-value { font: 600 24px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .tile-foot { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); min-height: 20px; }
+  .delta { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .delta.good { color: var(--ok); }
+  .delta.bad { color: var(--bad); }
+  .spark { color: var(--text-3); }
+
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .plan-row, .change-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    align-items: center;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+  }
+  .plan-row .what { font-weight: 600; }
+  .plan-row .how, .plan-row .names { color: var(--text-2); font-size: 12px; grid-column: 1 / -1; overflow-wrap: anywhere; }
+  .plan-row .names { color: var(--text-3); }
+  .plan-row .n { font: 600 16px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .change-row .pkg { font-size: 12px; }
+  .change-row .when { color: var(--text-3); font-size: 12px; }
+  .change-row.pending { opacity: 0.45; }
+
+  /* ---- Lists ---- */
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .toolbar .count { color: var(--text-2); font-size: 12px; }
+  .toolbar .grow { flex: 1; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 6fr) minmax(0, 5fr) 208px;
+    gap: 16px;
+    align-items: center;
+    min-height: 44px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    transition: background var(--ease), opacity var(--ease);
+  }
+  .row:last-child { border-bottom: 0; }
+  .row:hover, .row.selected { background: var(--surface-2); }
+  .row.static { cursor: default; }
+  .row.static:hover { background: none; }
+  .row.pending { opacity: 0.45; pointer-events: none; }
+  .pkg { overflow-wrap: anywhere; }
+  .note { color: var(--text-2); overflow-wrap: anywhere; }
+  .row.plain .note { grid-column: 3 / -1; }
+  .row.plain .chips { display: none; }
+  .row.bare .pkg { grid-column: 2 / 4; }
+  .row.bare .note { display: none; }
+  .chips { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .chip {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .chip.warn { color: var(--warn); border-color: currentColor; }
+
+  /* The actions for a selection appear with it, and stay in reach while the
+     list scrolls underneath. */
+  .bulk {
+    position: fixed;
+    left: calc(264px + (100% - 264px) / 2);
+    bottom: 24px;
+    transform: translate(-50%, 16px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px 8px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    box-shadow: var(--shadow-float);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform var(--ease), opacity var(--ease);
+    z-index: 2;
+    max-width: calc(100% - 264px - 48px);
+  }
+  .bulk.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+  .bulk .n { font-weight: 600; white-space: nowrap; }
+  .bulk .sep { width: 1px; height: 20px; background: var(--line); }
+
+  /* ---- States ---- */
+  .state { padding: 48px 24px; display: grid; gap: 16px; justify-items: center; text-align: center; }
+  .state.compact { padding: 32px 16px; border-top: 1px solid var(--line); }
+  .state svg { color: var(--text-3); }
+  .state.error svg { color: var(--bad); }
+  .state p { margin: 0; max-width: 56ch; color: var(--text-2); }
+  .state strong { font-size: 16px; font-weight: 600; color: var(--text); max-width: 48ch; }
+  .state ol { margin: 0; padding-left: 16px; text-align: left; color: var(--text-2); display: grid; gap: 4px; }
+
+  .bone {
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .skeleton .row { cursor: default; }
+  .skeleton .row:hover { background: none; }
+
+  /* ---- Activity ---- */
+  .entry { padding: 16px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+  .entry:last-child { border-bottom: 0; }
+  .entry-head { display: flex; gap: 12px; align-items: baseline; }
+  .entry-head time { color: var(--text-3); font-size: 12px; }
+  .entry-head b { font-weight: 600; }
+  .entry-head .live { color: var(--ok); font-size: 12px; }
+  pre {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font: 400 12px/1.5 var(--mono);
+    color: var(--text-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 384px;
+    overflow: auto;
+  }
+
+  /* ---- Toast and dialogs ---- */
+  .toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    box-shadow: var(--shadow-float);
+    transform: translateY(16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform var(--ease), opacity var(--ease), bottom var(--ease);
+    z-index: 3;
+  }
+  .toast.show { transform: none; opacity: 1; pointer-events: auto; }
+  .toast.warn { border-color: var(--warn); }
+  .toast.bad { border-color: var(--bad); }
+  body.has-bulk .toast { bottom: 96px; }
+
+  dialog {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-float);
+    padding: 0;
+    width: min(480px, calc(100% - 48px));
+  }
+  dialog.wide { width: min(760px, calc(100% - 48px)); }
+  dialog::backdrop { background: var(--scrim); }
+  .dialog-head { padding: 24px 24px 16px; }
+  .dialog-head p { margin: 8px 0 0; color: var(--text-2); }
+  .dialog-body { max-height: min(56vh, 520px); overflow: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .dialog-foot { display: flex; align-items: center; gap: 12px; padding: 16px 24px; }
+  .dialog-foot .grow { flex: 1; color: var(--text-2); font-size: 12px; }
+  .group-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 24px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .group-head b { font-weight: 600; }
+  .group-head span { color: var(--text-2); font-size: 12px; }
+  .dialog-body .row { grid-template-columns: 16px minmax(0, 6fr) minmax(0, 5fr); padding: 12px 24px; }
+  .dialog-body .row .note { grid-column: 3; }
+
+  @media (max-width: 960px) {
+    body { grid-template-columns: 232px minmax(0, 1fr); }
+    main { padding: 24px 24px 96px; }
+    .split { grid-template-columns: minmax(0, 1fr); }
+    .row { grid-template-columns: 16px minmax(0, 1fr) auto; }
+    .row .note, .row.plain .note { grid-column: 2 / -1; grid-row: 2; }
+    .row.bare .pkg { grid-column: 2; }
+    .bulk { left: calc(232px + (100% - 232px) / 2); max-width: calc(100% - 232px - 32px); }
+    .dialog-body .row { grid-template-columns: 16px minmax(0, 1fr); }
+    .dialog-body .row .note { grid-column: 2; }
+  }
+  @media (max-width: 760px) {
+    .tiles { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+    .bone { animation: none; }
+  }
+</style>
+</head>
+<body>
+<aside class="side" id="side"></aside>
+<main><div class="wrap" id="main"></div></main>
+<div class="bulk" id="bulk" role="region" aria-label="Selection"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog id="dialog"></dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const TOKEN = document.querySelector('meta[name="debloat-token"]').content;
+  // Filled in by the helper; left as it is when the page is opened as a file.
+  const VERSION = document.querySelector('meta[name="debloat-version"]').content.replace(/^__.*__$/, '');
+
+  const ICONS = {
+    zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+    overview: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+    phone: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+    trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+    mute: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/>',
+    restore: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+    question: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+    box: '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/><path d="m7.5 4.27 9 5.15"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+    bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+    off: '<path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"/><path d="M12 2v4"/><path d="m2 2 20 20"/>',
+    power: '<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>',
+    activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    done: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    review: '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+    eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+    radio: '<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    down: '<path d="m7 7 10 10"/><path d="M17 7v10H7"/>',
+    up: '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
+    flat: '<path d="M5 12h14"/>',
+  };
+
+  // Every destination. "primary" and "secondary" name the action behind the
+  // buttons that appear once something in the list is selected.
+  const VIEWS = {
+    overview: { label: 'Overview', icon: 'overview' },
+    remove: { label: 'Remove', icon: 'trash', primary: 'remove', secondary: 'mute',
+      blurb: 'Matched by a rule marked safe: sponsored-app installers, lock screen feeds, carrier and maker promos. Removing takes an app off for this user and can be undone from Already off.',
+      empty: 'Nothing the rules know about is left to remove.' },
+    ask: { label: 'Ask first', icon: 'question', primary: 'remove', secondary: 'mute',
+      blurb: 'Matched by a rule with a real downside, shown beside each app. Read it before you remove one.',
+      empty: 'Nothing here needs a second look.' },
+    pushed: { label: 'Pushed apps', icon: 'box', primary: 'uninstall',
+      blurb: 'Regular apps that a sponsored-app installer put on the phone. Uninstalling deletes their data, and the only way back is the Play Store.',
+      empty: 'No app on this phone was added by a sponsored-app installer.' },
+    back: { label: 'Came back', icon: 'undo', primary: 'remove',
+      blurb: 'Removed earlier and on the phone again. Remove the installers under Remove as well, or they will keep returning.',
+      empty: 'Nothing has come back since you removed it.' },
+    notifying: { label: 'Notifying now', icon: 'bell', primary: 'remove', secondary: 'mute',
+      blurb: 'Apps with a notification up at the moment of the scan. Wake the phone to the screen with the junk on it, then scan again.',
+      empty: 'No app has a notification up right now.' },
+    unknown: { label: 'Not classified', icon: 'help', primary: 'remove', secondary: 'mute',
+      blurb: 'Preinstalled apps no rule covers, with the folder each lives in as a hint. Nothing here is touched unless you pick it. Removing one is your call: it can be restored, but the tool cannot tell you what it does.',
+      empty: 'Every preinstalled app is covered by a rule.' },
+    other: { label: 'Other installs', icon: 'box', primary: 'uninstall',
+      blurb: 'Installed or last updated by something other than you or an app store. Left alone unless you pick one.',
+      empty: 'No app was added by another app.' },
+    off: { label: 'Already off', icon: 'off', primary: 'restore',
+      blurb: 'Removed or switched off for this user, by this tool or anything else. Restore brings one back.',
+      empty: 'Nothing is switched off or removed.' },
+    keep: { label: 'Kept on purpose', icon: 'shield',
+      blurb: 'The rules keep these because the phone needs them to stay on its network or to be carrier-unlocked.',
+      empty: 'No carrier or unlock services were found.' },
+    activity: { label: 'Activity', icon: 'activity' },
+  };
+  const NAV = [
+    { items: ['overview'] },
+    { label: 'Clean up', items: ['remove', 'ask', 'pushed', 'back'] },
+    { label: 'Look closer', items: ['notifying', 'unknown', 'other'] },
+    { label: 'Already handled', items: ['off', 'keep'] },
+    { label: 'Log', items: ['activity'] },
+  ];
+  const WORDS = {
+    remove: { verb: 'Remove', icon: 'trash' },
+    mute: { verb: 'Silence', icon: 'mute' },
+    restore: { verb: 'Restore', icon: 'restore' },
+    uninstall: { verb: 'Uninstall', icon: 'trash' },
+    cleanup: { verb: 'Clean up', icon: 'review' },
+  };
+  const DID = { removed: 'removed', uninstalled: 'uninstalled', disabled: 'switched off', muted: 'silenced' };
+
+  const state = {
+    status: 'loading',      // loading | ready | error
+    error: '',
+    waiting: '',            // what the loading state is waiting for, when not a scan
+    phones: [],
+    serial: '',
+    scan: null,
+    view: 'overview',
+    selected: new Set(),
+    pending: new Set(),
+    filter: '',
+    log: [],
+    watch: null,
+    counted: false,
+    needsRestart: false,
+    helper: true,           // false once the helper behind this page has gone
+  };
+  const ui = {};
+
+  // ---- Small helpers -------------------------------------------------------
+
+  function el(tag, attrs = {}, ...kids) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs)) {
+      if (value === false || value == null) continue;
+      if (key === 'class') node.className = value;
+      else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+      else if (value === true) node.setAttribute(key, '');
+      else node.setAttribute(key, value);
+    }
+    for (const kid of kids.flat(Infinity)) {
+      if (kid == null || kid === false) continue;
+      node.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+    }
+    return node;
+  }
+
+  function icon(name, size = 16) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [k, v] of Object.entries({
+      viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor',
+      'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true',
+    })) svg.setAttribute(k, v);
+    svg.innerHTML = ICONS[name];
+    return svg;
+  }
+
+  // Replace a node's children, skipping the nothings a conditional leaves.
+  const set = (node, ...kids) => node.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
+  const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clock = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const query = () => (state.serial ? `?serial=${encodeURIComponent(state.serial)}` : '');
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  // "2026-11-23T22:08:41Z" -> "3 min ago"
+  function ago(iso) {
+    const then = Date.parse(iso);
+    if (Number.isNaN(then)) return '';
+    const s = (Date.now() - then) / 1000;
+    if (s < 45) return 'just now';
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    if (s < 172800) return 'yesterday';
+    return new Date(then).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  // Seconds since 1970 -> "21:04", or "Nov 22, 21:04" when not today.
+  function at(seconds) {
+    const d = new Date(seconds * 1000);
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    return d.toDateString() === new Date().toDateString()
+      ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
+  }
+
+  function countUp(node, target, animate) {
+    if (!animate || still() || target === 0) {
+      node.textContent = target;
+      return;
+    }
+    const start = performance.now();
+    const step = now => {
+      const t = Math.min(1, (now - start) / 200);
+      node.textContent = Math.round(target * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  const GONE = 'The helper behind this window has stopped. Open MAXAPACITY Debloat again.';
+
+  async function api(path, options = {}) {
+    try {
+      const res = await fetch(path, {
+        method: options.method || 'GET',
+        headers: { 'x-debloat-token': TOKEN, ...(options.body ? { 'content-type': 'application/json' } : {}) },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+      if (res.status === 401) renew();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data.error || 'The helper refused that request.' };
+      return data;
+    } catch (e) {
+      return { ok: false, error: GONE };
+    }
+  }
+
+  // ---- Staying in touch with the helper ------------------------------------
+
+  // A helper that does not know this page's token is a newer one at the same
+  // address: the app was opened again. Load the page it serves. Once is
+  // enough; the note in sessionStorage stops this from ever looping.
+  function renew() {
+    try {
+      if (Date.now() - Number(sessionStorage.getItem('debloat-renewed') || 0) < 15000) return;
+      sessionStorage.setItem('debloat-renewed', String(Date.now()));
+    } catch (e) { /* no storage here: reload all the same */ }
+    location.reload();
+  }
+
+  function helperIs(up) {
+    if (state.helper === up) return;
+    state.helper = up;
+    if (!up) fail(GONE);
+    else if (state.status === 'error') scan();
+  }
+
+  // One request that never finishes tells the helper this window is open, for
+  // as long as it is. A timer would not do: browsers slow the timers of a
+  // window nobody is looking at. Its ending is also how this page knows the
+  // helper has gone, and says so before anything is clicked.
+  async function hold() {
+    for (;;) {
+      let res = null;
+      try {
+        res = await fetch('/api/hold', { headers: { 'x-debloat-token': TOKEN } });
+      } catch (e) { /* nothing is listening */ }
+      if (res && res.status === 401) renew();
+      if (res && res.ok) {
+        helperIs(true);
+        try {
+          const reader = res.body.getReader();
+          while (!(await reader.read()).done) { /* held open */ }
+        } catch (e) { /* cut off */ }
+        await sleep(500);
+      } else {
+        helperIs(false);
+        await sleep(2000);
+      }
+    }
+  }
+
+  // Opening the app while a window is already open brings up a new window.
+  // The older one steps aside, so there is only ever one to look at. Only a
+  // newly opened window announces itself: one that merely reloaded must not
+  // close the window the app has just put in front.
+  function oneWindow() {
+    if (!('BroadcastChannel' in window)) return;
+    const born = Date.now() + Math.random();
+    const channel = new BroadcastChannel('maxapacity-debloat');
+    const leave = () => {
+      if (state.pending.size) setTimeout(leave, 500);
+      else window.close();
+    };
+    channel.onmessage = event => {
+      if (event.data && event.data.born > born) leave();
+    };
+    const [arrival] = performance.getEntriesByType('navigation');
+    if (!arrival || arrival.type === 'navigate') channel.postMessage({ born });
+  }
+
+  function log(title, body, live = false) {
+    const entry = { time: clock(), title, body: body || '', live };
+    state.log.unshift(entry);
+    if (state.log.length > 60) state.log.pop();
+    return entry;
+  }
+
+  // ---- Talking to the phone ------------------------------------------------
+
+  async function scan({ quiet = false } = {}) {
+    if (!quiet) {
+      state.status = 'loading';
+      state.waiting = '';
+      render();
+    }
+    const found = await api('/api/phones');
+    if (found.ok === false) return fail(found.error);
+    state.phones = found.phones || [];
+    const ready = state.phones.filter(p => p.state === 'device');
+    if (!ready.some(p => p.serial === state.serial)) state.serial = ready.length ? ready[0].serial : '';
+
+    const result = await api(`/api/scan${query()}`);
+    if (!result.ok) return fail(result.error);
+    state.scan = result;
+    state.status = 'ready';
+    state.error = '';
+    const here = new Set(rows().map(r => r.pkg));
+    for (const pkg of [...state.selected]) if (!here.has(pkg)) state.selected.delete(pkg);
+    render();
+    return undefined;
+  }
+
+  function fail(message) {
+    state.status = 'error';
+    state.error = message || 'Something went wrong talking to the phone.';
+    render();
+  }
+
+  // Optimistic: the rows dim at once, the phone's real answer follows, and the
+  // toast offers the way back where there is one. "undo" is what the toast's
+  // Undo would restore; regular apps cannot be, so callers leave them out.
+  async function act(action, packages, { undo = packages } = {}) {
+    const real = action === 'uninstall' || action === 'cleanup' ? 'remove' : action;
+    for (const pkg of packages) state.pending.add(pkg);
+    state.selected.clear();
+    render();
+    const result = await api('/api/act', { method: 'POST', body: { action: real, packages, serial: state.serial } });
+    for (const pkg of packages) state.pending.delete(pkg);
+    log(`${WORDS[action].verb} ${plural(packages.length, 'app', 'apps')}`, result.output || result.error);
+
+    await scan({ quiet: true });
+    if (!result.ok) return toast(result.error, { tone: 'bad' });
+    const lines = (result.output || '').split('\n');
+    const done = lines.find(l => l.startsWith('Done:') || l.startsWith('Nothing was changed')) || 'Done.';
+    const changed = done.startsWith('Done:');
+    if (changed && real !== 'restore') state.needsRestart = true;
+    const said = done.replace(/^Done: /, '');
+    render();
+    return toast(said.charAt(0).toUpperCase() + said.slice(1), {
+      tone: result.partial ? 'warn' : '',
+      undo: changed && real !== 'restore' && undo.length
+        ? () => act('restore', undo, { undo: [] }) : null,
+    });
+  }
+
+  async function restart() {
+    const sure = await ask({
+      title: 'Restart the phone?',
+      text: 'It drops off USB for about a minute. This window scans again by itself once the phone is back.',
+      yes: 'Restart',
+    });
+    if (!sure) return undefined;
+    const result = await api(`/api/restart${query()}`, { method: 'POST' });
+    log('Restart the phone', result.output || result.error);
+    if (!result.ok) return toast(result.error, { tone: 'bad' });
+    state.needsRestart = false;
+    state.status = 'loading';
+    state.waiting = 'Waiting for the phone to come back';
+    render();
+    // Give it time to go down, then look for it until it answers again.
+    await sleep(8000);
+    for (let i = 0; i < 40; i++) {
+      const found = await api('/api/phones');
+      if (found.ok !== false && (found.phones || []).some(p => p.state === 'device')) break;
+      await sleep(4000);
+    }
+    return scan();
+  }
+
+  async function inspect() {
+    const result = await api(`/api/inspect${query()}`);
+    log('What is on screen', result.ok ? result.output : result.error);
+    render();
+  }
+
+  async function toggleWatch() {
+    if (state.watch) {
+      state.watch.abort();
+      return;
+    }
+    const control = new AbortController();
+    state.watch = control;
+    const entry = log('Watching for installs', '', true);
+    render();
+    try {
+      const res = await fetch(`/api/watch${query()}`, { headers: { 'x-debloat-token': TOKEN }, signal: control.signal });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        entry.body += decoder.decode(value, { stream: true });
+        if (state.view === 'activity') render();
+      }
+    } catch (e) {
+      // Stopped by the button, or the helper went away.
+    }
+    entry.live = false;
+    state.watch = null;
+    render();
+  }
+
+  // ---- What the scan says --------------------------------------------------
+
+  function rows() {
+    if (!state.scan || !state.scan.lists[state.view]) return [];
+    return state.scan.lists[state.view];
+  }
+
+  function visibleRows() {
+    const needle = state.filter.trim().toLowerCase();
+    if (!needle) return rows();
+    return rows().filter(r => r.pkg.toLowerCase().includes(needle) || r.note.toLowerCase().includes(needle));
+  }
+
+  // Everything worth cleaning up, once each: what an installer pushed, what
+  // came back, and what the rules mark safe. Regular apps are uninstalled for
+  // good; preinstalled ones are removed for this user and can be restored.
+  function cleanup() {
+    const seen = new Set();
+    const out = [];
+    for (const list of ['pushed', 'back', 'remove']) {
+      for (const row of state.scan.lists[list]) {
+        if (seen.has(row.pkg) || row.locked) continue;
+        seen.add(row.pkg);
+        out.push({ ...row, from: list });
+      }
+    }
+    return out;
+  }
+
+  // "removed, by this tool; the rules would keep it: reason" -> its parts.
+  function offParts(note) {
+    const [head, ...rest] = note.split('; ');
+    const [stateWord, ...who] = head.split(', ');
+    const keep = rest.join('; ').replace(/^the rules would keep it: /, '');
+    return { stateWord, who: who.join(', '), keep };
+  }
+
+  const selectable = row => state.view !== 'keep' && !(row.locked && state.view !== 'off');
+  // A package name that may break at its dots, never mid-word.
+  const pkgNode = name => el('div', { class: 'pkg mono' },
+    name.split('.').flatMap((part, i) => (i ? [el('wbr'), `.${part}`] : [part])));
+
+  // ---- Rendering -----------------------------------------------------------
+
+  function render() {
+    renderSide();
+    renderMain();
+    renderBulk();
+    if (state.scan && state.status === 'ready') state.counted = true;
+  }
+
+  function renderSide() {
+    const meta = state.scan ? state.scan.meta : null;
+    const connected = state.status === 'ready';
+    const busy = state.pending.size > 0;
+    // "moto g stylus - 2025 (mona), Android 16" -> name, then "mona, Android 16"
+    const parts = meta ? /^(.*?)(?: \(([^)]*)\))?, (Android .*)$/.exec(meta.phone) : null;
+    const model = parts ? parts[1] : (meta ? meta.phone : '');
+    const os = parts ? [parts[2], parts[3]].filter(Boolean).join(', ') : '';
+    const ready = state.phones.filter(p => p.state === 'device');
+
+    const phone = el('section', { class: 'phone', 'aria-label': 'Phone' },
+      el('div', { class: 'phone-head' },
+        icon('phone', 20),
+        el('div', {},
+          el('div', { class: 'phone-name' }, model || (state.status === 'error' ? 'No phone' : 'Looking for a phone')),
+          os ? el('div', { class: 'phone-meta' }, os) : null)),
+      el('div', { class: 'status' },
+        el('span', { class: `dot ${busy ? 'warn' : connected ? 'ok' : state.status === 'error' ? 'bad' : ''}` }),
+        busy ? 'Working on the phone' : connected ? 'Connected' : state.status === 'error' ? 'Not connected' : (state.waiting || 'Scanning')),
+      ready.length > 1 ? el('select', {
+        'aria-label': 'Which phone',
+        onchange: e => { state.serial = e.target.value; state.selected.clear(); scan(); },
+      }, ready.map(p => el('option', { value: p.serial, selected: p.serial === state.serial }, p.serial))) : null,
+      el('button', { class: 'btn wide', onclick: () => scan(), disabled: state.status === 'loading' || busy || !state.helper },
+        icon('refresh'), 'Scan again'));
+
+    const showCounts = state.scan && state.status !== 'error';
+    const nav = el('nav', { 'aria-label': 'Sections' }, NAV.map(group => [
+      group.label ? el('div', { class: 'nav-label' }, group.label) : null,
+      group.items.map(id => navItem(id, showCounts && state.scan.lists[id] ? state.scan.lists[id].length : null)),
+    ]));
+
+    set(document.getElementById('side'),
+      el('div', { class: 'brand' },
+        el('div', { class: 'brand-mark' }, icon('zap', 16)),
+        el('div', {}, el('b', {}, 'MAXAPACITY'), el('span', {}, VERSION ? `Debloat ${VERSION}` : 'Debloat'))),
+      phone,
+      nav,
+      el('div', { class: 'side-foot' }, 'Nothing changes until you choose it.'));
+  }
+
+  function navItem(id, count) {
+    const view = VIEWS[id];
+    const badge = el('span', { class: `nav-count mono${id === 'back' && count > 0 ? ' warn' : ''}` });
+    if (count != null) countUp(badge, count, !state.counted);
+    return el('button', {
+      class: 'nav-item',
+      'aria-current': state.view === id ? 'page' : null,
+      onclick: () => go(id),
+    }, icon(view.icon), el('span', {}, view.label), count != null ? badge : el('span', {}));
+  }
+
+  function go(id) {
+    state.view = id;
+    state.selected.clear();
+    state.filter = '';
+    render();
+    document.querySelector('main').scrollTop = 0;
+  }
+
+  function renderMain() {
+    const main = document.getElementById('main');
+    const view = VIEWS[state.view];
+    if (state.view === 'activity') return set(main, activityView());
+    if (state.view === 'overview') return set(main, overviewView());
+
+    const head = el('header', {},
+      el('h1', {}, view.label,
+        state.status === 'ready' ? el('span', { class: 'mono' }, rows().length) : null),
+      el('p', { class: 'blurb' }, view.blurb));
+    if (state.status === 'loading') return set(main, head, listSkeleton());
+    if (state.status === 'error') return set(main, head, errorCard());
+    return set(main, head, listCard(view));
+  }
+
+  // ---- Overview ------------------------------------------------------------
+
+  function overviewView() {
+    const head = el('header', {},
+      el('h1', {}, 'Overview'),
+      el('p', { class: 'blurb' }, 'What the last scan found, what can go, and what has changed.'));
+    if (state.status === 'loading') return [head, overviewSkeleton()];
+    if (state.status === 'error') return [head, errorCard()];
+
+    const lists = state.scan.lists;
+    const history = state.scan.history;
+    const items = cleanup();
+    const apps = items.filter(r => r.app);
+    const system = items.filter(r => !r.app);
+
+    // The outcome first, then the one thing to do about it.
+    const what = [
+      apps.length ? `${plural(apps.length, 'app', 'apps')} that an installer pushed onto it` : '',
+      system.length ? `${plural(system.length, 'preinstalled app', 'preinstalled apps')} the rules mark safe to remove` : '',
+    ].filter(Boolean).join(' and ');
+    const hero = el('section', { class: 'card hero' },
+      el('div', {},
+        el('div', { class: 'hero-status' },
+          el('span', { class: `dot ${items.length ? 'warn' : 'ok'}` }),
+          items.length ? 'Cleanup available' : 'Clean by the rules',
+          history.length ? `, scanned ${at(history[history.length - 1].time)}` : ''),
+        el('div', { class: 'hero-number' },
+          items.length ? `${plural(items.length, 'app', 'apps')} on this phone can go`
+            : 'Nothing the rules know about is left to remove'),
+        el('p', {},
+          items.length ? `${what.charAt(0).toUpperCase()}${what.slice(1)}.`
+            : 'The sponsored-app installers, lock screen feeds and promos the rules cover are gone, or were never here.',
+          lists.back.length ? ` ${lists.back.length} came back after being removed.` : '',
+          lists.ask.length ? ` ${plural(lists.ask.length, 'more needs', 'more need')} a look first, under Ask first.` : '')),
+      el('div', { class: 'hero-actions' },
+        items.length
+          ? el('button', { class: 'btn primary', onclick: review }, icon('review'), 'Review cleanup')
+          : el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again'),
+        state.needsRestart
+          ? [el('button', { class: 'btn', onclick: restart }, icon('power'), 'Restart phone'),
+            el('span', { class: 'hint' }, 'so the lock and home screens catch up')]
+          : null));
+
+    return [head, hero, tiles(), el('div', { class: 'split' }, planCard(apps, system), changesCard())];
+  }
+
+  // Three numbers, each with how it moved since the scan before and its trend.
+  function tiles() {
+    const history = state.scan.history;
+    const now = history[history.length - 1] || { cleanup: 0, installed: 0, off: 0 };
+    const before = history.length > 1 ? history[history.length - 2] : null;
+    const tile = (label, iconName, key, lowerIsBetter) => {
+      const value = el('div', { class: 'tile-value' });
+      countUp(value, now[key], !state.counted);
+      let delta = null;
+      let caption = 'first scan, nothing to compare yet';
+      if (before) {
+        const diff = now[key] - before[key];
+        const pct = before[key] ? Math.round(Math.abs(diff) / before[key] * 100) : null;
+        const tone = diff === 0 || lowerIsBetter == null ? '' : ((diff < 0) === lowerIsBetter ? ' good' : ' bad');
+        delta = el('span', { class: `delta${tone}` },
+          icon(diff === 0 ? 'flat' : diff < 0 ? 'down' : 'up', 12),
+          diff === 0 ? '0%' : pct == null ? 'new' : `${pct}%`);
+        caption = `was ${before[key]} at ${at(before.time)}`;
+      }
+      return el('section', { class: 'card tile' },
+        el('div', { class: 'tile-label' }, icon(iconName), label),
+        el('div', { class: 'tile-main' }, value, sparkline(history.map(h => h[key]))),
+        el('div', { class: 'tile-foot' }, delta, el('span', {}, caption)));
+    };
+    return el('div', { class: 'tiles' },
+      tile('To clean up', 'trash', 'cleanup', true),
+      tile('Apps on the phone', 'box', 'installed', true),
+      tile('Off or removed', 'off', 'off', null));
+  }
+
+  // A plain line, no fill: the shape of the last scans, newest at the right.
+  function sparkline(values) {
+    const w = 96;
+    const h = 28;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [k, v] of Object.entries({ viewBox: `0 0 ${w} ${h}`, width: w, height: h, class: 'spark', 'aria-hidden': 'true' })) {
+      svg.setAttribute(k, v);
+    }
+    const points = values.slice(-24);
+    if (points.length === 0) return svg;
+    if (points.length === 1) points.unshift(points[0]);
+    const min = Math.min(...points);
+    const max = Math.max(...points);
+    const xy = points.map((v, i) => [
+      2 + i * (w - 4) / (points.length - 1),
+      max === min ? h / 2 : 3 + (h - 6) * (1 - (v - min) / (max - min)),
+    ]);
+    const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+    const [lx, ly] = xy[xy.length - 1];
+    svg.innerHTML = `<polyline points="${line}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2" fill="currentColor"/>`;
+    return svg;
+  }
+
+  function planCard(apps, system) {
+    const names = list => {
+      const shown = list.slice(0, 3).map(r => r.pkg).join(', ');
+      return list.length > 3 ? `${shown} and ${list.length - 3} more` : shown;
+    };
+    const card = el('section', { class: 'card' },
+      el('div', { class: 'card-head' }, el('h2', {}, 'Cleanup plan')));
+    if (!apps.length && !system.length) {
+      card.append(el('div', { class: 'state compact' },
+        icon('done', 32),
+        el('strong', {}, 'Nothing is waiting to be cleaned up.'),
+        el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again')));
+      return card;
+    }
+    if (apps.length) {
+      card.append(el('div', { class: 'plan-row' },
+        el('div', { class: 'what' }, 'Uninstall pushed apps'),
+        el('div', { class: 'n' }, apps.length),
+        el('div', { class: 'how' }, 'Regular apps. Their data goes too, and the only way back is the Play Store.'),
+        el('div', { class: 'names mono' }, names(apps))));
+    }
+    if (system.length) {
+      card.append(el('div', { class: 'plan-row' },
+        el('div', { class: 'what' }, 'Remove preinstalled junk'),
+        el('div', { class: 'n' }, system.length),
+        el('div', { class: 'how' }, 'Taken off for this user. Each one can be restored from Already off.'),
+        el('div', { class: 'names mono' }, names(system))));
+    }
+    return card;
+  }
+
+  function changesCard() {
+    const changes = state.scan.changes.slice().reverse().slice(0, 6);
+    const card = el('section', { class: 'card' },
+      el('div', { class: 'card-head' }, el('h2', {}, 'Recent changes')));
+    if (!changes.length) {
+      card.append(el('div', { class: 'state compact' },
+        icon('restore', 32),
+        el('strong', {}, 'Whatever you remove or silence is listed here, with a way back.'),
+        cleanup().length
+          ? el('button', { class: 'btn', onclick: review }, icon('review'), 'Review cleanup') : null));
+      return card;
+    }
+    for (const change of changes) {
+      const gone = change.action === 'uninstalled';
+      card.append(el('div', { class: `change-row${state.pending.has(change.pkg) ? ' pending' : ''}` },
+        el('div', {},
+          pkgNode(change.pkg),
+          el('div', { class: 'when' }, [DID[change.action] || change.action, ago(change.when)].filter(Boolean).join(', '))),
+        gone
+          ? el('span', { class: 'chip' }, 'regular app')
+          : el('button', {
+            class: 'btn small',
+            disabled: state.pending.size > 0,
+            'aria-label': `Restore ${change.pkg}`,
+            onclick: () => act('restore', [change.pkg], { undo: [] }),
+          }, icon('restore', 12), 'Restore')));
+    }
+    return card;
+  }
+
+  function overviewSkeleton() {
+    const bone = (w, h = 12) => el('div', { class: 'bone', style: `width:${w};max-width:100%;height:${h}px` });
+    return [
+      el('section', { class: 'card hero', 'aria-busy': 'true', 'aria-label': state.waiting || 'Scanning the phone' },
+        el('div', { style: 'display:grid;gap:16px' }, bone('160px'), bone('420px', 24), bone('520px')),
+        el('div', { class: 'hero-actions' }, bone('152px', 36))),
+      el('div', { class: 'tiles' }, [0, 1, 2].map(() => el('section', { class: 'card tile' },
+        bone('96px'), el('div', { class: 'tile-main' }, bone('56px', 24), bone('96px', 24)), bone('168px')))),
+      el('div', { class: 'split' }, [0, 1].map(() => el('section', { class: 'card' },
+        el('div', { class: 'card-head' }, bone('120px', 16)),
+        [0, 1, 2].map(() => el('div', { class: 'plan-row' }, bone('60%'), bone('24px')))))),
+    ];
+  }
+
+  // ---- Lists ---------------------------------------------------------------
+
+  function listSkeleton() {
+    const widths = [[38, 52], [30, 44], [44, 36], [34, 58], [40, 30], [28, 48], [36, 40]];
+    return el('section', { class: 'card skeleton', 'aria-busy': 'true', 'aria-label': state.waiting || 'Scanning the phone' },
+      el('div', { class: 'toolbar' },
+        el('div', { class: 'bone', style: 'width:16px;height:16px;border-radius:4px' }),
+        el('div', { class: 'bone', style: 'width:264px;height:36px;border-radius:8px' }),
+        el('div', { class: 'grow' }), el('div', { class: 'bone', style: 'width:64px' })),
+      widths.map(([a, b]) => el('div', { class: 'row plain' },
+        el('div', { class: 'bone', style: 'width:16px;height:16px;border-radius:4px' }),
+        el('div', { class: 'bone', style: `width:${a + 30}%` }),
+        el('div', { class: 'bone', style: `width:${b + 20}%` }),
+        el('div', {}))));
+  }
+
+  function errorCard() {
+    if (!state.helper) {
+      // Nothing on this page can fix it, so no button: it reconnects by
+      // itself when the app is opened again.
+      return el('section', { class: 'card' },
+        el('div', { class: 'state error', role: 'alert' },
+          icon('alert', 32),
+          el('strong', {}, 'This window has lost its helper'),
+          el('p', {}, 'Open MAXAPACITY Debloat again. This window reconnects by itself.')));
+    }
+    const noPhone = /no phone found|not allowed this computer|offline/i.test(state.error);
+    return el('section', { class: 'card' },
+      el('div', { class: 'state error', role: 'alert' },
+        icon('alert', 32),
+        el('strong', {}, noPhone ? 'The phone is not reachable' : 'The scan did not finish'),
+        el('p', {}, state.error),
+        noPhone ? el('ol', {},
+          el('li', {}, 'Plug the phone in with a data cable and unlock it.'),
+          el('li', {}, 'Settings > About phone: tap Build number seven times.'),
+          el('li', {}, 'Settings > System > Developer options: turn on USB debugging.'),
+          el('li', {}, 'Tap Allow on the prompt that appears on the phone.')) : null,
+        el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Try again')));
+  }
+
+  function listCard(view) {
+    if (rows().length === 0) {
+      return el('section', { class: 'card' },
+        el('div', { class: 'state' },
+          icon('done', 32),
+          el('strong', {}, view.empty),
+          el('button', { class: 'btn primary', onclick: () => scan() }, icon('refresh'), 'Scan again')));
+    }
+    ui.all = view.primary ? el('input', { type: 'checkbox', 'aria-label': 'Select all shown', onchange: toggleAll }) : null;
+    ui.count = el('span', { class: 'count mono' });
+    ui.search = el('input', {
+      class: 'field', type: 'search', placeholder: 'Filter this list', value: state.filter,
+      'aria-label': 'Filter this list', 'aria-keyshortcuts': '/',
+      oninput: e => { state.filter = e.target.value; paint(); },
+    });
+    ui.rows = el('div', {});
+    const card = el('section', { class: 'card' },
+      el('div', { class: 'toolbar' },
+        ui.all,
+        el('div', { class: 'search' }, icon('search'), ui.search),
+        el('div', { class: 'grow' }),
+        ui.count),
+      ui.rows);
+    paint();
+    return card;
+  }
+
+  // Redraws the rows and counts without touching the filter box, so typing in
+  // it keeps its focus.
+  function paint() {
+    const view = VIEWS[state.view];
+    if (!view.blurb || state.status !== 'ready' || !ui.rows || rows().length === 0) return renderBulk();
+    const shown = visibleRows();
+    const pickable = shown.filter(selectable);
+    const picked = pickable.filter(r => state.selected.has(r.pkg)).length;
+
+    if (ui.all) {
+      ui.all.checked = pickable.length > 0 && picked === pickable.length;
+      ui.all.indeterminate = picked > 0 && picked < pickable.length;
+      ui.all.disabled = pickable.length === 0;
+    }
+    ui.count.textContent = shown.length === rows().length
+      ? `${shown.length} in this list` : `${shown.length} of ${rows().length} shown`;
+
+    if (shown.length === 0) {
+      set(ui.rows, el('div', { class: 'state' },
+        icon('search', 32),
+        el('strong', {}, 'Nothing in this list matches that filter.'),
+        el('button', { class: 'btn', onclick: () => { state.filter = ''; ui.search.value = ''; paint(); } }, 'Clear the filter')));
+    } else {
+      set(ui.rows, shown.map(row => rowNode(row, view)));
+    }
+    return renderBulk();
+  }
+
+  function rowNode(row, view) {
+    const can = selectable(row);
+    const chips = [];
+    let note = row.note;
+    if (view === VIEWS.off) {
+      const parts = offParts(row.note);
+      chips.push(el('span', { class: 'chip' }, parts.stateWord));
+      if (parts.keep) chips.push(el('span', { class: 'chip warn' }, 'rules keep this'));
+      note = parts.keep || parts.who;
+    } else {
+      if (row.app) chips.push(el('span', { class: 'chip' }, 'regular app'));
+      if (row.locked) chips.push(el('span', { class: 'chip' }, 'protected'));
+    }
+    if (state.pending.has(row.pkg)) chips.push(el('span', { class: 'chip' }, 'working'));
+
+    const toggle = () => {
+      if (state.selected.has(row.pkg)) state.selected.delete(row.pkg);
+      else state.selected.add(row.pkg);
+      paint();
+    };
+    return el('div', {
+      class: `row${can ? '' : ' static'}${chips.length ? '' : ' plain'}${note ? '' : ' bare'}${state.selected.has(row.pkg) ? ' selected' : ''}${state.pending.has(row.pkg) ? ' pending' : ''}`,
+      onclick: can ? toggle : null,
+    },
+    can ? el('input', {
+      type: 'checkbox', checked: state.selected.has(row.pkg), 'aria-label': `Select ${row.pkg}`,
+      onclick: e => e.stopPropagation(), onchange: toggle,
+    }) : el('span', {}),
+    pkgNode(row.pkg),
+    el('div', { class: 'note' }, note),
+    el('div', { class: 'chips' }, chips));
+  }
+
+  function toggleAll(event) {
+    for (const row of visibleRows().filter(selectable)) {
+      if (event.target.checked) state.selected.add(row.pkg);
+      else state.selected.delete(row.pkg);
+    }
+    paint();
+  }
+
+  // The actions for a selection: they appear only once there is one.
+  function renderBulk() {
+    const bar = document.getElementById('bulk');
+    const view = VIEWS[state.view];
+    const n = state.selected.size;
+    const show = n > 0 && state.status === 'ready' && Boolean(view.primary);
+    bar.classList.toggle('show', show);
+    document.body.classList.toggle('has-bulk', show);
+    if (!show) return;
+    const button = (action, primary) => el('button', {
+      class: `btn${primary ? ' primary' : ''}`,
+      disabled: state.pending.size > 0,
+      onclick: () => run(action),
+    }, icon(WORDS[action].icon), primary ? `${WORDS[action].verb} ${n}` : WORDS[action].verb);
+    set(bar,
+      el('span', { class: 'n mono' }, `${n} selected`),
+      el('button', { class: 'btn quiet small', onclick: () => { state.selected.clear(); paint(); } }, icon('x', 12), 'Clear'),
+      el('span', { class: 'sep' }),
+      view.secondary ? button(view.secondary, false) : null,
+      button(view.primary, true));
+  }
+
+  async function run(action) {
+    const packages = [...state.selected];
+    if (packages.length === 0) return;
+    if (action === 'uninstall') {
+      const sure = await ask({
+        title: `Uninstall ${plural(packages.length, 'app', 'apps')}?`,
+        text: 'These are regular apps. Their data on the phone is deleted, and the only way to get one back is to install it again from the Play Store.',
+        yes: `Uninstall ${packages.length}`,
+      });
+      if (!sure) return;
+      await act(action, packages, { undo: [] });
+      return;
+    }
+    await act(action, packages);
+  }
+
+  // ---- Review before cleaning ----------------------------------------------
+
+  // Everything the cleanup would do, ticked, in two groups by whether it can
+  // be undone. Untick to keep; nothing happens until the button is pressed.
+  function review() {
+    const items = cleanup();
+    const picked = new Set(items.map(r => r.pkg));
+    const dialog = document.getElementById('dialog');
+    const groups = [
+      { title: 'Uninstall', hint: 'regular apps, cannot be undone', rows: items.filter(r => r.app) },
+      { title: 'Remove', hint: 'preinstalled, can be undone from Already off', rows: items.filter(r => !r.app) },
+    ].filter(g => g.rows.length);
+
+    const body = el('div', { class: 'dialog-body' });
+    const summary = el('div', { class: 'grow' });
+    const confirm = el('button', { class: 'btn primary' });
+    const close = () => dialog.close();
+
+    const draw = () => {
+      set(body, groups.map(group => {
+        const mine = group.rows.filter(r => picked.has(r.pkg)).length;
+        const all = el('input', {
+          type: 'checkbox', 'aria-label': `Select all under ${group.title}`,
+          onchange: e => {
+            for (const r of group.rows) {
+              if (e.target.checked) picked.add(r.pkg);
+              else picked.delete(r.pkg);
+            }
+            draw();
+          },
+        });
+        all.checked = mine === group.rows.length;
+        all.indeterminate = mine > 0 && mine < group.rows.length;
+        return [
+          el('div', { class: 'group-head' }, all, el('b', {}, group.title),
+            el('span', {}, `${mine} of ${group.rows.length}, ${group.hint}`)),
+          group.rows.map(row => {
+            const flip = () => {
+              if (picked.has(row.pkg)) picked.delete(row.pkg);
+              else picked.add(row.pkg);
+              draw();
+            };
+            return el('div', { class: `row${picked.has(row.pkg) ? ' selected' : ''}`, onclick: flip },
+              el('input', {
+                type: 'checkbox', checked: picked.has(row.pkg), 'aria-label': `Select ${row.pkg}`,
+                onclick: e => e.stopPropagation(), onchange: flip,
+              }),
+              pkgNode(row.pkg),
+              el('div', { class: 'note' }, row.from === 'back' ? `came back; ${row.note}` : row.note));
+          }),
+        ];
+      }));
+      const apps = items.filter(r => r.app && picked.has(r.pkg)).length;
+      const system = picked.size - apps;
+      summary.textContent = [
+        apps ? `uninstalls ${apps} for good` : '',
+        system ? `removes ${system}, which can be undone` : '',
+      ].filter(Boolean).join(' and ').replace(/^./, c => c.toUpperCase()) || 'Nothing ticked';
+      set(confirm, icon('review'), picked.size ? `Clean up ${picked.size}` : 'Clean up');
+      confirm.disabled = picked.size === 0;
+    };
+
+    confirm.onclick = async () => {
+      const chosen = items.filter(r => picked.has(r.pkg));
+      close();
+      await act('cleanup', chosen.map(r => r.pkg), { undo: chosen.filter(r => !r.app).map(r => r.pkg) });
+    };
+    dialog.classList.add('wide');
+    set(dialog,
+      el('div', { class: 'dialog-head' },
+        el('h2', {}, 'Review cleanup'),
+        el('p', {}, 'Everything below is ticked. Untick anything you want to keep, then clean up.')),
+      body,
+      el('div', { class: 'dialog-foot' }, summary,
+        el('button', { class: 'btn', onclick: close }, 'Cancel'), confirm));
+    dialog.oncancel = null;
+    draw();
+    dialog.showModal();
+  }
+
+  // ---- Activity ------------------------------------------------------------
+
+  function activityView() {
+    const head = el('header', {},
+      el('h1', {}, 'Activity'),
+      el('p', { class: 'blurb' }, 'Everything this window has asked the phone to do, with the phone\'s own answers. Watch reports each app as it gets installed, and which app installed it.'));
+
+    const tools = el('div', { class: 'toolbar' },
+      el('button', { class: 'btn', onclick: inspect, disabled: state.status !== 'ready' }, icon('eye'), 'What is on screen'),
+      el('button', { class: 'btn', onclick: toggleWatch, disabled: state.status !== 'ready' && !state.watch },
+        icon('radio'), state.watch ? 'Stop watching' : 'Watch installs'),
+      el('div', { class: 'grow' }));
+
+    const body = state.log.length === 0
+      ? el('div', { class: 'state' },
+        icon('activity', 32),
+        el('strong', {}, 'Nothing has run yet. Find out which app is drawing on the lock screen.'),
+        el('button', { class: 'btn primary', onclick: inspect, disabled: state.status !== 'ready' }, icon('eye'), 'What is on screen'))
+      : el('div', {}, state.log.map(entry => el('article', { class: 'entry' },
+        el('div', { class: 'entry-head' },
+          el('time', { class: 'mono' }, entry.time),
+          el('b', {}, entry.title),
+          entry.live ? el('span', { class: 'live' }, 'live') : null),
+        entry.body ? el('pre', {}, entry.body.trim()) : null)));
+
+    return [head, el('section', { class: 'card' }, tools, body)];
+  }
+
+  // ---- Toast and dialog ----------------------------------------------------
+
+  let toastTimer = 0;
+  function toast(text, { tone = '', undo = null } = {}) {
+    const node = document.getElementById('toast');
+    clearTimeout(toastTimer);
+    const close = () => node.classList.remove('show');
+    node.className = `toast show ${tone}`;
+    set(node,
+      el('span', {}, text),
+      undo ? el('button', { class: 'btn small', onclick: () => { close(); undo(); } }, icon('undo', 12), 'Undo') : null);
+    toastTimer = setTimeout(close, undo ? 10000 : 6000);
+  }
+
+  function ask({ title, text, yes }) {
+    const dialog = document.getElementById('dialog');
+    dialog.classList.remove('wide');
+    return new Promise(resolve => {
+      const done = answer => { dialog.close(); resolve(answer); };
+      set(dialog,
+        el('div', { class: 'dialog-head' }, el('h2', {}, title), el('p', {}, text)),
+        el('div', { class: 'dialog-foot' }, el('div', { class: 'grow' }),
+          el('button', { class: 'btn', onclick: () => done(false) }, 'Cancel'),
+          el('button', { class: 'btn primary', onclick: () => done(true) }, yes)));
+      dialog.oncancel = () => resolve(false);
+      dialog.showModal();
+    });
+  }
+
+  // A closed dialog keeps nothing behind: no stale rows for a screen reader or
+  // a search of the page to find.
+  document.getElementById('dialog').addEventListener('close', event => {
+    event.target.classList.remove('wide');
+    event.target.replaceChildren();
+  });
+
+  // "/" jumps to the filter; Escape drops the selection.
+  document.addEventListener('keydown', event => {
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (event.key === '/' && !typing && ui.search && ui.search.isConnected) {
+      event.preventDefault();
+      ui.search.focus();
+    } else if (event.key === 'Escape' && state.selected.size && !document.getElementById('dialog').open) {
+      state.selected.clear();
+      paint();
+    }
+  });
+
+  render();
+  scan();
+  oneWindow();
+  hold();
+  // A second line to the helper, should anything cut the held request short.
+  setInterval(() => { api('/api/alive'); }, 5000);
+})();
+</script>
+</body>
+</html>

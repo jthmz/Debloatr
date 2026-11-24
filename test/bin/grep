@@ -1,0 +1,18 @@
+#!/bin/sh
+# Stands in for grep on PATH during tests, to add one piece of strictness that
+# BSD grep (macOS) has and GNU and BusyBox grep lack: an empty alternative in a
+# pattern, as in "(|a)", is an error. Without this, such a pattern passes every
+# test on Linux and then fails on the Mac the tool is actually used from.
+for arg in "$@"; do
+  case "$arg" in
+    *'(|'* | *'||'* | *'|)'*)
+      echo "grep: empty (sub)expression" >&2
+      exit 2
+      ;;
+  esac
+done
+for real in /usr/bin/grep /bin/grep; do
+  [ -x "$real" ] && exec "$real" "$@"
+done
+echo "test grep: no system grep found" >&2
+exit 2

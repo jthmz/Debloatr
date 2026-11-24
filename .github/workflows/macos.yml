@@ -1,0 +1,165 @@
+name: Debloat tool (macOS)
+
+# macOS minutes are billed at ten times the Linux rate on private
+# repositories, so this runs only when the script, the app or the tests
+# change, not for rule edits; not again on main, where a merge only repeats
+# what its branch already ran; and a newer push replaces a run that has not
+# finished.
+on:
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - 'debloat.sh'
+      - 'gui/**'
+      - 'app/**'
+      - 'install.sh'
+      - 'test/**'
+      - '.github/workflows/macos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: test on macOS (bash 3.2, BSD tools)
+    runs-on: macos-latest
+    # The job takes about three minutes. The limit is short because a launcher
+    # that fails shows a dialog, and on a runner nobody is there to dismiss it.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: /bin/bash test/run.sh
+      - name: Test the window's server
+        run: node --test test/gui.test.mjs
+      - name: Build the app for real and check macOS accepts it
+        run: |
+          {
+            echo "DEBLOAT_APP_DIR=$RUNNER_TEMP/Applications"
+            echo "APP=$RUNNER_TEMP/Applications/MAXAPACITY Debloat.app"
+            echo "FAKE_ADB_STATE=$RUNNER_TEMP/phone.json"
+            echo "DEBLOAT_STATE_DIR=$RUNNER_TEMP/state"
+          } >> "$GITHUB_ENV"
+          export DEBLOAT_APP_DIR="$RUNNER_TEMP/Applications" APP="$RUNNER_TEMP/Applications/MAXAPACITY Debloat.app"
+          # The simulated phone stands in for adb. install.sh notes where adb
+          # and node are, because an app does not get the Terminal's PATH.
+          export PATH="$PWD/test/bin:$PATH"
+          bash install.sh
+          plutil -lint "$APP/Contents/Info.plist"
+          test -x "$APP/Contents/MacOS/debloat-app"
+          grep -qx "$PWD/test/bin" "$APP/Contents/Resources/paths"
+          # The icon file was written without Apple's tools. Have them read it
+          # back: all eight sizes must come out.
+          iconutil -c iconset "$APP/Contents/Resources/AppIcon.icns" -o "$RUNNER_TEMP/AppIcon.iconset"
+          ls "$RUNNER_TEMP/AppIcon.iconset"
+          test "$(ls "$RUNNER_TEMP/AppIcon.iconset" | wc -l)" -eq 8
+      - name: Start its launcher with none of the Terminal's PATH
+        run: |
+          python3 test/fake_adb.py ctl init
+          # It must return at once, leaving the helper running by itself.
+          env PATH=/usr/bin:/bin DEBLOAT_GUI_PORT=18792 "$APP/Contents/MacOS/debloat-app" --no-open
+          for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+            curl -sf http://127.0.0.1:18792/ > page.html && break
+            sleep 1
+          done
+          grep -q '<title>MAXAPACITY Debloat</title>' page.html
+          TOKEN="$(sed -n 's/.*name="debloat-token" content="\([0-9a-f]*\)".*/\1/p' page.html)"
+          # Through the helper to the phone: adb found where install.sh noted it.
+          curl -sf -H "x-debloat-token: $TOKEN" http://127.0.0.1:18792/api/scan > scan.json
+          grep -q '"ok":true' scan.json
+          grep -q 'com.glance.lockscreen' scan.json
+          pkill -f 'gui/server.mjs' || true
+      - name: Open the app the way a double-click does, twice
+        run: |
+          python3 test/fake_adb.py ctl init
+          LOG="$HOME/Library/Logs/maxapacity-debloat.log"
+          : > "$LOG"
+          launch() {
+            open --env "FAKE_ADB_STATE=$FAKE_ADB_STATE" --env "DEBLOAT_STATE_DIR=$DEBLOAT_STATE_DIR" \
+              --env DEBLOAT_GUI_PORT=18793 "$APP" --args --no-open
+          }
+          launch
+          for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+            curl -sf http://127.0.0.1:18793/ > page.html && break
+            sleep 1
+          done
+          grep -q '<title>MAXAPACITY Debloat</title>' page.html
+          TOKEN="$(sed -n 's/.*name="debloat-token" content="\([0-9a-f]*\)".*/\1/p' page.html)"
+          curl -sf -H "x-debloat-token: $TOKEN" http://127.0.0.1:18793/api/scan > scan.json
+          grep -q '"ok":true' scan.json
+          # Opened again while its helper is running: macOS has to see the app
+          # as closed and run it again, and that run has to find the helper.
+          launch
+          for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+            grep -q 'already running at' "$LOG" && break
+            sleep 1
+          done
+          cat "$LOG"
+          grep -q 'already running at' "$LOG"
+          curl -sf -H "x-debloat-token: $TOKEN" http://127.0.0.1:18793/api/alive | grep -q '"ok":true'
+          pkill -f 'gui/server.mjs' || true
+      - name: Open the app from the download, then take its folder away
+        run: |
+          python3 test/fake_adb.py ctl init
+          bash tools/package.sh "$RUNNER_TEMP/dist"
+          # Unpacked the way Finder unpacks a download.
+          ditto -x -k "$RUNNER_TEMP"/dist/MAXAPACITY-Debloat-*-mac.zip "$RUNNER_TEMP/Downloads"
+          DOWNLOADED="$RUNNER_TEMP/Downloads/MAXAPACITY Debloat.app"
+          test -x "$DOWNLOADED/Contents/MacOS/debloat-app"
+          test ! -e "$DOWNLOADED/Contents/Resources/paths"
+          # For the record, not a check: what macOS makes of the app once it
+          # carries the mark a browser puts on a download. It is not signed, so
+          # this is expected to say it is rejected, which is the prompt the
+          # release notes walk through. Done on a copy, so the one opened below
+          # stays unmarked and opens without anyone there to click.
+          cp -R "$DOWNLOADED" "$RUNNER_TEMP/marked.app"
+          xattr -w com.apple.quarantine "0083;$(printf %x "$(date +%s)");Safari;" "$RUNNER_TEMP/marked.app"
+          spctl --assess --type execute -vv "$RUNNER_TEMP/marked.app" || true
+          # Nothing in this app says where adb is. A stand-in for the shell the
+          # Terminal uses does, the way a start-up file would. The app gets a
+          # home folder of its own: this machine's real one holds an Android
+          # SDK, and the launcher would rightly take the adb it finds there,
+          # which knows nothing of the simulated phone.
+          printf '#!/bin/sh\nprintf "\\n__DEBLOAT_PATH__%%s__END__\\n" "%s"\n' "$PWD/test/bin:$PATH" > "$RUNNER_TEMP/shell"
+          chmod +x "$RUNNER_TEMP/shell"
+          mkdir -p "$RUNNER_TEMP/home"
+          LOG="$RUNNER_TEMP/home/Library/Logs/maxapacity-debloat.log"
+          open --env "FAKE_ADB_STATE=$FAKE_ADB_STATE" --env "DEBLOAT_STATE_DIR=$DEBLOAT_STATE_DIR" \
+            --env DEBLOAT_GUI_PORT=18794 --env "SHELL=$RUNNER_TEMP/shell" --env "HOME=$RUNNER_TEMP/home" \
+            "$DOWNLOADED" --args --no-open
+          for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+            curl -sf http://127.0.0.1:18794/ > page.html && break
+            sleep 1
+          done
+          grep -q '<title>MAXAPACITY Debloat</title>' page.html
+          TOKEN="$(sed -n 's/.*name="debloat-token" content="\([0-9a-f]*\)".*/\1/p' page.html)"
+          curl -sf -H "x-debloat-token: $TOKEN" http://127.0.0.1:18794/api/scan > scan.json
+          grep -q '"ok":true' scan.json || { cat scan.json; exit 1; }
+          test -f "$RUNNER_TEMP/home/Library/Application Support/MAXAPACITY Debloat/app/debloat.sh"
+          # macOS takes a downloaded app's temporary folder away once the app
+          # has finished, and this app finishes at once. Its helper runs from
+          # a copy, so it must not notice.
+          rm -rf "$DOWNLOADED"
+          curl -sf -H "x-debloat-token: $TOKEN" http://127.0.0.1:18794/api/scan > scan.json
+          grep -q '"ok":true' scan.json || { cat scan.json; exit 1; }
+          curl -sf http://127.0.0.1:18794/ | grep -q '<title>MAXAPACITY Debloat</title>'
+          cat "$LOG"
+          pkill -f 'gui/server.mjs' || true
+      - name: What the app logged, if any of that failed
+        if: failure()
+        run: cat "$HOME/Library/Logs/maxapacity-debloat.log" "$RUNNER_TEMP/home/Library/Logs/maxapacity-debloat.log" || true
+      - name: Which adb and which PATH the app ended up with, if any of that failed
+        if: failure()
+        run: |
+          ps -axww -o pid,ppid,command | grep -E 'adb|server\.mjs' | grep -v grep || true
+          for pid in $(pgrep -f 'gui/server.mjs'); do
+            ps eww -p "$pid" | tr ' ' '\n' | grep -E '^(PATH|HOME|SHELL)=' || true
+          done
+          ls -l /opt/homebrew/bin/adb /usr/local/bin/adb 2>&1 || true
+          command -v adb || true
