@@ -333,6 +333,11 @@
   .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--text-2); }
   /* One that cannot be pressed loses its edge as well as its colour. */
   .btn:disabled { color: var(--text-3); border-color: var(--line); cursor: default; }
+  /* A press on a button that is switched off goes through to what is
+     behind it, which is where the script hears of it (see the guard against
+     an unmeant press): a browser tells a page nothing of a press on such a
+     button itself, and the hand that made it is still going. */
+  button:disabled { pointer-events: none; }
   .btn.primary { background: var(--accent); border-color: var(--accent-edge); color: var(--accent-ink); }
   .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-edge); }
   .btn.primary:disabled { background: var(--surface-2); border-color: var(--line); color: var(--text-3); }
@@ -696,7 +701,7 @@
      of the bar of a group where it has one. */
   .dialog-body, .wiz-body, .detail-body, .palette-list { scroll-snap-type: y proximity; }
   .dialog-body:has(.group-head), .wiz-body:has(.group-head) { scroll-padding-top: 56px; }
-  .dialog-body .row, .wiz-body .row, .palette-item, .wiz-notes > li, .detail-body section, .way-step { scroll-snap-align: start; }
+  .dialog-body .row, .wiz-body .row, .palette-item, .palette-group, .wiz-notes > li, .detail-body section, .way-step, .deck-card > *, .deck-sum li { scroll-snap-align: start; }
   /* Its first line is a place to rest as well: without this a box opens
      at the first of the lines above, with whatever comes before it (a
      panel's chips, a list's heading) out of sight. */
@@ -872,6 +877,9 @@
   .maker .select { flex: 0 1 264px; }
   .command { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); width: fit-content; max-width: 100%; }
   .command code { overflow-wrap: anywhere; }
+  /* Wide enough for "Copied", which it says once pressed, so that it does
+     not grow then. */
+  .command .btn { min-width: 112px; }
   .more-help { color: var(--text-2); }
   /* More help opens from a button like any other, with an arrow that
      turns as it opens. */
@@ -1665,7 +1673,8 @@ window.DebloatWords = (() => {
   // cleanup's own button where "Choose what goes" was, the tally's Remove
   // where a card's was, a "Put back" on the overview where Done was, a
   // panel's Remove where the row that opened it is, the next app's "Put
-  // back" where the last one's was. Three rules see to it.
+  // back" where the last one's was, a link that moved up beside a button
+  // that had grown shorter. Three rules see to it.
   //   1. For a moment after one screen gives way to another, or the phone's
   //      answer moves what is on this one, no press does anything.
   //   2. A button that changes the phone, or answers a card, takes no press
@@ -1674,20 +1683,30 @@ window.DebloatWords = (() => {
   //      only one that has been still. Such a button is dimmed for as long
   //      as it will not take a press, so that it can be seen when it will,
   //      and shakes its head at a press it does not take.
-  //   3. For a second after any press, another on the same spot does
-  //      nothing if what is under it now is a different thing to press, and
-  //      that second, too, starts again with every press refused.
-  // The list of pages has a rule of its own: for a second after it has
-  // moved by itself (opened out by "More", brought to its top by the band
-  // over it, given more room or less by what is said at its foot) no page
-  // in it takes a press, and one that refuses shakes its head as well.
+  //   3. For a second after any press, another near it is taken only by
+  //      what was there to be pressed when the first was made, under that
+  //      name and in that place. What has come there since, or has moved
+  //      there, takes nothing, and that second, too, starts again with
+  //      every press refused. Ticking one box after another, or the same
+  //      box twice, is not in its way: those were there.
+  // A press on a button that is switched off does nothing, and counts as a
+  // press for all three: while the phone is busy the buttons are off, and
+  // what takes the place of one when it has answered must not have the next
+  // press of a hand that went on pressing meanwhile.
+  // The list of pages has a rule of its own in place of the third, which
+  // would refuse the pages "More" has just brought out: for a second after
+  // the list has moved by itself (scrolled by "More", brought to its top
+  // by the band over it, given more room or less by what is said at its
+  // foot) no page in it takes a press, and one that refuses shakes its
+  // head as well.
   // Presses are timed by when they were made, not by when a busy page got
   // round to hearing of them.
   let swapped = 0;      // when one screen last gave way to another
   let shifted = 0;      // when the list of pages last moved by itself
   let armed = 0;        // when buttons that change the phone take a press again
   let arming = 0;
-  let pressed = { at: 0, x: 0, y: 0, what: '' };
+  // The last press: when, where, and what was within reach of it then.
+  let pressed = { at: 0, x: 0, y: 0, around: [] };
   const wait = until => {
     armed = Math.max(armed, until);
     document.body.classList.add('settling');
@@ -1704,21 +1723,58 @@ window.DebloatWords = (() => {
     if (!node || !node.animate || still()) return;
     node.animate({ transform: ['translateX(0)', 'translateX(-4px)', 'translateX(4px)', 'translateX(0)'] }, { duration: 160, easing: 'ease-out' });
   };
-  // What a press is on, as a person would name it: the thing and its words.
-  const pressable = target => {
-    let node = target.closest ? target.closest('button, a, label, summary, select, input, .row, .palette-item, .stage') : null;
+  // What a press is on: the thing itself, and what a person would call it.
+  const PRESSABLE = 'button, a, label, summary, select, input, .row, .palette-item, .stage';
+  const thing = target => {
+    let node = target.closest ? target.closest(PRESSABLE) : null;
     if (node && node.tagName === 'LABEL') node = node.querySelector('input, select') || node;
-    return node ? `${node.tagName} ${node.getAttribute('aria-label') || node.textContent.trim()}` : '';
+    return node;
+  };
+  const called = node => (node ? `${node.tagName} ${node.getAttribute('aria-label') || node.textContent.trim()}` : '');
+  // How near a press is near enough to have been meant for the same place.
+  const REACH = 72;
+  // Everything within reach of a press that could have taken it instead:
+  // what each is called and where it is. Only what is there to be pressed
+  // counts, not what something else is lying over or what is switched off.
+  const around = (x, y) => {
+    const out = [];
+    for (const node of document.querySelectorAll(PRESSABLE)) {
+      const box = node.getBoundingClientRect();
+      if (!box.width || box.right < x - REACH || box.left > x + REACH || box.bottom < y - REACH || box.top > y + REACH) continue;
+      // Looked for at the part of it nearest the press.
+      const there = document.elementFromPoint(Math.min(Math.max(x, box.left + 1), box.right - 1), Math.min(Math.max(y, box.top + 1), box.bottom - 1));
+      if (there && (node.contains(there) || thing(there) === node)) out.push({ what: called(node), left: box.left, top: box.top });
+    }
+    return out;
   };
   document.addEventListener('click', event => {
     const on = selector => Boolean(event.target.closest && event.target.closest(selector));
     const now = event.timeStamp;
-    const what = pressable(event.target);
+    const x = event.clientX;
+    const y = event.clientY;
     // From the keyboard a press has no place: where the keyboard is put on
     // each screen is what keeps a second Return from doing harm there.
     const byHand = event.detail > 0;
-    const again = byHand && what && what !== pressed.what && now - pressed.at < 1000
-      && Math.abs(event.clientX - pressed.x) < 24 && Math.abs(event.clientY - pressed.y) < 24;
+    // A button that is switched off lets a press through to what is behind
+    // it (see `button:disabled` in the styles): it is found again here by
+    // where it is.
+    const off = byHand && event.target.querySelectorAll ? [...event.target.querySelectorAll('button:disabled')].find(node => {
+      const box = node.getBoundingClientRect();
+      return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom && getComputedStyle(node).visibility !== 'hidden';
+    }) : null;
+    if (off) {
+      event.stopPropagation();
+      event.preventDefault();
+      pressed = { at: now, x, y, around: around(x, y) };
+      wait(now + 1000);
+      return;
+    }
+    // Rule 3. The list of pages is left to its own rule.
+    const node = thing(event.target);
+    const near = byHand && node && !on('#side nav') && now - pressed.at < 1000 && Math.abs(x - pressed.x) < REACH && Math.abs(y - pressed.y) < REACH;
+    const box = near ? node.getBoundingClientRect() : null;
+    const what = near ? called(node) : '';
+    const again = near && !pressed.around.some(was => was.what === what && Math.abs(was.left - box.left) < 4 && Math.abs(was.top - box.top) < 4);
     // The strips that bring more of a list up are pressed again and again
     // on purpose and can do no harm, so they are always let through. They
     // are remembered like any press: one press too many must not land on
@@ -1735,7 +1791,7 @@ window.DebloatWords = (() => {
       nope(event.target.closest ? event.target.closest('.commits, .nav-item') : null);
       return;
     }
-    if (byHand) pressed = { at: now, x: event.clientX, y: event.clientY, what };
+    if (byHand) pressed = { at: now, x, y, around: around(x, y) };
   }, true);
 
   const GONE = 'The helper behind this window has stopped. Open MAXAPACITY Debloat again.';
@@ -2507,10 +2563,10 @@ window.DebloatWords = (() => {
   // which brings it into view.
   const WHOLE = '.row, .group-head, .palette-item, .palette-group, .detail-body section > h3, .detail-body section > p, '
     + '.detail-body .facts > li, .detail-body .detail-links, .detail-body > .chips, .wiz-notes > li, .way-title, '
-    + '.way-text > p, .way-text > .maker, .steps > li, .art, .more-help, .wiz-stat';
+    + '.way-text > p, .way-text > .maker, .steps > li, .art, .more-help, .wiz-stat, .deck-card > *, .deck-sum li';
   // The lines a scrolling box comes to rest on (see `scroll-snap-align` in
   // the styles).
-  const RESTS = '.row, .palette-item, .wiz-notes > li, .detail-body section, .way-step';
+  const RESTS = '.row, .palette-item, .palette-group, .wiz-notes > li, .detail-body section, .way-step, .deck-card > *, .deck-sum li';
   function cue(scroller) {
     const button = el('button', { class: 'btn small' });
     const node = el('div', { class: 'below', hidden: true }, button);
@@ -2548,7 +2604,7 @@ window.DebloatWords = (() => {
       });
       parts.forEach((part, i) => part.classList.toggle('cut', crosses[i]));
       // A heading is not left standing over nothing.
-      for (const head of scroller.querySelectorAll('section > h3')) {
+      for (const head of scroller.querySelectorAll('section > h3, .palette-group')) {
         const next = head.nextElementSibling;
         if (next && next.classList.contains('cut')) head.classList.add('cut');
       }
@@ -2562,12 +2618,42 @@ window.DebloatWords = (() => {
         set(button, icon('more', 16), says);
       }
     };
+    // Where what scrolls goes out of sight at the upper end of the box:
+    // under the bar of a group, where one is stuck there.
+    const upperEnd = box => {
+      let upper = box.top;
+      for (const head of scroller.querySelectorAll('.group-head')) {
+        const at = head.getBoundingClientRect();
+        if (at.top <= box.top + 1) upper = Math.max(upper, at.bottom);
+      }
+      return upper;
+    };
+    // Brings a line to the upper end of the box, under the bar of a group
+    // where there is one. The last lines of a list cannot come all the way
+    // up: there is nothing under them to scroll by. Stopped short, the line
+    // before them is cut through at the upper end and so left out, which
+    // shows as a hole under the bar of the group. The box is given the room
+    // it is short of instead, and the list ends with that room under it,
+    // which is where a list is expected to end.
+    const bring = (line, behavior) => {
+      const by = line.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0);
+      const short = Math.ceil(scroller.scrollTop + by - (scroller.scrollHeight - scroller.clientHeight));
+      if (short > 0) {
+        slack += short;
+        scroller.style.paddingBottom = `${(parseFloat(getComputedStyle(scroller).paddingBottom) || 0) + short}px`;
+      }
+      scroller.scrollBy({ top: by, behavior });
+    };
+    // Whether a line is one of those left out at an end of the box.
+    const outOfSight = (line, box) => {
+      const at = line.getBoundingClientRect();
+      return at.height < scroller.clientHeight * 0.75 && (at.top < upperEnd(box) - 1 || at.bottom > box.bottom + 1);
+    };
     // What a press brings up starts with the first line that was not in
-    // sight in full, which comes to the upper end of the box, under the bar
-    // of a group where there is one. A step by a share of the box's height
-    // passed over lines: the one its lower end was hiding went straight
-    // under that bar, and in the list of what a cleanup would remove a
-    // ticked app was never shown at all.
+    // sight in full: a step by a share of the box's height passed over
+    // lines. The one its lower end was hiding went straight under the bar
+    // of the group, and in the list of what a cleanup would remove a ticked
+    // app was never shown at all.
     button.addEventListener('click', () => {
       const box = scroller.getBoundingClientRect();
       const behavior = still() ? 'auto' : 'smooth';
@@ -2575,27 +2661,47 @@ window.DebloatWords = (() => {
       // A heading goes with the first line under it.
       const over = line && line.previousElementSibling;
       const first = over && over.matches('.palette-group') ? over : line;
-      let by = first ? first.getBoundingClientRect().top - box.top - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0) : 0;
-      if (by > 4) {
-        // The last lines of a list cannot come all the way up: there is
-        // nothing under them to scroll by. Stopped short, the line before
-        // them is cut through at the upper end and so left out, which
-        // shows as a hole under the bar of the group. The box is given the
-        // room it is short of instead, and the list ends with that room
-        // under it, which is where a list is expected to end.
-        const short = Math.ceil(scroller.scrollTop + by - (scroller.scrollHeight - scroller.clientHeight));
-        if (short > 0) {
-          slack += short;
-          scroller.style.paddingBottom = `${(parseFloat(getComputedStyle(scroller).paddingBottom) || 0) + short}px`;
-        }
-      } else by = scroller.clientHeight * 0.8; // A line longer than the box is gone through a boxful at a time.
-      scroller.scrollBy({ top: by, behavior });
+      // A line longer than the box is gone through a boxful at a time.
+      if (first && first.getBoundingClientRect().top - box.top - (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0) > 4) bring(first, behavior);
+      else scroller.scrollBy({ top: scroller.clientHeight * 0.8, behavior });
     });
+    // The keyboard only ever stands on a line that is there to be seen. One
+    // it goes to that is left out at an end of the box is brought up as the
+    // strip would bring it: left where it was, there would be no ring to
+    // say where the keyboard is, and the space bar would tick an app that
+    // is not shown.
+    scroller.addEventListener('focusin', event => {
+      if (!event.target.closest) return;
+      const head = event.target.closest('.group-head');
+      if (head) {
+        // The box that ticks a whole group is in the group's bar. Where
+        // that bar is under the bar of the next group, or out of the box,
+        // the group's first line is brought up, and its bar comes with it.
+        const at = event.target.getBoundingClientRect();
+        const there = document.elementFromPoint(at.left + at.width / 2, at.top + at.height / 2);
+        if (!(there && head.contains(there)) && head.nextElementSibling) bring(head.nextElementSibling, 'auto');
+        return;
+      }
+      const line = event.target.closest(RESTS);
+      if (line && scroller.contains(line) && outOfSight(line, scroller.getBoundingClientRect())) bring(line, 'auto');
+    });
+    // The box changes its size with a list at its end: the line that was at
+    // the upper end is no longer, and the one before it is cut through
+    // there. The first line in sight is brought back to the upper end.
+    const fit = () => {
+      if (slack && node.isConnected) {
+        const box = scroller.getBoundingClientRect();
+        const upper = upperEnd(box);
+        const line = [...scroller.querySelectorAll(RESTS)].find(part => part.getBoundingClientRect().bottom > upper + 1);
+        if (line && outOfSight(line, box)) bring(line, 'auto');
+      }
+      update();
+    };
     // Pressed, it does not take the keyboard from where it was: from the
     // field of Find anything, or from the safe answer of a question.
     button.addEventListener('mousedown', event => event.preventDefault());
     scroller.addEventListener('scroll', update, { passive: true });
-    if ('ResizeObserver' in window) new ResizeObserver(update).observe(scroller);
+    if ('ResizeObserver' in window) new ResizeObserver(fit).observe(scroller);
     new MutationObserver(update).observe(scroller, { childList: true, subtree: true });
     requestAnimationFrame(update);
     return node;
@@ -2823,9 +2929,10 @@ window.DebloatWords = (() => {
         if (nav.clientHeight !== navRoom) {
           navRoom = nav.clientHeight;
           inSight(nav.querySelector('[aria-current="page"]'));
-          // Lines that moved as the room changed are not where a press on
-          // its way to one of them was aimed.
-          if (nav.scrollTop !== navAt) shifted = performance.now();
+          // Lines that moved as the room changed, and lines that what was
+          // said at the foot of the sidebar was lying over, are not what a
+          // press on its way there was aimed at.
+          shifted = performance.now();
         }
         edges();
       });

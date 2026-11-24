@@ -102,7 +102,11 @@ What you get:
   a card, waits a second longer, dimmed until it is ready. Pressed too soon
   it shakes its head and waits again: a hand that goes on pressing is never
   let through, only one that has been still. The cards' keys wait the same
-  way. Unsteady hands press twice.
+  way. And for a second after any press, another one near it is taken only
+  by what was already there: whatever has just come under the pointer, or
+  moved there, takes nothing. A press on a button that is switched off
+  while the phone is busy counts as a press too. Unsteady hands press
+  twice.
 - **One at a time**. The apps under With a catch each have one. Instead of
   a list to puzzle over, they come one to a card: what it is, the catch,
   and two big buttons, Keep or Remove, at the foot of the window: in sight
@@ -126,6 +130,8 @@ What you get:
   split into what can be undone and what cannot. Where that list is longer
   than its box, a strip under it says how many more there are and brings
   them up, every one of them: nothing you are agreeing to is passed over.
+  The Tab key goes down the same list, and only ever stands on a row that
+  is in sight in full.
   Whichever way a cleanup is started, what puts apps back is removed first.
 - **The lists** from the scan, each with a filter, under plainer names than
   the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
