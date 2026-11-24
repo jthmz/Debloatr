@@ -125,6 +125,10 @@ function runTool(args) {
     execFile(BASH, [TOOL, '--no-color', ...args], { maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
       const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0;
       busy -= 1;
+      // Idle is counted from when the work ended, not from when it was asked
+      // for: a long scan must not leave the helper due to stop the moment it
+      // is done, before whoever asked can act on the answer.
+      lastSeen = Date.now();
       resolve({ code, stdout, stderr });
     });
   }));
@@ -351,7 +355,7 @@ async function handle(req, res) {
     busy += 1;
     child.stdout.on('data', chunk => res.write(chunk));
     child.stderr.on('data', chunk => res.write(chunk));
-    child.on('close', () => { busy -= 1; res.end(); });
+    child.on('close', () => { busy -= 1; lastSeen = Date.now(); res.end(); });
     req.on('close', () => child.kill('SIGTERM'));
     return undefined;
   }

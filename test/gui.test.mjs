@@ -544,6 +544,44 @@ test('and while a window is open but silent, for as long as it stays open', asyn
   assert.equal(code, 0);
 });
 
+// The helper counts its idle time from when its work ended. A scan that
+// takes longer than the idle limit, asked for with no window open, must not
+// leave it due to stop the moment the scan is done: whoever asked has the
+// answer to act on. The Mac app's launcher tests rely on this.
+test('and for its idle time after a long job, not from when the job was asked for', async () => {
+  // An adb that takes its time, so that the scan outlasts the idle limit.
+  const slow = path.join(WORK, 'slow');
+  fs.mkdirSync(slow, { recursive: true });
+  fs.writeFileSync(path.join(slow, 'adb'), `#!/bin/sh\nsleep 0.2\nexec "${path.join(HERE, 'bin', 'adb')}" "$@"\n`, { mode: 0o755 });
+  const port = PORT + 7;
+  const env = {
+    ...ENV,
+    PATH: `${slow}${path.delimiter}${ENV.PATH}`,
+    DEBLOAT_STATE_DIR: path.join(WORK, 'state-slow'),
+    DEBLOAT_GUI_PORT: String(port),
+    DEBLOAT_GUI_IDLE_MS: '1000',
+    DEBLOAT_GUI_GRACE_MS: '1000',
+  };
+  const child = spawn(process.execPath, [path.join(HERE, '..', 'gui', 'server.mjs'), '--no-open', '--exit-when-idle'], { env });
+  const up = new Promise(resolve => child.stdout.on('data', chunk => { if (String(chunk).includes('is open at')) resolve(); }));
+  const exited = new Promise(resolve => child.on('exit', code => resolve(code)));
+  await up;
+  const itsToken = tokenIn((await getFrom(port, '/')).text);
+  const asked = Date.now();
+  const scan = await getFrom(port, '/api/scan', { 'x-debloat-token': itsToken });
+  const took = Date.now() - asked;
+  assert.equal(scan.status, 200);
+  assert.ok(took > 1500, `the scan has to outlast the idle limit for this to mean anything: it took ${took} ms`);
+  // Longer than the helper takes to notice that it is idle, and shorter
+  // than it should then wait.
+  await sleep(650);
+  const there = await listening(port);
+  const code = await Promise.race([exited, sleep(6000).then(() => 'still running')]);
+  child.kill();
+  assert.equal(there, true, 'the helper stopped the moment its work ended');
+  assert.equal(code, 0);
+});
+
 test('started in the background, it returns at once and carries on by itself', async () => {
   const port = PORT + 4;
   const env = { ...ENV, DEBLOAT_GUI_PORT: String(port), DEBLOAT_GUI_IDLE_MS: '700', DEBLOAT_GUI_GRACE_MS: '5000' };
