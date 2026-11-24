@@ -3092,6 +3092,12 @@ window.DebloatWords = (() => {
       at += 1;
       draw();
     };
+    // A long run of cards can be cut short: what is left is kept.
+    const rest = () => {
+      for (let i = at; i < rows.length; i++) choice.set(rows[i].pkg, 'keep');
+      at = rows.length;
+      draw();
+    };
     const tally = () => {
       const going = rows.filter(row => choice.get(row.pkg) === 'remove');
       show(null, choice);
@@ -3127,7 +3133,8 @@ window.DebloatWords = (() => {
           said.chips.length ? el('div', { class: 'chips', style: 'justify-content:flex-start' }, chipNodes(said.chips)) : null),
         el('div', { class: 'deck-keys' },
           at > 0 ? el('button', { class: 'btn quiet', onclick: back }, icon('back'), 'Back') : null,
-          el('span', { class: 'grow' }, at === 0 ? 'Nothing changes until the end.' : ''),
+          rows.length - at > 3 ? el('button', { class: 'btn quiet', onclick: rest }, 'Keep the rest') : null,
+          el('span', { class: 'grow' }, at === 0 && rows.length <= 3 ? 'Nothing changes until the end.' : ''),
           el('button', { class: 'btn', onclick: () => answer('keep') }, 'Keep', el('kbd', {}, 'K')),
           el('button', { class: 'btn', onclick: () => answer('remove') }, 'Remove', el('kbd', {}, 'R')))));
     }
