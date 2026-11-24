@@ -623,8 +623,10 @@
   .wiz-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; border-top: 1px solid var(--line); scrollbar-width: thin; }
   .wiz-body:empty { border-top: 0; }
   .wiz-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 24px; flex-wrap: wrap; border-top: 1px solid var(--line); }
-  /* Words too long to sit beside the buttons take a line of their own. */
+  /* Words too long to sit beside the buttons take a line of their own; the
+     buttons stay together. */
   .wiz-foot .grow { flex: 1 1 auto; color: var(--text-2); }
+  .acts { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
   .wiz .row.told { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
   .wiz .row.told:hover { background: none; }
   /* What was found, as three numbers, each with the colour it has beside
@@ -832,8 +834,10 @@
     body { grid-template-columns: 248px minmax(0, 1fr); }
     .hero.staged, .hero.coach.staged { grid-template-columns: minmax(0, 1fr); }
     .hero .stage, .hero.coach .stage { margin: 0 -16px -16px; height: auto; min-height: 232px; align-self: stretch; }
-    .wiz { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; height: 62%; }
+    .wiz { top: auto; left: 16px; right: 16px; bottom: 16px; width: auto; height: 72%; }
     body.has-detail main { padding-right: 24px; }
+    /* The panel covers the page here, its head included: he steps aside. */
+    body.has-detail .says { display: none; }
     .detail { width: min(432px, 100%); }
     main { padding: 24px 24px 96px; }
     .split { grid-template-columns: minmax(0, 1fr); }
@@ -846,7 +850,6 @@
     .bulk, body.has-detail .bulk { left: calc(248px + (100% - 248px) / 2); max-width: calc(100% - 248px - 32px); }
     .dialog-body .row, .wiz .row { grid-template-columns: 20px minmax(0, 1fr); }
     .dialog-body .row .note, .wiz .row .note { grid-column: 2; grid-row: 2; padding-left: 56px; }
-    .wiz-stats { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 760px) {
     .tiles { grid-template-columns: minmax(0, 1fr); }
@@ -2700,7 +2703,7 @@ window.DebloatWords = (() => {
           el('p', {}, 'Everything below is ticked. Untick anything you want to keep.')),
         body,
         el('div', { class: 'dialog-foot' }, summary,
-          el('button', { class: 'btn', onclick: () => dialog.close() }, 'Cancel'), confirm));
+          el('div', { class: 'acts' }, el('button', { class: 'btn', onclick: () => dialog.close() }, 'Cancel'), confirm)));
       dialog.oncancel = null;
       list.draw();
     };
@@ -2768,7 +2771,7 @@ window.DebloatWords = (() => {
     const lineNode = el('p', { class: 'wiz-line', 'aria-hidden': 'true' });
     const scroller = el('div', { class: 'wiz-body' }, body);
     if (body) scroller.append(cue(scroller));
-    const foot = note || buttons.length ? el('div', { class: 'wiz-foot' }, el('div', { class: 'grow' }, note), buttons) : null;
+    const foot = note || buttons.length ? el('div', { class: 'wiz-foot' }, el('div', { class: 'grow' }, note), el('div', { class: 'acts' }, buttons)) : null;
     set(wizNode,
       el('div', { class: 'wiz-top' },
         el('ol', { class: 'wiz-steps', 'aria-label': 'Steps' }, STEPS.map(([, label], i) => el('li', {
@@ -3722,8 +3725,9 @@ window.DebloatWords = (() => {
       set(dialog,
         el('div', { class: 'dialog-head' }, el('h2', {}, title), el('p', {}, text)),
         el('div', { class: 'dialog-foot' }, el('div', { class: 'grow' }),
-          el('button', { class: 'btn', onclick: () => done(false) }, 'Cancel'),
-          el('button', { class: 'btn primary', onclick: () => done(true) }, yes)));
+          el('div', { class: 'acts' },
+            el('button', { class: 'btn', onclick: () => done(false) }, 'Cancel'),
+            el('button', { class: 'btn primary', onclick: () => done(true) }, yes))));
       // Escape says no. Asked from inside another dialog, it must not shut
       // that one as well.
       dialog.oncancel = event => {
