@@ -515,9 +515,11 @@
     background: var(--night);
     box-shadow: var(--shadow-float);
     cursor: pointer;
-    transition: transform 200ms var(--spring), box-shadow var(--ease);
+    transition: transform 200ms var(--spring), box-shadow var(--ease), bottom var(--ease);
   }
   .pal[hidden] { display: none; }
+  /* Out of the way of the selection's buttons, as the toast is. */
+  body.has-bulk .pal { bottom: 96px; }
   .pal:hover { transform: scale(1.06); box-shadow: var(--shadow-float), 0 0 0 4px var(--glow); }
   .pal:active { transform: scale(0.97); }
   .pal-tip {
@@ -629,7 +631,7 @@
      transforms, which the graphics card does, and all of it goes with the
      wizard when he is switched off. */
   .btn { transition: background var(--ease), border-color var(--ease), color var(--ease), opacity var(--ease), transform 120ms ease-out; }
-  .btn:active:not(:disabled) { transform: scale(0.97); }
+  body:not(.no-magic) .btn:active:not(:disabled) { transform: scale(0.97); }
   body:not(.no-magic) .btn.primary { position: relative; overflow: hidden; }
   body:not(.no-magic) .btn.primary::after {
     content: "";
@@ -1262,6 +1264,7 @@
     }, icon(view.icon), el('span', {}, view.label), count != null ? badge : el('span', {}));
   }
 
+  let arriving = 0;
   function go(id) {
     state.view = id;
     state.selected.clear();
@@ -1269,9 +1272,13 @@
     render();
     const main = document.querySelector('main');
     main.scrollTop = 0;
-    // It arrives from a little way back; see "enter" in the styles.
+    // It arrives from a little way back; see "enter" in the styles. Once it
+    // has, the mark comes off, or rows redrawn by the filter would arrive
+    // again at every key.
     void main.offsetWidth;
     main.classList.add('enter');
+    clearTimeout(arriving);
+    arriving = setTimeout(() => main.classList.remove('enter'), 800);
   }
 
   function renderMain() {
