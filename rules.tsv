@@ -55,7 +55,7 @@ caution  ^com\.motorola\.gamemode$                        Moto Gametime: in-game
 caution  ^com\.motorola\.moto$                            Moto app: tips and promos; also where Moto gestures are set up
 
 # --- Verizon ----------------------------------------------------------------
-keep     ^com\.(vzw|verizon)\..*(apn|[Ss]im[Ll]ock|\.ims|omadm|[Pp]rovision|[Aa]ctivation|[Ee]ntitlement)   Verizon network service, going by its name, which the phone uses to connect or to be unlocked
+keep     ^com\.(vzw|verizon)\..*(apn|[Ss]im[Ll]ock|\.ims|omadm|[Pp]rovision|[Aa]ctivation|[Ee]ntitlement)   Verizon network service, going by its name
 safe     ^com\.vzw\.hss\.myverizon$                       My Verizon: Verizon's account app, for bills, plan and data use
 safe     ^com\.verizon\.messaging\.vzmsgs$                Verizon Message+: Verizon's own texting app
 safe     ^com\.vcast\.mediamanager$                       Verizon Cloud: Verizon's backup and storage service

@@ -96,10 +96,12 @@ What you get:
   deletes: a button that would is plain, with its words in red, and ends in
   "…" because it asks first. Answer that you would rather keep them and they
   are unticked again, so the lime button is back and only does what can be
-  undone. And a press cannot land on the wrong thing: for a moment after one
-  screen gives way to another no press does anything, and a second press on
-  the same spot does nothing if a different button has turned up under it.
-  Unsteady hands press twice.
+  undone. And a press cannot land on the wrong thing. For a moment after one
+  screen gives way to another no press does anything. A button that changes
+  the phone, or answers a card, waits a second longer, dimmed until it is
+  ready, and waits again if it is pressed too soon: a hand that goes on
+  pressing is never let through, only one that has been still. Unsteady
+  hands press twice.
 - **One at a time**. The apps under With a catch each have one. Instead of
   a list to puzzle over, they come one to a card: what it is, the catch,
   and two big buttons, Keep or Remove, at the foot of the window: in sight
@@ -125,7 +127,8 @@ What you get:
 - **The lists** from the scan, each with a filter, under plainer names than
   the terminal uses: **Safe to remove** is REMOVE, **With a catch** is ASK
   FIRST, **Unknown apps** is NOT CLASSIFIED. Tick apps and the actions for
-  them appear: Remove, Silence, Delete for good or Put back. The pages most
+  them appear: Remove, Silence, Delete for good or Put back; they step aside
+  while one app's panel is open, which has that app's own. The pages most
   people never need (what is notifying, what nothing is known about, the
   log) fold away under **More**. Every page fits in the sidebar of a window
   of the size the app opens at; in a shorter one the list of pages scrolls,
