@@ -52,24 +52,45 @@ The app needs Node.js 18 or newer and `adb`:
 `brew install node android-platform-tools`. It looks for them where Homebrew
 and Android Studio put them, and failing that asks the shell your Terminal
 uses. An app built by `install.sh` also remembers where they were when it was
-built.
+built. Without `adb` the window still opens, says so, and finds it by itself
+once it is installed.
 
 What you get:
 
+- **Getting connected**. With no phone to talk to, the window does not show
+  an error: it says which thing is missing (adb, the cable, USB debugging,
+  or the answer to the phone's own "Allow USB debugging?" question), gives the
+  steps for whoever made the phone, keeps looking, and carries on by itself
+  the moment the phone answers.
 - **The wizard**. He stands on the Overview beside the phone, with everything
-  that can go circling it. **Clean up with the wizard** gives him a screen of
-  his own, where he walks you through it: he scans the phone, shows what he
-  found, lets you untick what you want to keep, and takes the rest off. His
-  lightning falls only on what the phone says is gone, and he tells you what
-  would not budge. He offers to undo it and to restart the phone, and keeps
-  his shades on for as long as the phone is clean. On the other pages he
-  waits in the corner, and strikes the rows you remove.
-- **Overview**: what the last scan found and how that moved since the scan
-  before. **Review as a list** is the same cleanup without the wizard: it
-  lists everything it would do, ticked, split into what can be undone and
-  what cannot. Untick what you want to keep.
+  that can go circling it: red for the installers that put apps back, amber
+  for the rest. **Clean up with the wizard** gives him a screen of his own,
+  where he walks you through it: he scans the phone, shows what he found, lets
+  you untick what you want to keep, and takes the rest off. His lightning
+  falls only on what the phone says is gone, and he says what would not budge
+  and what Android would only let him switch off. He offers to undo it and to
+  restart the phone, and keeps his shades on for as long as the phone is
+  clean. On the other pages he waits in the corner with one useful thing to
+  say, and strikes the rows you remove.
+- **One at a time**. The apps under Ask first each have a catch. Instead of
+  a list to puzzle over, they come one to a card: what it is, what you lose,
+  Keep or Remove. Nothing changes until the last card, and the tally, are
+  agreed.
+- **Names you can read**. The phone only gives package names, so each app is
+  shown with a name worked out from its package ("Motorola time weather
+  widget" for `com.motorola.timeweatherwidget`), the package beneath it, and
+  what the rules say about it. Any row opens a panel with everything known
+  about that app and the buttons to act on it alone.
+- **Overview**: what the last scan found, how that moved since the scan
+  before, and **Checks**: whether an installer can still put apps back,
+  whether anything has come back, and what else wants a look, each with the
+  one thing to do about it. **Review as a list** is the cleanup without the
+  wizard: everything it would do, ticked, split into what can be undone and
+  what cannot.
 - **The lists** from the scan, each with a filter. Tick apps and the actions
   for them appear: Remove, Silence, Uninstall or Restore.
+- **Find anything** (Cmd-K): any app the scan found, any page, anything the
+  app can do, including fetching the community list.
 - **Undo** on every change that has one, and **Recent changes** with a Restore
   beside each.
 - **Activity**: what is on the phone's screen right now, a live watch for
@@ -94,7 +115,9 @@ one in front, and is simply absent where there is no WebGL.
 
 The app is a front for `debloat.sh`: it cannot do anything the commands below
 cannot, and the same safety rules apply. It listens on this computer only, and
-no other web page can talk to it. It runs from a copy of its files in
+no other web page can talk to it. Nothing leaves this computer unless you ask:
+fetching the community list is one download, and **Look it up on the web**
+opens a search for a package name in your browser. It runs from a copy of its files in
 `~/Library/Application Support/MAXAPACITY Debloat`, so it keeps working if the
 app is moved or replaced while open. Its log is
 `~/Library/Logs/maxapacity-debloat.log`.
@@ -193,6 +216,10 @@ off, then silence it (block its notifications and background activity). It
 reports which one took. A phone maker can lock a package against all three;
 that shows as `FAILED` and nothing about it is changed.
 
+Some phones refuse the first of those for anything preinstalled; Android 17
+does, by every report. The app is then switched off, and the result says
+"switched off" beside it, in the terminal and in the app.
+
 Regular apps (not preinstalled) are uninstalled for real, with their data.
 `restore` cannot bring those back; it prints the Play Store link instead.
 
@@ -220,11 +247,11 @@ a folder name. This fills that in:
 ./debloat.sh community
 ```
 
-It downloads the package list that
+In the app, the same thing is **Get the list** under Checks, or in Find
+anything. It downloads the package list that
 [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)
 keeps, several thousand preinstalled apps across makers and carriers, each
-with a description and a rating. It needs `curl` and no phone, and the app
-uses the result too. From then on:
+with a description and a rating. It needs `curl` and no phone. From then on:
 
 - What the list rates **Recommended** shows under **ASK FIRST**, with the
   list's description as the reason. `apply` leaves these alone; only `apply
@@ -278,10 +305,13 @@ node --test test/gui.test.mjs
 Does the same for the app's helper: that it refuses requests without its
 token or for another host name, keeps going while a window is open however
 quiet that window is, stops by itself once the window has gone, and is reused
-rather than started twice. It also covers the wizard as far as it can
-without a screen: that his drawing code is served and parses, that the page
-only asks it for things it has, and that every pose, spell and stage runs
-against a WebGL that draws nothing.
+rather than started twice; that a scan says which installers can still act;
+and that the community list is fetched and dropped through the tool. It also
+covers the window as far as it can without a screen: that the names and
+descriptions people read are worked out as they should be, that the wizard's
+drawing code is served and parses, that the page only asks it for things it
+has, and that every pose, spell and stage runs against a WebGL that draws
+nothing.
 
 `tools/package.sh` makes the two downloads: the app in a zip of its own, and
 the tool with what the app is built from. CI attaches both to a draft release
@@ -301,21 +331,37 @@ an empty alternative, like `(|a)`, is an error there.
 - [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)
   is a desktop app for Windows, macOS and Linux that also works over `adb`
   without root. Its package list is kept by a community and covers far more
-  makers than the rules here.
+  makers than the rules here. It shows package names in one long list with
+  filters, and you install `adb` yourself.
 - [Canta](https://github.com/samolego/Canta) runs on the phone itself through
-  Shizuku, so it needs no computer, and uses that same list.
+  Shizuku, so it needs no computer, and uses that same list. It shows each
+  app's own name and icon.
+- [ADB AppControl](https://adbappcontrol.com) is a Windows program with a
+  wider remit: it manages apps in general. It shows names and icons once its
+  helper app is installed on the phone.
 
-This tool is narrower. It is built around the installers that put apps back:
-it removes them, shows which app installed what, watches installs as they
-happen, and keeps a record so that `restore` and `reapply` know what was done.
-Its own rules are written for Motorola and Verizon phones. For any other
-phone, `./debloat.sh community` brings in the same list those tools use.
+What this one does that those do not:
+
+- It is built around the installers that put apps back. It removes them
+  first, shows which app installed what, says in every scan whether one can
+  still act, and lists what has come back.
+- It walks you through: getting connected, the cleanup, and the apps with a
+  catch one at a time.
+- It never reports a removal it has not checked, and says so when Android
+  would only let an app be switched off, or not touched at all.
+- Every change is logged, and `restore` and `reapply` work from the log.
+
+What they do that this does not: Canta and ADB AppControl show the names and
+icons apps give themselves, where this reads a name from the package. Its
+own rules are written for Motorola and Verizon phones; for any other phone,
+the community list those tools use is one click or one command away.
 
 ## Limits
 
 - It manages apps. Anything built into the maker's system interface itself
   cannot be removed this way.
 - App names are not available over `adb`, only package names and folders.
+  The app shows a name read from the package name, never one it was given.
 - The built-in rules cover the common installers and feeds plus Motorola and
   Verizon. For other makers and carriers, `community` brings in a list that
   covers them; without it they mostly land under NOT CLASSIFIED.

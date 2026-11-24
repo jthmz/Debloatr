@@ -13,7 +13,7 @@
 # Written for the bash 3.2 and BSD tools that ship with macOS; runs the same
 # on Linux. test/run.sh exercises every command against a simulated phone.
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 
 set -u
 set -f
