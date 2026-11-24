@@ -134,7 +134,9 @@
     gap: 12px;
   }
   .phone-head { display: flex; gap: 12px; align-items: flex-start; }
-  .phone-head svg { color: var(--text-3); margin-top: 2px; }
+  .phone-head > svg { color: var(--text-3); margin-top: 2px; }
+  .phone-text { flex: 1; min-width: 0; }
+  .phone .scan { width: 28px; padding: 0; margin: -4px -4px 0 0; }
   .phone-name { font-weight: 600; overflow-wrap: anywhere; }
   .phone-meta { color: var(--text-2); font-size: 12px; }
   .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
@@ -1810,18 +1812,20 @@ window.DebloatWords = (() => {
     const phone = el('section', { class: 'phone', 'aria-label': 'Phone' },
       el('div', { class: 'phone-head' },
         icon('phone', 20),
-        el('div', {},
+        el('div', { class: 'phone-text' },
           el('div', { class: 'phone-name' }, model || (state.status === 'error' ? 'No phone' : 'Looking for a phone')),
-          os ? el('div', { class: 'phone-meta' }, os) : null)),
+          os ? el('div', { class: 'phone-meta' }, os) : null),
+        el('button', {
+          class: 'btn quiet small scan', 'aria-label': 'Scan again', title: 'Scan again',
+          onclick: () => scan(), disabled: state.status === 'loading' || busy || !state.helper,
+        }, icon('refresh', 16))),
       el('div', { class: 'status' },
         el('span', { class: `dot ${busy ? 'warn' : connected ? 'ok' : state.status === 'error' ? 'bad' : ''}` }),
         busy ? 'Working on the phone' : connected ? 'Connected' : state.status === 'error' ? 'Not connected' : (state.waiting || 'Scanning')),
       ready.length > 1 ? el('select', {
         'aria-label': 'Which phone',
         onchange: e => { state.serial = e.target.value; state.selected.clear(); scan(); },
-      }, ready.map(p => el('option', { value: p.serial, selected: p.serial === state.serial }, p.serial))) : null,
-      el('button', { class: 'btn wide', onclick: () => scan(), disabled: state.status === 'loading' || busy || !state.helper },
-        icon('refresh'), 'Scan again'));
+      }, ready.map(p => el('option', { value: p.serial, selected: p.serial === state.serial }, p.serial))) : null);
 
     const showCounts = state.scan && state.status !== 'error';
     const nav = el('nav', { 'aria-label': 'Sections' }, NAV.map(group => [
@@ -1840,7 +1844,7 @@ window.DebloatWords = (() => {
         }, icon('wand', 16)) : null),
       phone,
       nav,
-      el('div', { class: 'side-foot' }, 'Nothing changes on the phone, and nothing leaves this computer, until you choose it.'));
+      el('div', { class: 'side-foot' }, 'Nothing changes until you choose it.'));
     // Under the name: one box that finds any app, page or action.
     document.querySelector('#side .brand').after(el('button', {
       class: 'finder', onclick: openPalette, 'aria-keyshortcuts': 'Meta+K Control+K',
